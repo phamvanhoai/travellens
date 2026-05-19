@@ -42,11 +42,27 @@ API mac dinh chay tai:
 - `GET /api/health`
 - Swagger: `/api-docs`
 
+## Authentication
+
+Sau khi register hoac login, API tra ve JWT token. Voi cac API can dang nhap, gui header:
+
+```http
+Authorization: Bearer <token>
+```
+
+Neu dung Swagger tai `/api-docs`, bam nut `Authorize` va nhap:
+
+```text
+Bearer <token>
+```
+
 ## Endpoint chinh
 
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `POST /api/auth/google`
+- `GET /api/auth/profile`
+- `PUT /api/auth/profile`
 - CRUD: `/api/users`
 - CRUD: `/api/categories`
 - CRUD: `/api/travel-destinations`
@@ -72,10 +88,83 @@ API mac dinh chay tai:
 
 ```json
 {
-  "name": "Admin",
-  "email": "admin@example.com",
+  "name": "Nguyen Van A",
+  "email": "user@example.com",
   "password": "secret123",
-  "role": "admin"
+  "profile_info": "Travel lover from Da Nang",
+  "avatar_url": "https://example.com/avatar.png"
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "message": "Registered successfully",
+  "data": {
+    "user": {
+      "user_id": 1,
+      "name": "Nguyen Van A",
+      "email": "user@example.com",
+      "role": "user",
+      "status": "active",
+      "profile_info": "Travel lover from Da Nang",
+      "google_id": null,
+      "avatar_url": "https://example.com/avatar.png"
+    },
+    "token": "<jwt_token>"
+  }
+}
+```
+
+### Login
+
+```json
+{
+  "email": "user@example.com",
+  "password": "secret123"
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "message": "Logged in successfully",
+  "data": {
+    "user": {
+      "user_id": 1,
+      "name": "Nguyen Van A",
+      "email": "user@example.com",
+      "role": "user",
+      "status": "active"
+    },
+    "token": "<jwt_token>"
+  }
+}
+```
+
+### Get Profile
+
+```http
+GET /api/auth/profile
+Authorization: Bearer <token>
+```
+
+### Update Profile
+
+```http
+PUT /api/auth/profile
+Authorization: Bearer <token>
+```
+
+```json
+{
+  "name": "Nguyen Van A",
+  "profile_info": "Loves beaches and mountain trips",
+  "avatar_url": "https://example.com/avatar.png"
 }
 ```
 
