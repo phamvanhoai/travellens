@@ -1,0 +1,18 @@
+module.exports = {
+  user: require('./user.model'),
+  category: require('./category.model'),
+  tour: require('./tour.model'),
+  travelDestination: require('./travelDestination.model'),
+  location: require('./location.model'),
+  view360: require('./view360.model'),
+  view360Image: require('./view360Image.model'),
+  map: require('./map.model'),
+  booking: require('./booking.model'),
+  bookingDetail: require('./bookingDetail.model'),
+  payment: require('./payment.model'),
+  blog: require('./blog.model'),
+  blogLocation: require('./blogLocation.model'),
+  review: require('./review.model'),
+  statistics: require('./statistics.model'),
+};
+

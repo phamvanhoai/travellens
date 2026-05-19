@@ -1,0 +1,21 @@
+module.exports = {
+  auth: require('./auth.controller'),
+  user: require('./user.controller'),
+  category: require('./category.controller'),
+  tour: require('./tour.controller'),
+  travelDestination: require('./travelDestination.controller'),
+  location: require('./location.controller'),
+  view360: require('./view360.controller'),
+  view360Image: require('./view360Image.controller'),
+  map: require('./map.controller'),
+  booking: require('./booking.controller'),
+  bookingDetail: require('./bookingDetail.controller'),
+  payment: require('./payment.controller'),
+  blog: require('./blog.controller'),
+  blogLocation: require('./blogLocation.controller'),
+  review: require('./review.controller'),
+  statistics: require('./statistics.controller'),
+  chat: require('./chat.controller'),
+  suggestion: require('./suggestion.controller'),
+};
+

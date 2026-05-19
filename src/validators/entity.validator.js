@@ -1,0 +1,85 @@
+const Joi = require('joi');
+
+const optionalText = Joi.string().allow(null, '');
+const id = Joi.number().integer().positive();
+const money = Joi.number().min(0);
+
+module.exports = {
+  user: Joi.object({
+    name: Joi.string().max(150).required(),
+    email: Joi.string().email().required(),
+    password: Joi.string().min(6).allow(null, ''),
+    role: Joi.string().valid('admin', 'staff', 'user').default('user'),
+    status: Joi.string().allow(null, ''),
+    profile_info: optionalText,
+    google_id: optionalText,
+    avatar_url: Joi.string().uri().allow(null, ''),
+  }),
+  category: Joi.object({ name: Joi.string().max(150).required(), description: optionalText }),
+  travelDestination: Joi.object({ name: Joi.string().max(200).required(), description: optionalText, category_id: id.allow(null) }),
+  tour: Joi.object({
+    name: Joi.string().max(200).required(),
+    description: optionalText,
+    price: money.required(),
+    schedule: optionalText,
+    capacity: Joi.number().integer().min(0).allow(null),
+    destination_id: id.required(),
+    category_id: id.allow(null),
+  }),
+  location: Joi.object({
+    name: Joi.string().max(200).required(),
+    latitude: Joi.number().allow(null),
+    longitude: Joi.number().allow(null),
+    description: optionalText,
+    category_id: id.allow(null),
+    destination_id: id.allow(null),
+  }),
+  map: Joi.object({ location_id: id.required(), map_file: optionalText, description: optionalText }),
+  view360: Joi.object({ location_id: id.required(), description: optionalText, audio_file: optionalText, language: optionalText }),
+  view360Image: Joi.object({ view_id: id.required(), image_file: Joi.string().required(), order_index: Joi.number().integer().min(0).allow(null) }),
+  booking: Joi.object({
+    user_id: id.required(),
+    tour_id: id.required(),
+    status: Joi.string().valid('confirmed', 'canceled', 'pending').default('pending'),
+    payment_status: Joi.string().valid('paid', 'refunded', 'pending').default('pending'),
+    passengers: Joi.array().items(Joi.object({
+      passenger_name: Joi.string().max(150).required(),
+      age_category: Joi.string().valid('adult', 'child', 'infant').required(),
+      price: money.required(),
+      seat_number: optionalText,
+      special_request: optionalText,
+    })).default([]),
+  }),
+  bookingDetail: Joi.object({
+    booking_id: id.required(),
+    passenger_name: Joi.string().max(150).required(),
+    age_category: Joi.string().valid('adult', 'child', 'infant').required(),
+    price: money.required(),
+    seat_number: optionalText,
+    special_request: optionalText,
+  }),
+  payment: Joi.object({
+    booking_id: id.required(),
+    amount: money.required(),
+    payment_method: optionalText,
+    payment_date: Joi.date(),
+    status: Joi.string().valid('paid', 'pending', 'refunded').required(),
+    transaction_code: optionalText,
+    currency: Joi.string().max(20).default('VND'),
+  }),
+  blog: Joi.object({
+    user_id: id.required(),
+    title: Joi.string().max(255).required(),
+    content: optionalText,
+    location_ids: Joi.array().items(id).default([]),
+  }),
+  blogLocation: Joi.object({ blog_id: id.required(), location_id: id.required() }),
+  review: Joi.object({
+    user_id: id.required(),
+    location_id: id.required(),
+    rating: Joi.number().integer().min(1).max(5).required(),
+    comment: optionalText,
+    images: optionalText,
+  }),
+  statistics: Joi.object({ type: Joi.string().max(100).required(), data: Joi.object().required() }),
+};
