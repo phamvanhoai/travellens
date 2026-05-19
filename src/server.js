@@ -5,7 +5,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const path = require('path');
 const swaggerUi = require('swagger-ui-express');
-const { cors, logger } = require('./config');
+const { cors, db, logger } = require('./config');
 const routes = require('./routes');
 const limiter = require('./middlewares/rateLimiter.middleware');
 const { notFound, errorHandler } = require('./middlewares/error.middleware');
@@ -33,8 +33,18 @@ if (require.main === module) {
   app.listen(port, () => {
     logger.info(`Travel360 API listening on port ${port}`);
   });
+
+  db.query('SELECT NOW() AS connected_at')
+    .then((result) => {
+      logger.info('Database connected successfully', {
+        connected_at: result.rows[0].connected_at,
+      });
+    })
+    .catch((error) => {
+      logger.error('Database connection failed', { error: error.message });
+    });
+
   startBookingExpiryJob();
 }
 
 module.exports = app;
-
