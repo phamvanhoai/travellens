@@ -18,5 +18,14 @@ module.exports = {
     const data = await authService.googleLogin(req.body);
     response.success(res, data, 'Google login successfully');
   }),
-};
 
+  profile: asyncHandler(async (req, res) => {
+    const data = await authService.getProfile(req.user.sub);
+    response.success(res, data);
+  }),
+
+  updateProfile: asyncHandler(async (req, res) => {
+    const data = await authService.updateProfile(req.user.sub, req.body);
+    response.success(res, data, 'Profile updated successfully');
+  }),
+};

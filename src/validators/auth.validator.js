@@ -3,17 +3,16 @@ const Joi = require('joi');
 module.exports = {
   register: {
     body: Joi.object({
-      name: Joi.string().max(150).required(),
-      email: Joi.string().email().required(),
+      name: Joi.string().trim().max(150).required(),
+      email: Joi.string().trim().lowercase().email().required(),
       password: Joi.string().min(6).required(),
-      role: Joi.string().valid('admin', 'staff', 'user').default('user'),
-      profile_info: Joi.string().allow(null, ''),
-      avatar_url: Joi.string().uri().allow(null, ''),
+      profile_info: Joi.string().trim().allow(null, ''),
+      avatar_url: Joi.string().trim().uri().allow(null, ''),
     }),
   },
   login: {
     body: Joi.object({
-      email: Joi.string().email().required(),
+      email: Joi.string().trim().lowercase().email().required(),
       password: Joi.string().required(),
     }),
   },
@@ -25,5 +24,11 @@ module.exports = {
       avatar_url: Joi.string().uri().allow(null, ''),
     }),
   },
+  updateProfile: {
+    body: Joi.object({
+      name: Joi.string().trim().max(150),
+      profile_info: Joi.string().trim().allow(null, ''),
+      avatar_url: Joi.string().trim().uri().allow(null, ''),
+    }).min(1),
+  },
 };
-

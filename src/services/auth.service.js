@@ -19,33 +19,46 @@ const signToken = (user) => jwt.sign(
 
 class AuthService {
   async register(payload) {
-    const exists = await db.query('SELECT user_id FROM users WHERE email = $1', [payload.email]);
+    const email = payload.email.toLowerCase().trim();
+    const exists = await db.query('SELECT user_id FROM users WHERE email = $1', [email]);
     if (exists.rows[0]) {
       throw new ApiError(httpStatus.CONFLICT, 'Email already exists');
     }
 
-    const hashedPassword = await bcrypt.hash(payload.password, 10);
-    const user = await userModel.create({
-      name: payload.name,
-      email: payload.email,
-      password: hashedPassword,
-      role: payload.role || 'user',
-      status: 'active',
-      profile_info: payload.profile_info,
-      avatar_url: payload.avatar_url,
-    });
+    try {
+      const hashedPassword = await bcrypt.hash(payload.password, 10);
+      const user = await userModel.create({
+        name: payload.name.trim(),
+        email,
+        password: hashedPassword,
+        role: 'user',
+        status: 'active',
+        profile_info: payload.profile_info,
+        avatar_url: payload.avatar_url,
+      });
 
-    return {
-      user: sanitizeUser(user),
-      token: signToken(user),
-    };
+      return {
+        user: sanitizeUser(user),
+        token: signToken(user),
+      };
+    } catch (error) {
+      if (error.code === '23505') {
+        throw new ApiError(httpStatus.CONFLICT, 'Email already exists');
+      }
+      throw error;
+    }
   }
 
   async login({ email, password }) {
-    const result = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+    const normalizedEmail = email.toLowerCase().trim();
+    const result = await db.query('SELECT * FROM users WHERE email = $1', [normalizedEmail]);
     const user = result.rows[0];
     if (!user || !user.password) {
       throw new ApiError(httpStatus.UNAUTHORIZED, 'Invalid credentials');
+    }
+
+    if (user.status && user.status !== 'active') {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Account is not active');
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -88,7 +101,29 @@ class AuthService {
       token: signToken(user),
     };
   }
+
+  async getProfile(userId) {
+    const user = await userModel.findById(userId);
+    if (!user) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'User not found');
+    }
+
+    return sanitizeUser(user);
+  }
+
+  async updateProfile(userId, payload) {
+    const user = await userModel.update(userId, {
+      name: payload.name,
+      profile_info: payload.profile_info,
+      avatar_url: payload.avatar_url,
+    });
+
+    if (!user) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'User not found');
+    }
+
+    return sanitizeUser(user);
+  }
 }
 
 module.exports = new AuthService();
-
