@@ -10,9 +10,9 @@ module.exports = {
   booking: require('./booking.model'),
   bookingDetail: require('./bookingDetail.model'),
   payment: require('./payment.model'),
+  coupon: require('./coupon.model'),
   blog: require('./blog.model'),
   blogLocation: require('./blogLocation.model'),
   review: require('./review.model'),
   statistics: require('./statistics.model'),
 };
-

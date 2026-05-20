@@ -8,6 +8,7 @@ DROP TABLE IF EXISTS review CASCADE;
 DROP TABLE IF EXISTS blog_location CASCADE;
 DROP TABLE IF EXISTS blog CASCADE;
 DROP TABLE IF EXISTS payment CASCADE;
+DROP TABLE IF EXISTS coupon CASCADE;
 DROP TABLE IF EXISTS booking_detail CASCADE;
 DROP TABLE IF EXISTS booking CASCADE;
 DROP TABLE IF EXISTS view360_image CASCADE;
@@ -213,6 +214,25 @@ CREATE TABLE payment (
 );
 
 -- =========================================================
+-- Coupon
+-- =========================================================
+CREATE TABLE coupon (
+    coupon_id SERIAL PRIMARY KEY,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    name VARCHAR(150) NOT NULL,
+    description TEXT,
+    discount_type VARCHAR(50) NOT NULL CHECK (discount_type IN ('percent', 'fixed')),
+    discount_value NUMERIC(12,2) NOT NULL CHECK (discount_value >= 0),
+    min_order_amount NUMERIC(12,2) DEFAULT 0 CHECK (min_order_amount >= 0),
+    max_discount_amount NUMERIC(12,2) CHECK (max_discount_amount IS NULL OR max_discount_amount >= 0),
+    usage_limit INT CHECK (usage_limit IS NULL OR usage_limit >= 0),
+    used_count INT NOT NULL DEFAULT 0 CHECK (used_count >= 0),
+    starts_at TIMESTAMP,
+    expires_at TIMESTAMP,
+    status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'expired'))
+);
+
+-- =========================================================
 -- Blog
 -- =========================================================
 CREATE TABLE blog (
@@ -295,6 +315,8 @@ CREATE INDEX idx_booking_user_id ON booking(user_id);
 CREATE INDEX idx_booking_tour_id ON booking(tour_id);
 CREATE INDEX idx_booking_detail_booking_id ON booking_detail(booking_id);
 CREATE INDEX idx_payment_booking_id ON payment(booking_id);
+CREATE INDEX idx_coupon_code ON coupon(code);
+CREATE INDEX idx_coupon_status ON coupon(status);
 CREATE INDEX idx_blog_user_id ON blog(user_id);
 CREATE INDEX idx_blog_location_blog_id ON blog_location(blog_id);
 CREATE INDEX idx_blog_location_location_id ON blog_location(location_id);

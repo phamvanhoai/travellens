@@ -11,6 +11,7 @@ module.exports = {
   booking: require('./booking.controller'),
   bookingDetail: require('./bookingDetail.controller'),
   payment: require('./payment.controller'),
+  coupon: require('./coupon.controller'),
   blog: require('./blog.controller'),
   blogLocation: require('./blogLocation.controller'),
   review: require('./review.controller'),
@@ -18,4 +19,3 @@ module.exports = {
   chat: require('./chat.controller'),
   suggestion: require('./suggestion.controller'),
 };
-

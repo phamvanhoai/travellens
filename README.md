@@ -74,6 +74,7 @@ Bearer <token>
 - CRUD: `/api/bookings`
 - CRUD: `/api/booking-details`
 - CRUD: `/api/payments`
+- CRUD: `/api/coupons`
 - CRUD: `/api/blogs`
 - CRUD: `/api/blog-locations`
 - CRUD: `/api/reviews`
@@ -201,6 +202,32 @@ Authorization: Bearer <token>
   "currency": "VND"
 }
 ```
+
+### Coupon
+
+```json
+{
+  "code": "SUMMER10",
+  "name": "Summer discount",
+  "description": "Discount for summer tours",
+  "discount_type": "percent",
+  "discount_value": 10,
+  "min_order_amount": 1000000,
+  "max_discount_amount": 300000,
+  "usage_limit": 100,
+  "starts_at": "2026-06-01T00:00:00.000Z",
+  "expires_at": "2026-08-31T23:59:59.000Z",
+  "status": "active"
+}
+```
+
+Coupon endpoints:
+
+- `GET /api/coupons`
+- `POST /api/coupons`
+- `GET /api/coupons/:id`
+- `PUT /api/coupons/:id`
+- `DELETE /api/coupons/:id`
 
 ## Ghi chu
 
