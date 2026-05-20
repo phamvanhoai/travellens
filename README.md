@@ -58,30 +58,64 @@ Bearer <token>
 
 ## Endpoint chinh
 
+Guest/Customer endpoints khong can prefix role rieng:
+
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `POST /api/auth/google`
 - `GET /api/auth/profile`
 - `PUT /api/auth/profile`
-- CRUD: `/api/users`
-- CRUD: `/api/categories`
-- CRUD: `/api/travel-destinations`
-- CRUD: `/api/tours`
-- CRUD: `/api/locations`
-- CRUD: `/api/maps`
-- CRUD: `/api/view360`
-- CRUD: `/api/view360-images`
+- `GET /api/travel-destinations`
+- `GET /api/tours`
+- `GET /api/locations`
+- `GET /api/maps`
+- `GET /api/view360`
+- `GET /api/view360-images`
+- `GET /api/coupons`
+- `GET /api/blogs`
+- `POST /api/blogs`
+- `GET /api/reviews`
+- `POST /api/reviews`
 - CRUD: `/api/bookings`
 - CRUD: `/api/booking-details`
 - CRUD: `/api/payments`
-- CRUD: `/api/coupons`
-- CRUD: `/api/blogs`
-- CRUD: `/api/blog-locations`
-- CRUD: `/api/reviews`
-- CRUD: `/api/statistics`
-- `GET /api/statistics/dashboard/summary`
 - `POST /api/chat`
 - `POST /api/suggestions`
+
+Admin endpoints dung prefix `/api/admin` va yeu cau token co role `admin`:
+
+- CRUD: `/api/admin/users`
+- CRUD: `/api/admin/categories`
+- CRUD: `/api/admin/travel-destinations`
+- CRUD: `/api/admin/tours`
+- CRUD: `/api/admin/locations`
+- CRUD: `/api/admin/blogs`
+- CRUD: `/api/admin/maps`
+- CRUD: `/api/admin/statistics`
+- `GET /api/admin/statistics/system`
+- `GET /api/admin/statistics/users`
+- `GET /api/admin/statistics/locations`
+- `GET /api/admin/statistics/content`
+
+Vi du header admin:
+
+```http
+Authorization: Bearer <admin_token>
+```
+
+Staff endpoints dung prefix `/api/staff` va yeu cau token co role `staff` hoac `admin`:
+
+- CRUD: `/api/staff/reviews`
+- CRUD: `/api/staff/coupons`
+- CRUD: `/api/staff/bookings`
+- CRUD: `/api/staff/booking-details`
+- CRUD: `/api/staff/payments`
+
+Vi du header staff:
+
+```http
+Authorization: Bearer <staff_token>
+```
 
 ## Vi du payload
 

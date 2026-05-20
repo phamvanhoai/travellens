@@ -6,6 +6,9 @@ const { common, entity } = require('../validators');
 const router = express.Router();
 
 router.get('/dashboard/summary', controller.dashboard);
+router.get('/users/summary', controller.users);
+router.get('/locations/summary', controller.locations);
+router.get('/content/summary', controller.content);
 router.get('/', validate({ query: common.paginationQuery }), controller.list);
 router.post('/', validate({ body: entity.statistics }), controller.create);
 router.get('/:id', validate({ params: common.idParam }), controller.get);
@@ -13,4 +16,3 @@ router.put('/:id', validate({ params: common.idParam }), controller.update);
 router.delete('/:id', validate({ params: common.idParam }), controller.remove);
 
 module.exports = router;
-
