@@ -17,7 +17,8 @@ DROP TABLE IF EXISTS map CASCADE;
 DROP TABLE IF EXISTS location CASCADE;
 DROP TABLE IF EXISTS tour CASCADE;
 DROP TABLE IF EXISTS travel_destination CASCADE;
-DROP TABLE IF EXISTS category CASCADE;
+DROP TABLE IF EXISTS tour_category CASCADE;
+DROP TABLE IF EXISTS destination_category CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
 -- =========================================================
@@ -38,12 +39,25 @@ CREATE TABLE users (
 );
 
 -- =========================================================
--- Category
+-- DestinationCategory
 -- =========================================================
-CREATE TABLE category (
-    category_id SERIAL PRIMARY KEY,
-    name VARCHAR(150) NOT NULL,
-    description TEXT
+CREATE TABLE destination_category (
+    destination_category_id SERIAL PRIMARY KEY,
+    name VARCHAR(150) NOT NULL UNIQUE,
+    description TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =========================================================
+-- TourCategory
+-- =========================================================
+CREATE TABLE tour_category (
+    tour_category_id SERIAL PRIMARY KEY,
+    name VARCHAR(150) NOT NULL UNIQUE,
+    description TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- =========================================================
@@ -53,10 +67,14 @@ CREATE TABLE travel_destination (
     destination_id SERIAL PRIMARY KEY,
     name VARCHAR(200) NOT NULL,
     description TEXT,
-    category_id INT,
-    CONSTRAINT fk_travel_destination_category
-        FOREIGN KEY (category_id)
-        REFERENCES category(category_id)
+    thumbnail TEXT,
+    destination_category_id INT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
+    CONSTRAINT fk_travel_destination_destination_category
+        FOREIGN KEY (destination_category_id)
+        REFERENCES destination_category(destination_category_id)
         ON UPDATE CASCADE
         ON DELETE SET NULL
 );
@@ -72,15 +90,15 @@ CREATE TABLE tour (
     schedule TEXT,
     capacity INT CHECK (capacity >= 0),
     destination_id INT NOT NULL,
-    category_id INT,
+    tour_category_id INT,
     CONSTRAINT fk_tour_destination
         FOREIGN KEY (destination_id)
         REFERENCES travel_destination(destination_id)
         ON UPDATE CASCADE
         ON DELETE CASCADE,
-    CONSTRAINT fk_tour_category
-        FOREIGN KEY (category_id)
-        REFERENCES category(category_id)
+    CONSTRAINT fk_tour_tour_category
+        FOREIGN KEY (tour_category_id)
+        REFERENCES tour_category(tour_category_id)
         ON UPDATE CASCADE
         ON DELETE SET NULL
 );
@@ -94,13 +112,7 @@ CREATE TABLE location (
     latitude DOUBLE PRECISION,
     longitude DOUBLE PRECISION,
     description TEXT,
-    category_id INT,
     destination_id INT,
-    CONSTRAINT fk_location_category
-        FOREIGN KEY (category_id)
-        REFERENCES category(category_id)
-        ON UPDATE CASCADE
-        ON DELETE SET NULL,
     CONSTRAINT fk_location_destination
         FOREIGN KEY (destination_id)
         REFERENCES travel_destination(destination_id)
@@ -303,10 +315,13 @@ CREATE TABLE statistics (
 -- =========================================================
 -- Indexes for foreign keys
 -- =========================================================
-CREATE INDEX idx_travel_destination_category_id ON travel_destination(category_id);
+CREATE INDEX idx_travel_destination_destination_category_id ON travel_destination(destination_category_id);
+CREATE INDEX idx_destination_category_name ON destination_category(name);
+CREATE INDEX idx_tour_category_name ON tour_category(name);
+CREATE UNIQUE INDEX idx_travel_destination_name_unique ON travel_destination(name) WHERE deleted_at IS NULL;
+CREATE INDEX idx_travel_destination_deleted_at ON travel_destination(deleted_at);
 CREATE INDEX idx_tour_destination_id ON tour(destination_id);
-CREATE INDEX idx_tour_category_id ON tour(category_id);
-CREATE INDEX idx_location_category_id ON location(category_id);
+CREATE INDEX idx_tour_tour_category_id ON tour(tour_category_id);
 CREATE INDEX idx_location_destination_id ON location(destination_id);
 CREATE INDEX idx_map_location_id ON map(location_id);
 CREATE INDEX idx_view360_location_id ON view360(location_id);

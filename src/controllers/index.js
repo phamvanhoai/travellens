@@ -1,7 +1,8 @@
 module.exports = {
   auth: require('./auth.controller'),
   user: require('./user.controller'),
-  category: require('./category.controller'),
+  destinationCategory: require('./destinationCategory.controller'),
+  tourCategory: require('./tourCategory.controller'),
   tour: require('./tour.controller'),
   travelDestination: require('./travelDestination.controller'),
   location: require('./location.controller'),

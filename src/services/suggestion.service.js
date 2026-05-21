@@ -1,7 +1,7 @@
 const db = require('../config/db');
 
 class SuggestionService {
-  async suggest({ destination_id: destinationId, category_id: categoryId, budget }) {
+  async suggest({ destination_id: destinationId, tour_category_id: tourCategoryId, budget }) {
     const values = [];
     const clauses = [];
 
@@ -9,9 +9,9 @@ class SuggestionService {
       values.push(destinationId);
       clauses.push(`destination_id = $${values.length}`);
     }
-    if (categoryId) {
-      values.push(categoryId);
-      clauses.push(`category_id = $${values.length}`);
+    if (tourCategoryId) {
+      values.push(tourCategoryId);
+      clauses.push(`tour_category_id = $${values.length}`);
     }
     if (budget) {
       values.push(budget);
@@ -28,4 +28,3 @@ class SuggestionService {
 }
 
 module.exports = new SuggestionService();
-
