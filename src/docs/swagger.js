@@ -8,6 +8,17 @@ const options = {
       version: '1.0.0',
       description: 'Backend API for travel booking, 360 views, maps, blogs, reviews, statistics, and AI suggestions.',
     },
+    tags: [
+      { name: 'Auth', description: 'Authentication and profile endpoints' },
+      { name: 'Admin Statistics', description: 'Admin dashboard and reporting endpoints' },
+      { name: 'Admin Travel Destinations', description: 'Admin travel destination management' },
+      { name: 'Admin Destination Categories', description: 'Admin destination category management' },
+      { name: 'Admin Tour Categories', description: 'Admin tour category management' },
+      { name: 'Staff', description: 'Staff operations for bookings, reviews, coupons, and payments' },
+      { name: 'DestinationCategories', description: 'Public destination category endpoints' },
+      { name: 'TourCategories', description: 'Public tour category endpoints' },
+      { name: 'Coupons', description: 'Coupon endpoints' },
+    ],
     servers: [
       {
         url: '/api',
@@ -27,4 +38,3 @@ const options = {
 };
 
 module.exports = swaggerJsdoc(options);
-

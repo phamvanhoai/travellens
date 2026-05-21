@@ -1,7 +1,8 @@
 module.exports = {
   auth: require('./auth.service'),
   user: require('./user.service'),
-  category: require('./category.service'),
+  destinationCategory: require('./destinationCategory.service'),
+  tourCategory: require('./tourCategory.service'),
   tour: require('./tour.service'),
   travelDestination: require('./travelDestination.service'),
   location: require('./location.service'),

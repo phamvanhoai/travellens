@@ -1,6 +1,7 @@
 module.exports = {
   user: require('./user.model'),
-  category: require('./category.model'),
+  destinationCategory: require('./destinationCategory.model'),
+  tourCategory: require('./tourCategory.model'),
   tour: require('./tour.model'),
   travelDestination: require('./travelDestination.model'),
   location: require('./location.model'),

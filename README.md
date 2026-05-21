@@ -58,6 +58,12 @@ Bearer <token>
 
 ## Endpoint chinh
 
+Category da duoc tach thanh 2 entity rieng:
+
+- `DestinationCategory`: phan loai `TravelDestination` nhu Historical, Nature, Beach.
+- `TourCategory`: phan loai `Tour` nhu Family, Adventure, Luxury.
+- `Location` va `Map` khong con category.
+
 Guest/Customer endpoints khong can prefix role rieng:
 
 - `POST /api/auth/register`
@@ -72,6 +78,8 @@ Guest/Customer endpoints khong can prefix role rieng:
 - `GET /api/view360`
 - `GET /api/view360-images`
 - `GET /api/coupons`
+- `GET /api/destination-categories`
+- `GET /api/tour-categories`
 - `GET /api/blogs`
 - `POST /api/blogs`
 - `GET /api/reviews`
@@ -85,7 +93,8 @@ Guest/Customer endpoints khong can prefix role rieng:
 Admin endpoints dung prefix `/api/admin` va yeu cau token co role `admin`:
 
 - CRUD: `/api/admin/users`
-- CRUD: `/api/admin/categories`
+- CRUD: `/api/admin/destination-categories`
+- CRUD: `/api/admin/tour-categories`
 - CRUD: `/api/admin/travel-destinations`
 - CRUD: `/api/admin/tours`
 - CRUD: `/api/admin/locations`
@@ -102,6 +111,63 @@ Vi du header admin:
 ```http
 Authorization: Bearer <admin_token>
 ```
+
+### Admin Travel Destinations
+
+Module `/api/admin/travel-destinations` dung de admin quan ly diem den du lich tong the. `TravelDestination` la entity cha cua `Tour` va `Location`.
+
+Endpoints:
+
+- `POST /api/admin/travel-destinations`
+- `GET /api/admin/travel-destinations?page=1&limit=10&search=dinh&destination_category_id=1`
+- `GET /api/admin/travel-destinations/:id`
+- `PUT /api/admin/travel-destinations/:id`
+- `DELETE /api/admin/travel-destinations/:id`
+
+Create payload:
+
+```json
+{
+  "name": "Dinh Doc Lap",
+  "description": "Historic landmark in Ho Chi Minh City",
+  "thumbnail": "https://example.com/dinhdoclap.jpg",
+  "destination_category_id": 1
+}
+```
+
+Tour payload dung `tour_category_id`:
+
+```json
+{
+  "name": "Dinh Doc Lap Half Day Tour",
+  "description": "Guided tour package",
+  "price": 500000,
+  "schedule": "08:00 - 12:00",
+  "capacity": 30,
+  "destination_id": 1,
+  "tour_category_id": 1
+}
+```
+
+Business logic da ho tro:
+
+- Check JWT va role `admin` qua prefix `/api/admin`
+- Validate body
+- Check destination name khong trung
+- Pagination/search/filter category
+- Sort theo `created_at`
+- Detail include `locations`, `tours`, `view360`, `statistics`
+- `PUT` co the update mot phan field, khong bat buoc gui day du resource
+- Delete dang soft delete va chan xoa neu con `tour` hoac `location`
+
+Neu database da tao truoc do, chay migration:
+
+```bash
+psql -U postgres -d travel360 -f migrations/001_update_travel_destination.sql
+psql -U postgres -d travel360 -f migrations/002_split_categories.sql
+```
+
+ERD sau refactor nam tai `docs/ERD.md`.
 
 Staff endpoints dung prefix `/api/staff` va yeu cau token co role `staff` hoac `admin`:
 

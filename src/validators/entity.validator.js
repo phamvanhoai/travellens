@@ -15,8 +15,20 @@ module.exports = {
     google_id: optionalText,
     avatar_url: Joi.string().uri().allow(null, ''),
   }),
-  category: Joi.object({ name: Joi.string().max(150).required(), description: optionalText }),
-  travelDestination: Joi.object({ name: Joi.string().max(200).required(), description: optionalText, category_id: id.allow(null) }),
+  destinationCategory: Joi.object({
+    name: Joi.string().trim().max(150).required(),
+    description: optionalText,
+  }),
+  tourCategory: Joi.object({
+    name: Joi.string().trim().max(150).required(),
+    description: optionalText,
+  }),
+  travelDestination: Joi.object({
+    name: Joi.string().trim().max(200).required(),
+    description: optionalText,
+    thumbnail: Joi.string().trim().uri().allow(null, ''),
+    destination_category_id: id.allow(null),
+  }),
   tour: Joi.object({
     name: Joi.string().max(200).required(),
     description: optionalText,
@@ -24,14 +36,13 @@ module.exports = {
     schedule: optionalText,
     capacity: Joi.number().integer().min(0).allow(null),
     destination_id: id.required(),
-    category_id: id.allow(null),
+    tour_category_id: id.allow(null),
   }),
   location: Joi.object({
     name: Joi.string().max(200).required(),
     latitude: Joi.number().allow(null),
     longitude: Joi.number().allow(null),
     description: optionalText,
-    category_id: id.allow(null),
     destination_id: id.allow(null),
   }),
   map: Joi.object({ location_id: id.required(), map_file: optionalText, description: optionalText }),
