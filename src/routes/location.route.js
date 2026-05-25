@@ -7,7 +7,7 @@ const router = express.Router();
 
 router
   .route('/')
-  .get(validate({ query: common.paginationQuery }), controller.list)
+  .get(validate(location.list), controller.list)
   .post(validate(location.create), controller.create);
 
 router
@@ -17,4 +17,3 @@ router
   .delete(validate({ params: common.idParam }), controller.remove);
 
 module.exports = router;
-

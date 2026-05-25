@@ -4,6 +4,17 @@ const id = Joi.number().integer().positive();
 const optionalText = Joi.string().trim().allow(null, '');
 
 module.exports = {
+  list: {
+    query: Joi.object({
+      page: Joi.number().integer().min(1).default(1),
+      limit: Joi.number().integer().min(1).max(100).default(10),
+      search: Joi.string().trim().allow(''),
+      destination_id: id,
+      sortBy: Joi.string().valid('location_id', 'name', 'created_at', 'updated_at').default('created_at'),
+      sortOrder: Joi.string().uppercase().valid('ASC', 'DESC').default('DESC'),
+    }),
+  },
+
   create: {
     body: Joi.object({
       travel_destination_id: id.required(),
@@ -28,4 +39,3 @@ module.exports = {
     }).min(1),
   },
 };
-
