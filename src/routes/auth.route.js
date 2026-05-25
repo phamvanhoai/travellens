@@ -224,6 +224,31 @@ router.post('/google', validate(auth.googleLogin), authController.googleLogin);
  *                     avatar_url:
  *                       type: string
  *                       nullable: true
+ *                     created_at:
+ *                       type: string
+ *                       format: date-time
+ *                       nullable: true
+ *                     updated_at:
+ *                       type: string
+ *                       format: date-time
+ *                       nullable: true
+ *                     phone:
+ *                       type: string
+ *                       nullable: true
+ *                       example: "0901234567"
+ *                     date_of_birth:
+ *                       type: string
+ *                       format: date
+ *                       nullable: true
+ *                       example: "1998-05-20"
+ *                     gender:
+ *                       type: string
+ *                       nullable: true
+ *                       example: male
+ *                     address:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Ho Chi Minh City
  *       401:
  *         description: Authentication required
  *   put:
@@ -251,6 +276,23 @@ router.post('/google', validate(auth.googleLogin), authController.googleLogin);
  *                 format: uri
  *                 nullable: true
  *                 example: https://example.com/avatar.png
+ *               phone:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "0901234567"
+ *               date_of_birth:
+ *                 type: string
+ *                 format: date
+ *                 nullable: true
+ *                 example: "1998-05-20"
+ *               gender:
+ *                 type: string
+ *                 nullable: true
+ *                 example: male
+ *               address:
+ *                 type: string
+ *                 nullable: true
+ *                 example: Ho Chi Minh City
  *     responses:
  *       200:
  *         description: Profile updated successfully
