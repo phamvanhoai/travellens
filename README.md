@@ -105,6 +105,16 @@ Admin endpoints dung prefix `/api/admin` va yeu cau token co role `admin`:
 - `GET /api/admin/statistics/users`
 - `GET /api/admin/statistics/locations`
 - `GET /api/admin/statistics/content`
+- `GET /api/admin/locations?page=1&limit=10&search=dinh&destination_id=1&sortBy=created_at&sortOrder=DESC`
+- `POST /api/admin/locations`
+- `GET /api/admin/locations/:locationId/view360`
+- `POST /api/admin/locations/:locationId/view360`
+- `PUT /api/admin/view360/:viewId`
+- `DELETE /api/admin/view360/:viewId`
+- `GET /api/admin/view360/:viewId/images`
+- `POST /api/admin/view360/:viewId/images`
+- `PUT /api/admin/view360-images/:imageId`
+- `DELETE /api/admin/view360-images/:imageId`
 
 Vi du header admin:
 
@@ -165,6 +175,9 @@ Neu database da tao truoc do, chay migration:
 ```bash
 psql -U postgres -d travel360 -f migrations/001_update_travel_destination.sql
 psql -U postgres -d travel360 -f migrations/002_split_categories.sql
+psql -U postgres -d travel360 -f migrations/003_update_location_timestamps.sql
+psql -U postgres -d travel360 -f migrations/004_update_location_create_fields.sql
+psql -U postgres -d travel360 -f migrations/005_update_view360_management.sql
 ```
 
 ERD sau refactor nam tai `docs/ERD.md`.

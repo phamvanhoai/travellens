@@ -112,7 +112,11 @@ CREATE TABLE location (
     latitude DOUBLE PRECISION,
     longitude DOUBLE PRECISION,
     description TEXT,
+    thumbnail TEXT,
     destination_id INT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
     CONSTRAINT fk_location_destination
         FOREIGN KEY (destination_id)
         REFERENCES travel_destination(destination_id)
@@ -141,9 +145,14 @@ CREATE TABLE map (
 CREATE TABLE view360 (
     view_id SERIAL PRIMARY KEY,
     location_id INT NOT NULL,
+    title VARCHAR(255) NOT NULL,
     description TEXT,
     audio_file TEXT,
     language VARCHAR(50),
+    order_index INT CHECK (order_index IS NULL OR order_index >= 0),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
     CONSTRAINT fk_view360_location
         FOREIGN KEY (location_id)
         REFERENCES location(location_id)
@@ -159,6 +168,9 @@ CREATE TABLE view360_image (
     view_id INT NOT NULL,
     image_file TEXT NOT NULL,
     order_index INT CHECK (order_index >= 0),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
     CONSTRAINT fk_view360_image_view360
         FOREIGN KEY (view_id)
         REFERENCES view360(view_id)
@@ -323,9 +335,13 @@ CREATE INDEX idx_travel_destination_deleted_at ON travel_destination(deleted_at)
 CREATE INDEX idx_tour_destination_id ON tour(destination_id);
 CREATE INDEX idx_tour_tour_category_id ON tour(tour_category_id);
 CREATE INDEX idx_location_destination_id ON location(destination_id);
+CREATE UNIQUE INDEX idx_location_destination_name_unique ON location(destination_id, LOWER(name));
+CREATE INDEX idx_location_deleted_at ON location(deleted_at);
 CREATE INDEX idx_map_location_id ON map(location_id);
 CREATE INDEX idx_view360_location_id ON view360(location_id);
 CREATE INDEX idx_view360_image_view_id ON view360_image(view_id);
+CREATE INDEX idx_view360_deleted_at ON view360(deleted_at);
+CREATE INDEX idx_view360_image_deleted_at ON view360_image(deleted_at);
 CREATE INDEX idx_booking_user_id ON booking(user_id);
 CREATE INDEX idx_booking_tour_id ON booking(tour_id);
 CREATE INDEX idx_booking_detail_booking_id ON booking_detail(booking_id);
