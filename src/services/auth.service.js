@@ -114,6 +114,10 @@ class AuthService {
       name: payload.name,
       profile_info: payload.profile_info,
       avatar_url: payload.avatar_url,
+      phone: payload.phone,
+      date_of_birth: payload.date_of_birth,
+      gender: payload.gender,
+      address: payload.address,
     });
 
     if (!user) {

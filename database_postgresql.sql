@@ -35,7 +35,13 @@ CREATE TABLE users (
     status VARCHAR(50),
     profile_info TEXT,
     google_id VARCHAR(255),
-    avatar_url TEXT
+    avatar_url TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    phone VARCHAR(30),
+    date_of_birth DATE,
+    gender VARCHAR(20),
+    address TEXT
 );
 
 -- =========================================================
