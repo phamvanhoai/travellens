@@ -40,13 +40,13 @@ module.exports = {
   }),
   location: Joi.object({
     travel_destination_id: id,
-    name: Joi.string().trim().max(255).required(),
+    name: Joi.string().trim().max(255),
     latitude: Joi.number().allow(null),
     longitude: Joi.number().allow(null),
     description: optionalText,
     thumbnail: Joi.string().trim().uri().allow(null, ''),
     destination_id: id,
-  }).or('travel_destination_id', 'destination_id'),
+  }).min(1),
   map: Joi.object({ location_id: id.required(), map_file: optionalText, description: optionalText }),
   view360: Joi.object({
     location_id: id.required(),

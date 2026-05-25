@@ -714,6 +714,75 @@ router
  *         description: Destination not found
  *       409:
  *         description: Duplicate location
+ *
+ * /admin/locations/{id}:
+ *   put:
+ *     summary: Admin update location
+ *     description: Updates location information. Deleted locations cannot be updated and updated_at is changed automatically.
+ *     tags: [Admin Locations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             minProperties: 1
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 maxLength: 255
+ *                 example: Main Gate Updated
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: Updated description
+ *               latitude:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 10.777
+ *               longitude:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 106.695
+ *               thumbnail:
+ *                 type: string
+ *                 format: uri
+ *                 nullable: true
+ *                 example: https://example.com/new-image.jpg
+ *     responses:
+ *       200:
+ *         description: Location updated successfully
+ *       400:
+ *         description: Bad request
+ *       404:
+ *         description: Location not found
+ *   delete:
+ *     summary: Admin delete location
+ *     description: Soft deletes a location only when it has no related View360, View360Image, Map, Review, or Blog_Location data.
+ *     tags: [Admin Locations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Location deleted successfully
+ *       404:
+ *         description: Location not found
+ *       409:
+ *         description: Location has related data
  */
 router.use('/users', require('./user.route'));
 router.use('/travel-destinations', require('./travelDestination.route'));

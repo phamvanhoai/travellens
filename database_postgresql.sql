@@ -117,6 +117,7 @@ CREATE TABLE location (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     CONSTRAINT fk_location_destination
         FOREIGN KEY (destination_id)
         REFERENCES travel_destination(destination_id)
@@ -335,7 +336,7 @@ CREATE INDEX idx_travel_destination_deleted_at ON travel_destination(deleted_at)
 CREATE INDEX idx_tour_destination_id ON tour(destination_id);
 CREATE INDEX idx_tour_tour_category_id ON tour(tour_category_id);
 CREATE INDEX idx_location_destination_id ON location(destination_id);
-CREATE UNIQUE INDEX idx_location_destination_name_unique ON location(destination_id, LOWER(name));
+CREATE UNIQUE INDEX idx_location_destination_name_unique ON location(destination_id, LOWER(name)) WHERE is_deleted = FALSE;
 CREATE INDEX idx_location_deleted_at ON location(deleted_at);
 CREATE INDEX idx_map_location_id ON map(location_id);
 CREATE INDEX idx_view360_location_id ON view360(location_id);

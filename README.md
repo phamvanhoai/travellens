@@ -107,6 +107,8 @@ Admin endpoints dung prefix `/api/admin` va yeu cau token co role `admin`:
 - `GET /api/admin/statistics/content`
 - `GET /api/admin/locations?page=1&limit=10&search=dinh&destination_id=1&sortBy=created_at&sortOrder=DESC`
 - `POST /api/admin/locations`
+- `PUT /api/admin/locations/:id`
+- `DELETE /api/admin/locations/:id`
 - `GET /api/admin/locations/:locationId/view360`
 - `POST /api/admin/locations/:locationId/view360`
 - `PUT /api/admin/view360/:viewId`
@@ -178,6 +180,8 @@ psql -U postgres -d travel360 -f migrations/002_split_categories.sql
 psql -U postgres -d travel360 -f migrations/003_update_location_timestamps.sql
 psql -U postgres -d travel360 -f migrations/004_update_location_create_fields.sql
 psql -U postgres -d travel360 -f migrations/005_update_view360_management.sql
+psql -U postgres -d travel360 -f migrations/006_update_location_soft_delete.sql
+psql -U postgres -d travel360 -f migrations/007_update_location_delete_fields.sql
 ```
 
 ERD sau refactor nam tai `docs/ERD.md`.
