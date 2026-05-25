@@ -50,9 +50,7 @@ class AuthService {
   }
 
   async login({ email, password }) {
-    const normalizedEmail = email.toLowerCase().trim();
-    const result = await db.query('SELECT * FROM users WHERE email = $1', [normalizedEmail]);
-    const user = result.rows[0];
+    const user = await userModel.findByEmail(email);
     if (!user || !user.password) {
       throw new ApiError(httpStatus.UNAUTHORIZED, 'Invalid credentials');
     }
