@@ -16,6 +16,13 @@ module.exports = {
       password: Joi.string().required(),
     }),
   },
+  changePassword: {
+    body: Joi.object({
+      currentPassword: Joi.string().required(),
+      newPassword: Joi.string().min(6).required(),
+      confirmPassword: Joi.string().valid(Joi.ref('newPassword')).required(),
+    }),
+  },
   googleLogin: {
     body: Joi.object({
       email: Joi.string().email().required(),
