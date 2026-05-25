@@ -2,8 +2,12 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 const userModel = require('../models/user.model');
+const revokedTokenModel = require('../models/revokedToken.model');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
+const emailVerificationTokenModel = require('../models/emailVerificationToken.model');
+const { OAuth2Client } = require('google-auth-library');
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const sanitizeUser = (user) => {
   if (!user) return user;
@@ -31,15 +35,20 @@ class AuthService {
         name: payload.name.trim(),
         email,
         password: hashedPassword,
-        role: 'user',
-        status: 'active',
+        role: 'guest',
+        status: 'pending',
         profile_info: payload.profile_info,
         avatar_url: payload.avatar_url,
       });
 
+      const verification = await emailVerificationTokenModel.createToken(user.user_id);
+
       return {
         user: sanitizeUser(user),
-        token: signToken(user),
+        // token: signToken(user),
+        verification_token: verification.rawToken,
+        verification_url: `/api/auth/verify-email?token=${verification.rawToken}`,
+        message: `Please verify your email to activate your account. Check your email for the verification link.`,
       };
     } catch (error) {
       if (error.code === '23505') {
@@ -47,6 +56,31 @@ class AuthService {
       }
       throw error;
     }
+  }
+
+  async verifyEmail(token) {
+    if (!token) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Verification token is required');
+    }
+
+    const verificationToken = await emailVerificationTokenModel.findValidToken(token);
+
+    if (!verificationToken) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid or expired verification token');
+    }
+
+    const user = await userModel.verifyGuestUser(verificationToken.user_id);
+
+    if (!user) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'User is already verified or not a guest account');
+    }
+
+    await emailVerificationTokenModel.markAsUsed(verificationToken.verification_id);
+
+    return {
+      user: sanitizeUser(user),
+      token: signToken(user),
+    };
   }
 
   async login({ email, password }) {
@@ -71,26 +105,50 @@ class AuthService {
   }
 
   async googleLogin(payload) {
-    if (!payload.email || !payload.google_id) {
+    if (!payload.id_token) {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Google profile requires email and google_id');
     }
 
-    const found = await db.query('SELECT * FROM users WHERE email = $1 OR google_id = $2', [payload.email, payload.google_id]);
-    let user = found.rows[0];
+    let googlePayload;
+
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken: payload.id_token,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+
+      googlePayload = ticket.getPayload();
+    } catch (error) {
+      throw new ApiError(httpStatus.UNAUTHORIZED, 'Invalid Google ID token');
+    }
+
+    const email = googlePayload.email.toLowerCase().trim();
+    const googleId = googlePayload.sub;
+    const name = googlePayload.name || email;
+    const avatarUrl = googlePayload.picture || null;
+
+    if (!email || !googleId) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        'Google profile requires email and google_id'
+      );
+    }
+
+    let user = await userModel.findByEmailOrGoogleId(email, googleId);
 
     if (!user) {
       user = await userModel.create({
-        name: payload.name || payload.email,
-        email: payload.email,
+        name,
+        email,
+        google_id: googleId,
+        avatar_url: avatarUrl,
         role: 'user',
         status: 'active',
-        google_id: payload.google_id,
-        avatar_url: payload.avatar_url,
       });
     } else if (!user.google_id) {
       user = await userModel.update(user.user_id, {
-        google_id: payload.google_id,
-        avatar_url: payload.avatar_url || user.avatar_url,
+        google_id: googleId,
+        avatar_url: avatarUrl || user.avatar_url,
       });
     }
 
@@ -98,6 +156,24 @@ class AuthService {
       user: sanitizeUser(user),
       token: signToken(user),
     };
+  }
+
+  async logout(token, authUser) {
+    if (!token || !authUser) {
+      throw new ApiError(httpStatus.UNAUTHORIZED, 'Authentication required');
+    }
+
+    const expiresAt = authUser.exp
+      ? new Date(authUser.exp * 1000)
+      : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    await revokedTokenModel.revoke({
+      token,
+      userId: authUser.sub,
+      expiresAt,
+    });
+
+    return { message: 'Logged out successfully' };
   }
 
   async getProfile(userId) {

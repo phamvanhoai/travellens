@@ -9,6 +9,11 @@ module.exports = {
     response.success(res, data, 'Registered successfully', httpStatus.CREATED);
   }),
 
+  verifyEmail: asyncHandler(async (req, res) => {
+    const data = await authService.verifyEmail(req.query.token);
+    response.success(res, data, 'Email verified successfully');
+  }),
+
   login: asyncHandler(async (req, res) => {
     const data = await authService.login(req.body);
     response.success(res, data, 'Logged in successfully');
@@ -17,6 +22,11 @@ module.exports = {
   googleLogin: asyncHandler(async (req, res) => {
     const data = await authService.googleLogin(req.body);
     response.success(res, data, 'Google login successfully');
+  }),
+
+  logout: asyncHandler(async (req, res) => {
+    const data = await authService.logout(req.token, req.user);
+    response.success(res, data, 'Logged out successfully');
   }),
 
   profile: asyncHandler(async (req, res) => {

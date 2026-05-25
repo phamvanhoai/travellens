@@ -18,10 +18,7 @@ module.exports = {
   },
   googleLogin: {
     body: Joi.object({
-      email: Joi.string().email().required(),
-      google_id: Joi.string().required(),
-      name: Joi.string().allow(''),
-      avatar_url: Joi.string().uri().allow(null, ''),
+      id_token: Joi.string().required(),
     }),
   },
   updateProfile: {
