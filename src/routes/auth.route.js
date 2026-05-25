@@ -175,6 +175,73 @@ router.post('/google', validate(auth.googleLogin), authController.googleLogin);
 
 /**
  * @swagger
+ * /auth/change-password:
+ *   put:
+ *     summary: Change current user password
+ *     description: Validates the authenticated user's current password, hashes the new password, and updates the account password.
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *               - confirmPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *                 format: password
+ *                 example: secret123
+ *               newPassword:
+ *                 type: string
+ *                 format: password
+ *                 minLength: 6
+ *                 example: newSecret123
+ *               confirmPassword:
+ *                 type: string
+ *                 format: password
+ *                 example: newSecret123
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Password changed successfully
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     changed:
+ *                       type: boolean
+ *                       example: true
+ *       400:
+ *         description: Validation error, Google-only account, or new password matches the current password
+ *       401:
+ *         description: Authentication required or current password is incorrect
+ *       404:
+ *         description: User not found
+ */
+router.put(
+  '/change-password',
+  authenticate,
+  validate(auth.changePassword),
+  authController.changePassword
+);
+
+/**
+ * @swagger
  * /auth/profile:
  *   get:
  *     summary: Get current user profile
