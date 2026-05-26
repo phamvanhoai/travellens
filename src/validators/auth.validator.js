@@ -63,4 +63,10 @@ module.exports = {
       new_password: Joi.string().min(6).required(),
     }),
   },
+  verifyEmail: {
+    body: Joi.object({
+      email: Joi.string().trim().lowercase().email().required(),
+      otp: Joi.string().trim().length(6).required(),
+    }),
+  },
 };

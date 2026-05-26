@@ -783,6 +783,235 @@ router
  *         description: Location not found
  *       409:
  *         description: Location has related data
+ *
+ * /admin/maps:
+ *   get:
+ *     summary: Admin list maps
+ *     description: Admin can view all maps with pagination, location filter, and title search.
+ *     tags: [Admin Maps]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           example: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           example: 10
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *           example: Ground Floor
+ *       - in: query
+ *         name: location_id
+ *         schema:
+ *           type: integer
+ *           example: 5
+ *     responses:
+ *       200:
+ *         description: Map list with pagination
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       map_id:
+ *                         type: integer
+ *                         example: 1
+ *                       title:
+ *                         type: string
+ *                         example: Ground Floor Map
+ *                       location_id:
+ *                         type: integer
+ *                         example: 5
+ *                       location_name:
+ *                         type: string
+ *                         example: Main Building
+ *                       map_file:
+ *                         type: string
+ *                         example: map.jpg
+ *                       description:
+ *                         type: string
+ *                         nullable: true
+ *                         example: Map of the ground floor
+ *                       display_order:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: 1
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     page:
+ *                       type: integer
+ *                       example: 1
+ *                     limit:
+ *                       type: integer
+ *                       example: 10
+ *                     total:
+ *                       type: integer
+ *                       example: 1
+ *                     totalPages:
+ *                       type: integer
+ *                       example: 1
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Internal Server Error
+ *   post:
+ *     summary: Admin create map
+ *     description: Admin uploads and creates a map for an active location. Supports jpg, jpeg, png, webp, and svg files.
+ *     tags: [Admin Maps]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [location_id, title, map_file]
+ *             properties:
+ *               location_id:
+ *                 type: integer
+ *                 example: 5
+ *               title:
+ *                 type: string
+ *                 example: Ground Floor Map
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: Ground floor layout
+ *               map_file:
+ *                 type: string
+ *                 format: binary
+ *               display_order:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 1
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [location_id, title, map_file]
+ *             properties:
+ *               location_id:
+ *                 type: integer
+ *                 example: 5
+ *               title:
+ *                 type: string
+ *                 example: Ground Floor Map
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: Ground floor layout
+ *               map_file:
+ *                 type: string
+ *                 example: /public/maps/ground-floor.png
+ *               display_order:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 1
+ *     responses:
+ *       201:
+ *         description: Map created successfully
+ *       400:
+ *         description: Validation error or unsupported file format
+ *       404:
+ *         description: Location not found
+ *
+ * /admin/maps/{id}:
+ *   put:
+ *     summary: Admin update map
+ *     description: Admin updates map information. Location relationship cannot be changed.
+ *     tags: [Admin Maps]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             minProperties: 1
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 example: Ground Floor Updated
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: Updated layout
+ *               map_file:
+ *                 type: string
+ *                 format: binary
+ *               display_order:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 2
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             minProperties: 1
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 example: Ground Floor Updated
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: Updated layout
+ *               map_file:
+ *                 type: string
+ *                 example: /public/maps/ground-floor-updated.png
+ *               display_order:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 2
+ *     responses:
+ *       200:
+ *         description: Map updated successfully
+ *       400:
+ *         description: Validation error or unsupported file format
+ *       404:
+ *         description: Map not found
+ *   delete:
+ *     summary: Admin delete map
+ *     description: Soft deletes a map. The database record is kept for audit history and the uploaded file is not physically removed.
+ *     tags: [Admin Maps]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Map deleted successfully
+ *       404:
+ *         description: Map not found
  */
 router.use('/users', require('./user.route'));
 router.use('/travel-destinations', require('./travelDestination.route'));

@@ -47,7 +47,13 @@ module.exports = {
     thumbnail: Joi.string().trim().uri().allow(null, ''),
     destination_id: id,
   }).min(1),
-  map: Joi.object({ location_id: id.required(), map_file: optionalText, description: optionalText }),
+  map: Joi.object({
+    location_id: id.required(),
+    title: Joi.string().trim().max(255).required(),
+    map_file: Joi.string().trim().required(),
+    description: optionalText,
+    display_order: Joi.number().integer().min(0).allow(null),
+  }),
   view360: Joi.object({
     location_id: id.required(),
     title: Joi.string().trim().max(255).required(),
