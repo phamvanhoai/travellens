@@ -77,9 +77,13 @@ class UserModel extends BaseModel {
   }
 
   async updatePassword(userId, hashedPassword) {
-    const result = await db.query(`UPDATE users SET password = $1 WHERE user_id = $2 RETURNING *`, [
-      hashedPassword, userId
-    ]);
+    const result = await db.query(
+      `UPDATE users
+       SET password = $1
+       WHERE user_id = $2
+       RETURNING *`,
+      [hashedPassword, userId]
+    );
 
     return result.rows[0] || null;
   }
