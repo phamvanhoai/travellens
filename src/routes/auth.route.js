@@ -107,22 +107,33 @@ router.post('/register', validate(auth.register), authController.register);
 /**
  * @swagger
  * /auth/verify-email:
- *   get:
+ *   post:
  *     summary: Verify account email
  *     tags: [Auth]
- *     parameters:
- *       - in: query
- *         name: token
+ *     requestBody:
  *         required: true
- *         schema:
- *           type: string
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [email, otp]
+ *               properties:
+ *                 email:
+ *                   type: string
+ *                   format: email
+ *                   example: user@example.com
+ *                 otp:
+ *                   type: string
+ *                   minLength: 6
+ *                   maxLength: 6
+ *                   example: "123456"
  *     responses:
  *       200:
  *         description: Email verified successfully
  *       400:
- *         description: Invalid or expired verification token
+ *         description: Invalid or expired verification OTP
  */
-router.get('/verify-email', authController.verifyEmail);
+router.post('/verify-email', validate(auth.verifyEmail), authController.verifyEmail);
 
 /**
  * @swagger
