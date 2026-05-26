@@ -13,6 +13,7 @@ const options = {
       { name: 'Admin Statistics', description: 'Admin dashboard and reporting endpoints' },
       { name: 'Admin Travel Destinations', description: 'Admin travel destination management' },
       { name: 'Admin Locations', description: 'Admin location management' },
+      { name: 'Locations', description: 'Public read-only location endpoints' },
       { name: 'Admin View360', description: 'Admin 360 virtual scene and image management' },
       { name: 'Admin Destination Categories', description: 'Admin destination category management' },
       { name: 'Admin Tour Categories', description: 'Admin tour category management' },
