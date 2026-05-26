@@ -8,6 +8,7 @@ const { httpStatus } = require('../constants');
 const emailVerificationTokenModel = require('../models/emailVerificationToken.model');
 const { OAuth2Client } = require('google-auth-library');
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const passwordResetCodeModel = require('../models/passwordResetCode.model');
 
 const sanitizeUser = (user) => {
   if (!user) return user;
@@ -24,13 +25,15 @@ const signToken = (user) => jwt.sign(
 class AuthService {
   async register(payload) {
     const email = payload.email.toLowerCase().trim();
-    const exists = await db.query('SELECT user_id FROM users WHERE email = $1', [email]);
-    if (exists.rows[0]) {
+    const exists = await userModel.existsByEmail(email);
+
+    if (exists) {
       throw new ApiError(httpStatus.CONFLICT, 'Email already exists');
     }
 
     try {
       const hashedPassword = await bcrypt.hash(payload.password, 10);
+
       const user = await userModel.create({
         name: payload.name.trim(),
         email,
@@ -45,15 +48,15 @@ class AuthService {
 
       return {
         user: sanitizeUser(user),
-        // token: signToken(user),
         verification_token: verification.rawToken,
         verification_url: `/api/auth/verify-email?token=${verification.rawToken}`,
-        message: `Please verify your email to activate your account. Check your email for the verification link.`,
+        message: 'Please verify your email to activate your account. Check your email for the verification link.',
       };
     } catch (error) {
       if (error.code === '23505') {
         throw new ApiError(httpStatus.CONFLICT, 'Email already exists');
       }
+
       throw error;
     }
   }
@@ -228,6 +231,81 @@ class AuthService {
     }
 
     return sanitizeUser(user);
+  }
+
+  async forgotPassword({ email }) {
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const user = await userModel.findByEmail(normalizedEmail);
+
+    if (!user) {
+      return {
+        message: 'If the email exists, a verification code has been sent',
+      };
+    }
+
+    if (user.status && user.status !== 'active') {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Account is not active');
+    }
+
+    const resetCode = await passwordResetCodeModel.createCode(user.user_id);
+
+    return {
+      message: 'Password reset verification code generated successfully',
+      verification_code: resetCode.rawCode,
+      expires_at: resetCode.expiresAt,
+    };
+  }
+  async verifyResetCode({ email, code }) {
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const user = await userModel.findByEmail(normalizedEmail);
+
+    if (!user) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid email or verification code');
+    }
+
+    const resetCode = await passwordResetCodeModel.findValidCode(user.user_id, code);
+
+    if (!resetCode) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid or expired verification code');
+    }
+
+    const verified = await passwordResetCodeModel.verifyCode(resetCode.reset_code_id);
+
+    return {
+      message: 'Verification code is valid. You can now reset your password',
+      reset_token: verified.rawResetToken,
+    };
+  }
+  async resetPassword({ reset_token, new_password }) {
+    if (!reset_token) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Reset token is required');
+    }
+
+    const resetRecord = await passwordResetCodeModel.findValidResetToken(reset_token);
+
+    if (!resetRecord) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid or expired reset token');
+    }
+
+    const hashedPassword = await bcrypt.hash(new_password, 10);
+
+    const user = await userModel.updatePassword(
+      resetRecord.user_id,
+      hashedPassword
+    );
+
+    if (!user) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'User not found');
+    }
+
+    await passwordResetCodeModel.markAsUsed(resetRecord.reset_code_id);
+
+    return {
+      user: sanitizeUser(user),
+      message: 'Password has been reset successfully',
+    };
   }
 }
 

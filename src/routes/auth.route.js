@@ -174,6 +174,9 @@ router.get('/verify-email', authController.verifyEmail);
 router.post('/login', validate(auth.login), authController.login);
 router.post('/google', validate(auth.googleLogin), authController.googleLogin);
 router.post('/logout', authenticate, authController.logout);
+router.post('/forgot-password', validate(auth.forgotPassword), authController.forgotPassword);
+router.post('/verify-reset-code', validate(auth.verifyResetCode), authController.verifyResetCode);
+router.post('/reset-password', validate(auth.resetPassword), authController.resetPassword);
 
 /**
  * @swagger
