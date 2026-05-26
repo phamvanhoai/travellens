@@ -142,7 +142,7 @@ class AuthService {
 
   async googleLogin(payload) {
     if (!payload.id_token) {
-      throw new ApiError(httpStatus.BAD_REQUEST, 'Google profile requires email and google_id');
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Google ID token is required');
     }
 
     let googlePayload;
@@ -293,6 +293,7 @@ class AuthService {
       reset_token: verified.rawResetToken,
     };
   }
+
   async resetPassword({ reset_token, new_password }) {
     if (!reset_token) {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Reset token is required');
