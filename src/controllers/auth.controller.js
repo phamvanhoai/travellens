@@ -10,7 +10,7 @@ module.exports = {
   }),
 
   verifyEmail: asyncHandler(async (req, res) => {
-    const data = await authService.verifyEmail(req.query.token);
+    const data = await authService.verifyEmail(req.body);
     response.success(res, data, 'Email verified successfully');
   }),
 

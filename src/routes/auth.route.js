@@ -99,7 +99,7 @@ const router = express.Router();
  *         description: Email already exists
  */
 router.post('/register', validate(auth.register), authController.register);
-router.get('/verify-email', authController.verifyEmail);
+router.post('/verify-email', validate(auth.verifyEmail), authController.verifyEmail);
 
 /**
  * @swagger

@@ -9,6 +9,7 @@ const emailVerificationTokenModel = require('../models/emailVerificationToken.mo
 const { OAuth2Client } = require('google-auth-library');
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const passwordResetCodeModel = require('../models/passwordResetCode.model');
+const emailService = require('./email.service');
 
 const sanitizeUser = (user) => {
   if (!user) return user;
@@ -46,11 +47,19 @@ class AuthService {
 
       const verification = await emailVerificationTokenModel.createToken(user.user_id);
 
+      try {
+        await emailService.sendEmailVerification({
+          to: user.email,
+          name: user.name,
+          otp: verification.rawToken,
+        });
+      } catch (emailError) {
+        console.error('Failed to send verification email:', emailError);
+      }
+
       return {
         user: sanitizeUser(user),
-        verification_token: verification.rawToken,
-        verification_url: `/api/auth/verify-email?token=${verification.rawToken}`,
-        message: 'Please verify your email to activate your account. Check your email for the verification link.',
+        message: 'Please verify your email to activate your account. Check your email for the verification code.',
       };
     } catch (error) {
       if (error.code === '23505') {
@@ -61,29 +70,26 @@ class AuthService {
     }
   }
 
-  async verifyEmail(token) {
-    if (!token) {
-      throw new ApiError(httpStatus.BAD_REQUEST, 'Verification token is required');
-    }
-
-    const verificationToken = await emailVerificationTokenModel.findValidToken(token);
-
-    if (!verificationToken) {
-      throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid or expired verification token');
-    }
-
-    const user = await userModel.verifyGuestUser(verificationToken.user_id);
-
+  async verifyEmail({ email, otp }) {
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await userModel.findByEmail(normalizedEmail);
     if (!user) {
-      throw new ApiError(httpStatus.BAD_REQUEST, 'User is already verified or not a guest account');
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid email or verification code');
     }
 
-    await emailVerificationTokenModel.markAsUsed(verificationToken.verification_id);
+    if (user.status === 'active') {
+      return { message: 'Email has already been verified' };
+    }
 
-    return {
-      user: sanitizeUser(user),
-      token: signToken(user),
-    };
+    const validToken = await emailVerificationTokenModel.findValidCode(user.user_id, otp);
+    if (!validToken) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid or expired verification code');
+    }
+
+    await emailVerificationTokenModel.markAsUsed(validToken.verification_id);
+    await userModel.update(user.user_id, { status: 'active' });
+
+    return { message: 'Email verified successfully. You can now login.' };
   }
 
   async login({ email, password }) {
@@ -219,12 +225,21 @@ class AuthService {
 
     const resetCode = await passwordResetCodeModel.createCode(user.user_id);
 
+    try {
+      await emailService.sendPasswordResetCode({
+        to: user.email,
+        name: user.name,
+        code: resetCode.rawCode,
+      });
+    } catch (emailError) {
+      console.error('Failed to send password reset email:', emailError);
+    }
+
     return {
-      message: 'Password reset verification code generated successfully',
-      verification_code: resetCode.rawCode,
-      expires_at: resetCode.expiresAt,
+      message: 'Password reset verification code has been sent to your email',
     };
   }
+
   async verifyResetCode({ email, code }) {
     const normalizedEmail = email.toLowerCase().trim();
 
