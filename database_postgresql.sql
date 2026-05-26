@@ -153,8 +153,14 @@ CREATE TABLE location (
 CREATE TABLE map (
     map_id SERIAL PRIMARY KEY,
     location_id INT NOT NULL,
+    title VARCHAR(255) NOT NULL,
     map_file TEXT,
     description TEXT,
+    display_order INT CHECK (display_order IS NULL OR display_order >= 0),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     CONSTRAINT fk_map_location
         FOREIGN KEY (location_id)
         REFERENCES location(location_id)
@@ -361,6 +367,8 @@ CREATE INDEX idx_location_destination_id ON location(destination_id);
 CREATE UNIQUE INDEX idx_location_destination_name_unique ON location(destination_id, LOWER(name)) WHERE is_deleted = FALSE;
 CREATE INDEX idx_location_deleted_at ON location(deleted_at);
 CREATE INDEX idx_map_location_id ON map(location_id);
+CREATE INDEX idx_map_deleted_at ON map(deleted_at);
+CREATE INDEX idx_map_is_deleted ON map(is_deleted);
 CREATE INDEX idx_view360_location_id ON view360(location_id);
 CREATE INDEX idx_view360_image_view_id ON view360_image(view_id);
 CREATE INDEX idx_view360_deleted_at ON view360(deleted_at);

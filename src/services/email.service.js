@@ -14,6 +14,10 @@ class EmailService {
     }
 
     async sendMail({ to, subject, html, text }) {
+        if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+            throw new Error('SMTP_USER and SMTP_PASS must be configured before sending email');
+        }
+
         return this.transporter.sendMail({
             from: `"${process.env.APP_NAME || 'TravelLens'}" <${process.env.SMTP_USER}>`,
             to,
