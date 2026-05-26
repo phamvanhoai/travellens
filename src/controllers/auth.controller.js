@@ -33,9 +33,20 @@ module.exports = {
     const data = await authService.getProfile(req.user.sub);
     response.success(res, data);
   }),
-
   updateProfile: asyncHandler(async (req, res) => {
     const data = await authService.updateProfile(req.user.sub, req.body);
     response.success(res, data, 'Profile updated successfully');
+  }),
+  forgotPassword: asyncHandler(async (req, res) => {
+    const data = await authService.forgotPassword(req.body);
+    response.success(res, data, 'Password reset code sent');
+  }),
+  verifyResetCode: asyncHandler(async (req, res) => {
+    const data = await authService.verifyResetCode(req.body);
+    response.success(res, data, 'Verification code verified successfully');
+  }),
+  resetPassword: asyncHandler(async (req, res) => {
+    const data = await authService.resetPassword(req.body);
+    response.success(res, data, 'Password reset successfully');
   }),
 };
