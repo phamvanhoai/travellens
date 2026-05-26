@@ -64,6 +64,22 @@ class UserModel extends BaseModel {
     );
     return result.rows[0] || null;
   }
+
+  async verifyGuestUser(userId) {
+    const result = await db.query(`UPDATE users SET role = 'user',status = 'active' WHERE user_id = $1 AND role = 'guest' RETURNING *`, [
+      userId
+    ]);
+    return result.rows[0] || null;
+  }
+
+  async updatePassword(userId, hashedPassword) {
+    const result = await db.query(`UPDATE users SET password = $1 WHERE user_id = $2 RETURNING *`, [
+      hashedPassword, userId
+    ]);
+
+    return result.rows[0] || null;
+  }
+
 }
 
 module.exports = new UserModel();

@@ -7,7 +7,7 @@ class EmailVerificationTokenModel {
     }
 
     generateRawToken() {
-        return crypto.randomBytes(32).toString('hex');
+        return String(Math.floor(100000 + Math.random() * 900000));
     }
 
     hashToken(token) {
@@ -18,7 +18,7 @@ class EmailVerificationTokenModel {
         const rawToken = this.generateRawToken();
         const tokenHash = this.hashToken(rawToken);
 
-        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // Expires in 15 minutes
 
         await db.query(
             `INSERT INTO ${this.table} (user_id, token_hash, expires_at)
@@ -43,6 +43,24 @@ class EmailVerificationTokenModel {
          AND expires_at > CURRENT_TIMESTAMP
        LIMIT 1`,
             [tokenHash]
+        );
+
+        return result.rows[0] || null;
+    }
+
+    async findValidCode(userId, otp) {
+        const tokenHash = this.hashToken(otp);
+
+        const result = await db.query(
+            `SELECT *
+       FROM ${this.table}
+       WHERE user_id = $1
+         AND token_hash = $2
+         AND used_at IS NULL
+         AND expires_at > CURRENT_TIMESTAMP
+       ORDER BY created_at DESC
+       LIMIT 1`,
+            [userId, tokenHash]
         );
 
         return result.rows[0] || null;
