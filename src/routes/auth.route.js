@@ -40,6 +40,10 @@ const router = express.Router();
  *                 format: password
  *                 minLength: 6
  *                 example: secret123
+ *               confirm_password:
+ *                 type: string
+ *                 format: password
+ *                 example: secret123
  *               profile_info:
  *                 type: string
  *                 nullable: true
@@ -99,6 +103,36 @@ const router = express.Router();
  *         description: Email already exists
  */
 router.post('/register', validate(auth.register), authController.register);
+
+/**
+ * @swagger
+ * /auth/verify-email:
+ *   post:
+ *     summary: Verify account email
+ *     tags: [Auth]
+ *     requestBody:
+ *         required: true
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [email, otp]
+ *               properties:
+ *                 email:
+ *                   type: string
+ *                   format: email
+ *                   example: user@example.com
+ *                 otp:
+ *                   type: string
+ *                   minLength: 6
+ *                   maxLength: 6
+ *                   example: "123456"
+ *     responses:
+ *       200:
+ *         description: Email verified successfully
+ *       400:
+ *         description: Invalid or expired verification OTP
+ */
 router.post('/verify-email', validate(auth.verifyEmail), authController.verifyEmail);
 
 /**
@@ -172,11 +206,194 @@ router.post('/verify-email', validate(auth.verifyEmail), authController.verifyEm
  *         description: Account is not active
  */
 router.post('/login', validate(auth.login), authController.login);
+
+/**
+ * @swagger
+ * /auth/google:
+ *   post:
+ *     summary: Login with Google ID token
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [id_token]
+ *             properties:
+ *               id_token:
+ *                 type: string
+ *                 example: eyJhbGciOiJSUzI1NiIsImtpZCI6...
+ *     responses:
+ *       200:
+ *         description: Google login successfully
+ *       400:
+ *         description: Validation error
+ */
 router.post('/google', validate(auth.googleLogin), authController.googleLogin);
+
+/**
+ * @swagger
+ * /auth/logout:
+ *   post:
+ *     summary: Logout current user
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Logged out successfully
+ *       401:
+ *         description: Authentication required
+ */
 router.post('/logout', authenticate, authController.logout);
+
+/**
+ * @swagger
+ * /auth/forgot-password:
+ *   post:
+ *     summary: Request password reset code
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: user@example.com
+ *     responses:
+ *       200:
+ *         description: Password reset code sent
+ */
 router.post('/forgot-password', validate(auth.forgotPassword), authController.forgotPassword);
+
+/**
+ * @swagger
+ * /auth/verify-reset-code:
+ *   post:
+ *     summary: Verify password reset code
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, code]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: user@example.com
+ *               code:
+ *                 type: string
+ *                 minLength: 6
+ *                 maxLength: 6
+ *                 example: "123456"
+ *     responses:
+ *       200:
+ *         description: Verification code verified successfully
+ */
 router.post('/verify-reset-code', validate(auth.verifyResetCode), authController.verifyResetCode);
+
+/**
+ * @swagger
+ * /auth/reset-password:
+ *   post:
+ *     summary: Reset password with reset token
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [reset_token, new_password]
+ *             properties:
+ *               reset_token:
+ *                 type: string
+ *               new_password:
+ *                 type: string
+ *                 format: password
+ *                 minLength: 6
+ *                 example: newSecret123
+ *     responses:
+ *       200:
+ *         description: Password reset successfully
+ */
 router.post('/reset-password', validate(auth.resetPassword), authController.resetPassword);
+
+/**
+ * @swagger
+ * /auth/change-password:
+ *   put:
+ *     summary: Change current user password
+ *     description: Validates the authenticated user's current password, hashes the new password, and updates the account password.
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *               - confirmPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *                 format: password
+ *                 example: secret123
+ *               newPassword:
+ *                 type: string
+ *                 format: password
+ *                 minLength: 6
+ *                 example: newSecret123
+ *               confirmPassword:
+ *                 type: string
+ *                 format: password
+ *                 example: newSecret123
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Password changed successfully
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     changed:
+ *                       type: boolean
+ *                       example: true
+ *       400:
+ *         description: Validation error, Google-only account, or new password matches the current password
+ *       401:
+ *         description: Authentication required or current password is incorrect
+ *       404:
+ *         description: User not found
+ */
+router.put(
+  '/change-password',
+  authenticate,
+  validate(auth.changePassword),
+  authController.changePassword
+);
 
 /**
  * @swagger
@@ -229,6 +446,31 @@ router.post('/reset-password', validate(auth.resetPassword), authController.rese
  *                     avatar_url:
  *                       type: string
  *                       nullable: true
+ *                     created_at:
+ *                       type: string
+ *                       format: date-time
+ *                       nullable: true
+ *                     updated_at:
+ *                       type: string
+ *                       format: date-time
+ *                       nullable: true
+ *                     phone:
+ *                       type: string
+ *                       nullable: true
+ *                       example: "0901234567"
+ *                     date_of_birth:
+ *                       type: string
+ *                       format: date
+ *                       nullable: true
+ *                       example: "1998-05-20"
+ *                     gender:
+ *                       type: string
+ *                       nullable: true
+ *                       example: male
+ *                     address:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Ho Chi Minh City
  *       401:
  *         description: Authentication required
  *   put:
@@ -256,6 +498,23 @@ router.post('/reset-password', validate(auth.resetPassword), authController.rese
  *                 format: uri
  *                 nullable: true
  *                 example: https://example.com/avatar.png
+ *               phone:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "0901234567"
+ *               date_of_birth:
+ *                 type: string
+ *                 format: date
+ *                 nullable: true
+ *                 example: "1998-05-20"
+ *               gender:
+ *                 type: string
+ *                 nullable: true
+ *                 example: male
+ *               address:
+ *                 type: string
+ *                 nullable: true
+ *                 example: Ho Chi Minh City
  *     responses:
  *       200:
  *         description: Profile updated successfully
