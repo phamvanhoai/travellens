@@ -99,6 +99,7 @@ const router = express.Router();
  *         description: Email already exists
  */
 router.post('/register', validate(auth.register), authController.register);
+router.get('/verify-email', authController.verifyEmail);
 
 /**
  * @swagger
@@ -172,6 +173,7 @@ router.post('/register', validate(auth.register), authController.register);
  */
 router.post('/login', validate(auth.login), authController.login);
 router.post('/google', validate(auth.googleLogin), authController.googleLogin);
+router.post('/logout', authenticate, authController.logout);
 
 /**
  * @swagger
