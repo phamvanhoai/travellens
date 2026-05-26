@@ -104,6 +104,33 @@ class AuthService {
     };
   }
 
+  async changePassword(userId, payload) {
+    const user = await userModel.findById(userId);
+    if (!user) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'User not found');
+    }
+
+    if (!user.password) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'This account does not have a password');
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(payload.currentPassword, user.password);
+    if (!isCurrentPasswordValid) {
+      throw new ApiError(httpStatus.UNAUTHORIZED, 'Current password is incorrect');
+    }
+
+    const isSamePassword = await bcrypt.compare(payload.newPassword, user.password);
+    if (isSamePassword) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'New password must be different from current password');
+    }
+
+    await userModel.update(userId, {
+      password: await bcrypt.hash(payload.newPassword, 10),
+    });
+
+    return { changed: true };
+  }
+
   async googleLogin(payload) {
     if (!payload.id_token) {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Google profile requires email and google_id');
@@ -190,6 +217,10 @@ class AuthService {
       name: payload.name,
       profile_info: payload.profile_info,
       avatar_url: payload.avatar_url,
+      phone: payload.phone,
+      date_of_birth: payload.date_of_birth,
+      gender: payload.gender,
+      address: payload.address,
     });
 
     if (!user) {

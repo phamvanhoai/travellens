@@ -1,6 +1,10 @@
 const express = require('express');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
+const validate = require('../middlewares/validate.middleware');
 const statisticsController = require('../controllers/statistics.controller');
+const view360Controller = require('../controllers/view360.controller');
+const view360ImageController = require('../controllers/view360Image.controller');
+const { view360, view360Image } = require('../validators');
 
 const router = express.Router();
 
@@ -66,6 +70,233 @@ router.get('/statistics/system', statisticsController.dashboard);
 router.get('/statistics/users', statisticsController.users);
 router.get('/statistics/locations', statisticsController.locations);
 router.get('/statistics/content', statisticsController.content);
+
+/**
+ * @swagger
+ * /admin/locations/{locationId}/view360:
+ *   get:
+ *     summary: Admin list View360 scenes by location
+ *     tags: [Admin View360]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: locationId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: View360 scene list
+ *       404:
+ *         description: Location not found
+ *   post:
+ *     summary: Admin create View360 scene
+ *     tags: [Admin View360]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: locationId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [title]
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 example: Main Gate 360 View
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: 360 experience at the main gate
+ *               audio_file:
+ *                 type: string
+ *                 nullable: true
+ *                 example: https://example.com/audio-url.mp3
+ *               language:
+ *                 type: string
+ *                 default: vi
+ *                 example: vi
+ *               order_index:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 1
+ *     responses:
+ *       201:
+ *         description: View360 created successfully
+ *       404:
+ *         description: Location not found
+ *
+ * /admin/view360/{viewId}:
+ *   put:
+ *     summary: Admin update View360 scene
+ *     tags: [Admin View360]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: viewId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             minProperties: 1
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 example: Main Gate 360 View Updated
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *               audio_file:
+ *                 type: string
+ *                 nullable: true
+ *               language:
+ *                 type: string
+ *                 example: en
+ *               order_index:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 2
+ *     responses:
+ *       200:
+ *         description: View360 updated successfully
+ *   delete:
+ *     summary: Admin soft delete View360 scene and related images
+ *     tags: [Admin View360]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: viewId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: View360 deleted successfully
+ *
+ * /admin/view360/{viewId}/images:
+ *   get:
+ *     summary: Admin list View360 images
+ *     tags: [Admin View360]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: viewId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: View360 image list
+ *   post:
+ *     summary: Admin add View360 image
+ *     tags: [Admin View360]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: viewId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [image_file]
+ *             properties:
+ *               image_file:
+ *                 type: string
+ *                 example: https://example.com/image-360-url.jpg
+ *               order_index:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 1
+ *     responses:
+ *       201:
+ *         description: View360 image created successfully
+ *
+ * /admin/view360-images/{imageId}:
+ *   put:
+ *     summary: Admin update View360 image
+ *     tags: [Admin View360]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: imageId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             minProperties: 1
+ *             properties:
+ *               image_file:
+ *                 type: string
+ *                 example: https://example.com/image-360-updated.jpg
+ *               order_index:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 2
+ *     responses:
+ *       200:
+ *         description: View360 image updated successfully
+ *   delete:
+ *     summary: Admin soft delete View360 image
+ *     tags: [Admin View360]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: imageId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: View360 image deleted successfully
+ */
+router
+  .route('/locations/:locationId/view360')
+  .get(validate(view360.locationParam), view360Controller.listByLocation)
+  .post(validate(view360.create), view360Controller.createForLocation);
+
+router
+  .route('/view360/:viewId')
+  .put(validate(view360.update), view360Controller.update)
+  .delete(validate(view360.viewParam), view360Controller.remove);
+
+router
+  .route('/view360/:viewId/images')
+  .get(validate(view360Image.viewParam), view360ImageController.listByView)
+  .post(validate(view360Image.create), view360ImageController.createForView);
+
+router
+  .route('/view360-images/:imageId')
+  .put(validate(view360Image.update), view360ImageController.update)
+  .delete(validate(view360Image.imageParam), view360ImageController.remove);
 
 /**
  * @swagger
@@ -328,6 +559,230 @@ router.get('/statistics/content', statisticsController.content);
  *     responses:
  *       201:
  *         description: Tour category created
+ *
+ * /admin/locations:
+ *   get:
+ *     summary: Admin list locations
+ *     description: Admin can view all locations with pagination, search, destination filter, and sorting. Default sort is created_at DESC.
+ *     tags: [Admin Locations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           example: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           example: 10
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *           example: dinh
+ *       - in: query
+ *         name: destination_id
+ *         schema:
+ *           type: integer
+ *           example: 1
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [location_id, name, created_at, updated_at]
+ *           example: created_at
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [ASC, DESC]
+ *           example: DESC
+ *     responses:
+ *       200:
+ *         description: Location list with total records
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       location_id:
+ *                         type: integer
+ *                         example: 1
+ *                       name:
+ *                         type: string
+ *                         example: Main Gate
+ *                       description:
+ *                         type: string
+ *                         example: Main entrance area
+ *                       travel_destination_id:
+ *                         type: integer
+ *                         example: 1
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ *                       updated_at:
+ *                         type: string
+ *                         format: date-time
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     page:
+ *                       type: integer
+ *                       example: 1
+ *                     limit:
+ *                       type: integer
+ *                       example: 10
+ *                     total:
+ *                       type: integer
+ *                       example: 20
+ *       403:
+ *         description: Forbidden
+ *   post:
+ *     summary: Admin create new location
+ *     description: Creates a new location inside a TravelDestination. Duplicate location names inside the same destination are not allowed.
+ *     tags: [Admin Locations]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [travel_destination_id, name]
+ *             properties:
+ *               travel_destination_id:
+ *                 type: integer
+ *                 example: 1
+ *               name:
+ *                 type: string
+ *                 maxLength: 255
+ *                 example: Main Gate
+ *               description:
+ *                 type: string
+ *                 example: Main entrance of Dinh Doc Lap
+ *               latitude:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 10.777
+ *               longitude:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 106.695
+ *               thumbnail:
+ *                 type: string
+ *                 format: uri
+ *                 nullable: true
+ *                 example: https://example.com/main-gate.jpg
+ *     responses:
+ *       201:
+ *         description: Location created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Location created successfully
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     location_id:
+ *                       type: integer
+ *                       example: 1
+ *       400:
+ *         description: Bad request
+ *       404:
+ *         description: Destination not found
+ *       409:
+ *         description: Duplicate location
+ *
+ * /admin/locations/{id}:
+ *   put:
+ *     summary: Admin update location
+ *     description: Updates location information. Deleted locations cannot be updated and updated_at is changed automatically.
+ *     tags: [Admin Locations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             minProperties: 1
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 maxLength: 255
+ *                 example: Main Gate Updated
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: Updated description
+ *               latitude:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 10.777
+ *               longitude:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 106.695
+ *               thumbnail:
+ *                 type: string
+ *                 format: uri
+ *                 nullable: true
+ *                 example: https://example.com/new-image.jpg
+ *     responses:
+ *       200:
+ *         description: Location updated successfully
+ *       400:
+ *         description: Bad request
+ *       404:
+ *         description: Location not found
+ *   delete:
+ *     summary: Admin delete location
+ *     description: Soft deletes a location only when it has no related View360, View360Image, Map, Review, or Blog_Location data.
+ *     tags: [Admin Locations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Location deleted successfully
+ *       404:
+ *         description: Location not found
+ *       409:
+ *         description: Location has related data
  */
 router.use('/users', require('./user.route'));
 router.use('/travel-destinations', require('./travelDestination.route'));

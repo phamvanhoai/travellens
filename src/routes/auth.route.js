@@ -177,6 +177,73 @@ router.post('/logout', authenticate, authController.logout);
 
 /**
  * @swagger
+ * /auth/change-password:
+ *   put:
+ *     summary: Change current user password
+ *     description: Validates the authenticated user's current password, hashes the new password, and updates the account password.
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *               - confirmPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *                 format: password
+ *                 example: secret123
+ *               newPassword:
+ *                 type: string
+ *                 format: password
+ *                 minLength: 6
+ *                 example: newSecret123
+ *               confirmPassword:
+ *                 type: string
+ *                 format: password
+ *                 example: newSecret123
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Password changed successfully
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     changed:
+ *                       type: boolean
+ *                       example: true
+ *       400:
+ *         description: Validation error, Google-only account, or new password matches the current password
+ *       401:
+ *         description: Authentication required or current password is incorrect
+ *       404:
+ *         description: User not found
+ */
+router.put(
+  '/change-password',
+  authenticate,
+  validate(auth.changePassword),
+  authController.changePassword
+);
+
+/**
+ * @swagger
  * /auth/profile:
  *   get:
  *     summary: Get current user profile
@@ -226,6 +293,31 @@ router.post('/logout', authenticate, authController.logout);
  *                     avatar_url:
  *                       type: string
  *                       nullable: true
+ *                     created_at:
+ *                       type: string
+ *                       format: date-time
+ *                       nullable: true
+ *                     updated_at:
+ *                       type: string
+ *                       format: date-time
+ *                       nullable: true
+ *                     phone:
+ *                       type: string
+ *                       nullable: true
+ *                       example: "0901234567"
+ *                     date_of_birth:
+ *                       type: string
+ *                       format: date
+ *                       nullable: true
+ *                       example: "1998-05-20"
+ *                     gender:
+ *                       type: string
+ *                       nullable: true
+ *                       example: male
+ *                     address:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Ho Chi Minh City
  *       401:
  *         description: Authentication required
  *   put:
@@ -253,6 +345,23 @@ router.post('/logout', authenticate, authController.logout);
  *                 format: uri
  *                 nullable: true
  *                 example: https://example.com/avatar.png
+ *               phone:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "0901234567"
+ *               date_of_birth:
+ *                 type: string
+ *                 format: date
+ *                 nullable: true
+ *                 example: "1998-05-20"
+ *               gender:
+ *                 type: string
+ *                 nullable: true
+ *                 example: male
+ *               address:
+ *                 type: string
+ *                 nullable: true
+ *                 example: Ho Chi Minh City
  *     responses:
  *       200:
  *         description: Profile updated successfully
