@@ -2,6 +2,7 @@ module.exports = {
   common: require('./common.validator'),
   auth: require('./auth.validator'),
   entity: require('./entity.validator'),
+  tour: require('./tour.validator'),
   location: require('./location.validator'),
   map: require('./map.validator'),
   view360: require('./view360.validator'),

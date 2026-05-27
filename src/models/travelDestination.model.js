@@ -156,7 +156,13 @@ module.exports = {
   async countRelations(id) {
     const result = await db.query(
       `SELECT
-          (SELECT COUNT(*)::int FROM tour WHERE destination_id = $1) AS total_tours,
+          (
+            SELECT COUNT(DISTINCT t.tour_id)::int
+            FROM tour t
+            INNER JOIN tour_destination td ON td.tour_id = t.tour_id
+            WHERE td.destination_id = $1
+              AND t.deleted_at IS NULL
+          ) AS total_tours,
           (SELECT COUNT(*)::int FROM location WHERE destination_id = $1 AND deleted_at IS NULL AND is_deleted = FALSE) AS total_locations`,
       [id]
     );
@@ -190,7 +196,16 @@ module.exports = {
 
   async getTours(id) {
     const result = await db.query(
-      'SELECT * FROM tour WHERE destination_id = $1 ORDER BY tour_id DESC',
+      `SELECT
+          t.*,
+          td.order_index,
+          td.estimated_time,
+          td.note
+       FROM tour t
+       INNER JOIN tour_destination td ON td.tour_id = t.tour_id
+       WHERE td.destination_id = $1
+         AND t.deleted_at IS NULL
+       ORDER BY td.order_index ASC, t.tour_id DESC`,
       [id]
     );
 
@@ -221,12 +236,20 @@ module.exports = {
             FROM location
             WHERE destination_id = $1 AND deleted_at IS NULL AND is_deleted = FALSE
           ) AS total_locations,
-          (SELECT COUNT(*)::int FROM tour WHERE destination_id = $1) AS total_tours,
+          (
+            SELECT COUNT(DISTINCT t.tour_id)::int
+            FROM tour t
+            INNER JOIN tour_destination td ON td.tour_id = t.tour_id
+            WHERE td.destination_id = $1
+              AND t.deleted_at IS NULL
+          ) AS total_tours,
           (
             SELECT COUNT(*)::int
             FROM booking b
             INNER JOIN tour t ON t.tour_id = b.tour_id
-            WHERE t.destination_id = $1
+            INNER JOIN tour_destination td ON td.tour_id = t.tour_id
+            WHERE td.destination_id = $1
+              AND t.deleted_at IS NULL
           ) AS total_bookings,
           (
             SELECT COUNT(*)::int

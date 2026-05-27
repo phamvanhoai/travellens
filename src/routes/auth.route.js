@@ -1,7 +1,7 @@
 const express = require('express');
 const authController = require('../controllers/auth.controller');
 const validate = require('../middlewares/validate.middleware');
-const { authenticate } = require('../middlewares/auth.middleware');
+const { authenticate, requireActiveAccount } = require('../middlewares/auth.middleware');
 const { auth } = require('../validators');
 
 const router = express.Router();
@@ -522,10 +522,17 @@ router.put(
  *         description: Validation error
  *       401:
  *         description: Authentication required
+ *       403:
+ *         description: Account is not active
  */
 router
   .route('/profile')
   .get(authenticate, authController.profile)
-  .put(authenticate, validate(auth.updateProfile), authController.updateProfile);
+  .put(
+    authenticate,
+    requireActiveAccount,
+    validate(auth.updateProfile),
+    authController.updateProfile
+  );
 
 module.exports = router;
