@@ -9,6 +9,7 @@ module.exports = {
   view360: require('./view360.controller'),
   view360Image: require('./view360Image.controller'),
   map: require('./map.controller'),
+  navigation: require('./navigation.controller'),
   booking: require('./booking.controller'),
   bookingDetail: require('./bookingDetail.controller'),
   payment: require('./payment.controller'),
