@@ -12,7 +12,6 @@ router.use('/staff', require('./staff.route'));
 router.use('/users', require('./user.route'));
 router.use('/destination-categories', require('./destinationCategory.route'));
 router.use('/tour-categories', require('./tourCategory.route'));
-router.use('/tours', require('./tour.route'));
 router.use('/travel-destinations', require('./travelDestination.route'));
 router.use('/locations', require('./locationPublic.route'));
 router.use('/view360', require('./view360.route'));

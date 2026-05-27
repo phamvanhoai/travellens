@@ -106,23 +106,50 @@ CREATE TABLE travel_destination (
 -- =========================================================
 CREATE TABLE tour (
     tour_id SERIAL PRIMARY KEY,
-    name VARCHAR(200) NOT NULL,
+    name VARCHAR(255) NOT NULL,
     description TEXT,
     price NUMERIC(12,2) NOT NULL CHECK (price >= 0),
     schedule TEXT,
     capacity INT CHECK (capacity >= 0),
-    destination_id INT NOT NULL,
+    thumbnail TEXT,
+    status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'draft', 'deleted')),
     tour_category_id INT,
-    CONSTRAINT fk_tour_destination
-        FOREIGN KEY (destination_id)
-        REFERENCES travel_destination(destination_id)
-        ON UPDATE CASCADE
-        ON DELETE CASCADE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
     CONSTRAINT fk_tour_tour_category
         FOREIGN KEY (tour_category_id)
         REFERENCES tour_category(tour_category_id)
         ON UPDATE CASCADE
         ON DELETE SET NULL
+);
+
+-- =========================================================
+-- TourDestination
+-- =========================================================
+CREATE TABLE tour_destination (
+    tour_destination_id SERIAL PRIMARY KEY,
+    tour_id INT NOT NULL,
+    destination_id INT NOT NULL,
+    order_index INT NOT NULL CHECK (order_index >= 1),
+    estimated_time VARCHAR(100),
+    note TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_tour_destination_tour
+        FOREIGN KEY (tour_id)
+        REFERENCES tour(tour_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_tour_destination_destination
+        FOREIGN KEY (destination_id)
+        REFERENCES travel_destination(destination_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT uq_tour_destination_destination
+        UNIQUE (tour_id, destination_id),
+    CONSTRAINT uq_tour_destination_order
+        UNIQUE (tour_id, order_index)
 );
 
 -- =========================================================
@@ -361,8 +388,12 @@ CREATE INDEX idx_destination_category_name ON destination_category(name);
 CREATE INDEX idx_tour_category_name ON tour_category(name);
 CREATE UNIQUE INDEX idx_travel_destination_name_unique ON travel_destination(name) WHERE deleted_at IS NULL;
 CREATE INDEX idx_travel_destination_deleted_at ON travel_destination(deleted_at);
-CREATE INDEX idx_tour_destination_id ON tour(destination_id);
 CREATE INDEX idx_tour_tour_category_id ON tour(tour_category_id);
+CREATE INDEX idx_tour_status ON tour(status);
+CREATE INDEX idx_tour_created_at ON tour(created_at);
+CREATE INDEX idx_tour_deleted_at ON tour(deleted_at);
+CREATE INDEX idx_tour_destination_tour_id ON tour_destination(tour_id);
+CREATE INDEX idx_tour_destination_destination_id ON tour_destination(destination_id);
 CREATE INDEX idx_location_destination_id ON location(destination_id);
 CREATE UNIQUE INDEX idx_location_destination_name_unique ON location(destination_id, LOWER(name)) WHERE is_deleted = FALSE;
 CREATE INDEX idx_location_deleted_at ON location(deleted_at);
