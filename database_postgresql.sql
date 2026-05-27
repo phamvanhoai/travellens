@@ -90,6 +90,8 @@ CREATE TABLE travel_destination (
     name VARCHAR(200) NOT NULL,
     description TEXT,
     thumbnail TEXT,
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
     destination_category_id INT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

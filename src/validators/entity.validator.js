@@ -27,6 +27,8 @@ module.exports = {
     name: Joi.string().trim().max(200).required(),
     description: optionalText,
     thumbnail: Joi.string().trim().uri().allow(null, ''),
+    latitude: Joi.number().min(-90).max(90).allow(null),
+    longitude: Joi.number().min(-180).max(180).allow(null),
     destination_category_id: id.allow(null),
   }),
   tour: require('./tour.validator').create.body,
