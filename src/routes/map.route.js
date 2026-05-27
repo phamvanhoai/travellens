@@ -44,6 +44,7 @@ const router = express.Router();
  *         description: Travel destination and location map markers
  */
 router.get('/travel', validate(map.travel), controller.travel);
+router.use('/filter', require('./mapFilter.route'));
 
 router
   .route('/')
