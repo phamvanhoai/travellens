@@ -5,6 +5,11 @@ module.exports = {
   tour: require('./tour.validator'),
   location: require('./location.validator'),
   map: require('./map.validator'),
+  nearby: require('./nearby.validator'),
+  mapFilter: require('./mapFilter.validator'),
+  navigation: require('./navigation.validator'),
   view360: require('./view360.validator'),
   view360Image: require('./view360Image.validator'),
+  review: require('./review.validator'),
+  reviewPhoto: require('./reviewPhoto.validator'),
 };

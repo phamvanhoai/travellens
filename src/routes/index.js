@@ -17,6 +17,7 @@ router.use('/locations', require('./locationPublic.route'));
 router.use('/view360', require('./view360.route'));
 router.use('/view360-images', require('./view360Image.route'));
 router.use('/maps', require('./map.route'));
+router.use('/navigation', require('./navigation.route'));
 router.use('/bookings', require('./booking.route'));
 router.use('/booking-details', require('./bookingDetail.route'));
 router.use('/payments', require('./payment.route'));

@@ -5,6 +5,7 @@
 
 DROP TABLE IF EXISTS statistics CASCADE;
 DROP TABLE IF EXISTS revoked_tokens CASCADE;
+DROP TABLE IF EXISTS review_photo CASCADE;
 DROP TABLE IF EXISTS review CASCADE;
 DROP TABLE IF EXISTS blog_location CASCADE;
 DROP TABLE IF EXISTS blog CASCADE;
@@ -90,6 +91,8 @@ CREATE TABLE travel_destination (
     name VARCHAR(200) NOT NULL,
     description TEXT,
     thumbnail TEXT,
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
     destination_category_id INT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -358,6 +361,10 @@ CREATE TABLE review (
     comment TEXT,
     images TEXT,
     date_created DATE NOT NULL DEFAULT CURRENT_DATE,
+    status VARCHAR(50) NOT NULL DEFAULT 'approved' CHECK (status IN ('pending', 'approved', 'rejected')),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
     CONSTRAINT fk_review_user
         FOREIGN KEY (user_id)
         REFERENCES users(user_id)
@@ -366,6 +373,25 @@ CREATE TABLE review (
     CONSTRAINT fk_review_location
         FOREIGN KEY (location_id)
         REFERENCES location(location_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+);
+
+-- =========================================================
+-- ReviewPhoto
+-- =========================================================
+CREATE TABLE review_photo (
+    photo_id SERIAL PRIMARY KEY,
+    review_id INT NOT NULL,
+    photo_url TEXT NOT NULL,
+    original_name VARCHAR(255),
+    mime_type VARCHAR(100),
+    file_size INT CHECK (file_size IS NULL OR file_size >= 0),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
+    CONSTRAINT fk_review_photo_review
+        FOREIGN KEY (review_id)
+        REFERENCES review(review_id)
         ON UPDATE CASCADE
         ON DELETE CASCADE
 );
@@ -408,6 +434,14 @@ CREATE INDEX idx_booking_user_id ON booking(user_id);
 CREATE INDEX idx_booking_tour_id ON booking(tour_id);
 CREATE INDEX idx_booking_detail_booking_id ON booking_detail(booking_id);
 CREATE INDEX idx_payment_booking_id ON payment(booking_id);
+CREATE INDEX idx_review_location_id ON review(location_id);
+CREATE INDEX idx_review_user_id ON review(user_id);
+CREATE UNIQUE INDEX idx_review_user_location_unique
+    ON review(user_id, location_id)
+    WHERE deleted_at IS NULL;
+CREATE INDEX idx_review_deleted_at ON review(deleted_at);
+CREATE INDEX idx_review_photo_review_id ON review_photo(review_id);
+CREATE INDEX idx_review_photo_deleted_at ON review_photo(deleted_at);
 CREATE INDEX idx_coupon_code ON coupon(code);
 CREATE INDEX idx_coupon_status ON coupon(status);
 CREATE INDEX idx_blog_user_id ON blog(user_id);
