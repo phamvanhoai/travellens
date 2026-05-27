@@ -16,5 +16,6 @@ module.exports = {
   blog: require('./blog.model'),
   blogLocation: require('./blogLocation.model'),
   review: require('./review.model'),
+  reviewPhoto: require('./reviewPhoto.model'),
   statistics: require('./statistics.model'),
 };

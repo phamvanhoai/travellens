@@ -5,6 +5,7 @@
 
 DROP TABLE IF EXISTS statistics CASCADE;
 DROP TABLE IF EXISTS revoked_tokens CASCADE;
+DROP TABLE IF EXISTS review_photo CASCADE;
 DROP TABLE IF EXISTS review CASCADE;
 DROP TABLE IF EXISTS blog_location CASCADE;
 DROP TABLE IF EXISTS blog CASCADE;
@@ -377,6 +378,25 @@ CREATE TABLE review (
 );
 
 -- =========================================================
+-- ReviewPhoto
+-- =========================================================
+CREATE TABLE review_photo (
+    photo_id SERIAL PRIMARY KEY,
+    review_id INT NOT NULL,
+    photo_url TEXT NOT NULL,
+    original_name VARCHAR(255),
+    mime_type VARCHAR(100),
+    file_size INT CHECK (file_size IS NULL OR file_size >= 0),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
+    CONSTRAINT fk_review_photo_review
+        FOREIGN KEY (review_id)
+        REFERENCES review(review_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+);
+
+-- =========================================================
 -- Statistics
 -- =========================================================
 CREATE TABLE statistics (
@@ -420,6 +440,8 @@ CREATE UNIQUE INDEX idx_review_user_location_unique
     ON review(user_id, location_id)
     WHERE deleted_at IS NULL;
 CREATE INDEX idx_review_deleted_at ON review(deleted_at);
+CREATE INDEX idx_review_photo_review_id ON review_photo(review_id);
+CREATE INDEX idx_review_photo_deleted_at ON review_photo(deleted_at);
 CREATE INDEX idx_coupon_code ON coupon(code);
 CREATE INDEX idx_coupon_status ON coupon(status);
 CREATE INDEX idx_blog_user_id ON blog(user_id);

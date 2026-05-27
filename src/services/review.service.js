@@ -1,5 +1,6 @@
 const BaseService = require('./base.service');
 const reviewModel = require('../models/review.model');
+const reviewPhotoModel = require('../models/reviewPhoto.model');
 const db = require('../config/db');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
@@ -38,6 +39,8 @@ class ReviewService extends BaseService {
     if (!review) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Review not found');
     }
+
+    await reviewPhotoModel.softDeleteByReview(id);
 
     return review;
   }
