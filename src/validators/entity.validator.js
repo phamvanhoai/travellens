@@ -112,8 +112,9 @@ module.exports = {
     user_id: id.required(),
     location_id: id.required(),
     rating: Joi.number().integer().min(1).max(5).required(),
-    comment: optionalText,
+    comment: Joi.string().trim().max(1000).allow(null, ''),
     images: optionalText,
+    status: Joi.string().valid('pending', 'approved', 'rejected').default('approved'),
   }),
   statistics: Joi.object({ type: Joi.string().max(100).required(), data: Joi.object().required() }),
 };

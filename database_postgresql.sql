@@ -360,6 +360,10 @@ CREATE TABLE review (
     comment TEXT,
     images TEXT,
     date_created DATE NOT NULL DEFAULT CURRENT_DATE,
+    status VARCHAR(50) NOT NULL DEFAULT 'approved' CHECK (status IN ('pending', 'approved', 'rejected')),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
     CONSTRAINT fk_review_user
         FOREIGN KEY (user_id)
         REFERENCES users(user_id)
@@ -410,6 +414,12 @@ CREATE INDEX idx_booking_user_id ON booking(user_id);
 CREATE INDEX idx_booking_tour_id ON booking(tour_id);
 CREATE INDEX idx_booking_detail_booking_id ON booking_detail(booking_id);
 CREATE INDEX idx_payment_booking_id ON payment(booking_id);
+CREATE INDEX idx_review_location_id ON review(location_id);
+CREATE INDEX idx_review_user_id ON review(user_id);
+CREATE UNIQUE INDEX idx_review_user_location_unique
+    ON review(user_id, location_id)
+    WHERE deleted_at IS NULL;
+CREATE INDEX idx_review_deleted_at ON review(deleted_at);
 CREATE INDEX idx_coupon_code ON coupon(code);
 CREATE INDEX idx_coupon_status ON coupon(status);
 CREATE INDEX idx_blog_user_id ON blog(user_id);
