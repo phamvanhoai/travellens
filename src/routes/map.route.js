@@ -45,6 +45,7 @@ const router = express.Router();
  */
 router.get('/travel', validate(map.travel), controller.travel);
 router.use('/nearby', require('./nearby.route'));
+router.use('/filter', require('./mapFilter.route'));
 
 router
   .route('/')
@@ -58,4 +59,3 @@ router
   .delete(validate({ params: common.idParam }), controller.remove);
 
 module.exports = router;
-
