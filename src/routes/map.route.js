@@ -44,6 +44,7 @@ const router = express.Router();
  *         description: Travel destination and location map markers
  */
 router.get('/travel', validate(map.travel), controller.travel);
+router.use('/nearby', require('./nearby.route'));
 router.use('/filter', require('./mapFilter.route'));
 
 router
@@ -58,4 +59,3 @@ router
   .delete(validate({ params: common.idParam }), controller.remove);
 
 module.exports = router;
-
