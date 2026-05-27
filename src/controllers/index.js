@@ -19,6 +19,7 @@ module.exports = {
   blog: require('./blog.controller'),
   blogLocation: require('./blogLocation.controller'),
   review: require('./review.controller'),
+  reviewPhoto: require('./reviewPhoto.controller'),
   statistics: require('./statistics.controller'),
   chat: require('./chat.controller'),
   suggestion: require('./suggestion.controller'),

@@ -19,6 +19,7 @@ module.exports = {
   blog: require('./blog.service'),
   blogLocation: require('./blogLocation.service'),
   review: require('./review.service'),
+  reviewPhoto: require('./reviewPhoto.service'),
   statistics: require('./statistics.service'),
   chat: require('./chat.service'),
   suggestion: require('./suggestion.service'),
