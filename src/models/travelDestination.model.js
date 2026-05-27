@@ -41,6 +41,8 @@ module.exports = {
           td.name,
           td.description,
           td.thumbnail,
+          td.latitude,
+          td.longitude,
           td.destination_category_id,
           dc.name AS destination_category,
           td.created_at,
@@ -121,17 +123,24 @@ module.exports = {
 
   async createDestination(payload) {
     const result = await db.query(
-      `INSERT INTO travel_destination (name, description, thumbnail, destination_category_id)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO travel_destination (name, description, thumbnail, latitude, longitude, destination_category_id)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [payload.name, payload.description, payload.thumbnail, payload.destination_category_id]
+      [
+        payload.name,
+        payload.description,
+        payload.thumbnail,
+        payload.latitude,
+        payload.longitude,
+        payload.destination_category_id,
+      ]
     );
 
     return result.rows[0];
   },
 
   async updateDestination(id, payload) {
-    const fields = ['name', 'description', 'thumbnail', 'destination_category_id']
+    const fields = ['name', 'description', 'thumbnail', 'latitude', 'longitude', 'destination_category_id']
       .filter((field) => payload[field] !== undefined);
 
     if (!fields.length) {

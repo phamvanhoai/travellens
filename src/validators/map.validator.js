@@ -15,6 +15,15 @@ module.exports = {
       location_id: id,
     }),
   },
+  travel: {
+    query: Joi.object({
+      lat: Joi.number().min(-90).max(90),
+      lng: Joi.number().min(-180).max(180),
+      radius: Joi.number().positive().max(500),
+      category: Joi.string().trim().allow(''),
+      keyword: Joi.string().trim().allow(''),
+    }).and('lat', 'lng', 'radius'),
+  },
   update: {
     params: Joi.object({
       id: id.required(),
