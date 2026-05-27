@@ -21,6 +21,8 @@ router.use(authenticate, authorize('admin'));
  *     description: Admin destination category management. Requires Bearer token with role `admin`.
  *   - name: Admin Tour Categories
  *     description: Admin tour category management. Requires Bearer token with role `admin`.
+ *   - name: Admin Tours
+ *     description: Admin tour viewing endpoints. Requires Bearer token with role `admin`.
  *
  * /admin/statistics/system:
  *   get:
@@ -298,6 +300,267 @@ router
   .put(validate(view360Image.update), view360ImageController.update)
   .delete(validate(view360Image.imageParam), view360ImageController.remove);
 
+/**
+ * @swagger
+ * /admin/tours:
+ *   get:
+ *     summary: Admin view tour list
+ *     description: Admin can view all tours with pagination, tour-name search, destination/category/status filters, and sorting. Default sort is created_at DESC.
+ *     tags: [Admin Tours]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           example: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           example: 10
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *           example: dinh
+ *       - in: query
+ *         name: destination_id
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: tour_category_id
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [active, inactive, draft, deleted]
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [tour_id, name, price, capacity, status, created_at, updated_at]
+ *           example: created_at
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [ASC, DESC]
+ *           example: DESC
+ *     responses:
+ *       200:
+ *         description: Tour list with pagination
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Internal Server Error
+ *   post:
+ *     summary: Admin create tour
+ *     description: Creates a bookable tour under one tour category and one or more travel destinations. Tour names must be unique.
+ *     tags: [Admin Tours]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [tour_category_id, name, price, schedule, capacity, destinations]
+ *             properties:
+ *               tour_category_id:
+ *                 type: integer
+ *                 example: 1
+ *               name:
+ *                 type: string
+ *                 maxLength: 255
+ *                 example: Dinh Doc Lap Half-day Tour
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: Explore Dinh Doc Lap with 360 preview and tour guide
+ *               price:
+ *                 type: number
+ *                 minimum: 0
+ *                 example: 250000
+ *               schedule:
+ *                 type: string
+ *                 example: 08:00 - 12:00
+ *               capacity:
+ *                 type: integer
+ *                 minimum: 1
+ *                 example: 30
+ *               thumbnail:
+ *                 type: string
+ *                 format: uri
+ *                 nullable: true
+ *                 example: https://example.com/tour.jpg
+ *               status:
+ *                 type: string
+ *                 enum: [active, inactive, draft]
+ *                 default: active
+ *               destinations:
+ *                 type: array
+ *                 minItems: 1
+ *                 items:
+ *                   type: object
+ *                   required: [destination_id, order_index]
+ *                   properties:
+ *                     destination_id:
+ *                       type: integer
+ *                       example: 1
+ *                     order_index:
+ *                       type: integer
+ *                       minimum: 1
+ *                       example: 1
+ *                     estimated_time:
+ *                       type: string
+ *                       nullable: true
+ *                       example: 90 minutes
+ *                     note:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Start point
+ *     responses:
+ *       201:
+ *         description: Tour created successfully
+ *       400:
+ *         description: Bad Request
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: TravelDestination Not Found or TourCategory Not Found
+ *       409:
+ *         description: Duplicate Tour
+ *       500:
+ *         description: Internal Server Error
+ *
+ * /admin/tours/{id}:
+ *   get:
+ *     summary: Admin view tour detail
+ *     tags: [Admin Tours]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Tour detail
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Tour not found
+ *       500:
+ *         description: Internal Server Error
+ *   put:
+ *     summary: Admin update tour
+ *     description: Updates tour fields and, when provided, replaces the tour destinations list inside a transaction.
+ *     tags: [Admin Tours]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             minProperties: 1
+ *             properties:
+ *               tour_category_id:
+ *                 type: integer
+ *                 example: 1
+ *               name:
+ *                 type: string
+ *                 maxLength: 255
+ *                 example: Saigon Full Day Tour Updated
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *               price:
+ *                 type: number
+ *                 minimum: 0
+ *               schedule:
+ *                 type: string
+ *               capacity:
+ *                 type: integer
+ *                 minimum: 1
+ *               thumbnail:
+ *                 type: string
+ *                 format: uri
+ *                 nullable: true
+ *               status:
+ *                 type: string
+ *                 enum: [active, inactive, draft]
+ *               destinations:
+ *                 type: array
+ *                 minItems: 1
+ *                 items:
+ *                   type: object
+ *                   required: [destination_id, order_index]
+ *                   properties:
+ *                     destination_id:
+ *                       type: integer
+ *                     order_index:
+ *                       type: integer
+ *                       minimum: 1
+ *                     estimated_time:
+ *                       type: string
+ *                       nullable: true
+ *                     note:
+ *                       type: string
+ *                       nullable: true
+ *     responses:
+ *       200:
+ *         description: Tour updated successfully
+ *       400:
+ *         description: Bad Request
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Tour, TourCategory, or TravelDestination not found
+ *       409:
+ *         description: Duplicate Tour
+ *       500:
+ *         description: Internal Server Error
+ *   delete:
+ *     summary: Admin delete tour
+ *     description: Soft deletes a tour when it has no active bookings.
+ *     tags: [Admin Tours]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Tour deleted successfully
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Tour Not Found
+ *       409:
+ *         description: Tour Has Active Bookings
+ *       500:
+ *         description: Internal Server Error
+ */
 /**
  * @swagger
  * /admin/travel-destinations:

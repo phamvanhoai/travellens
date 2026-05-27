@@ -29,15 +29,7 @@ module.exports = {
     thumbnail: Joi.string().trim().uri().allow(null, ''),
     destination_category_id: id.allow(null),
   }),
-  tour: Joi.object({
-    name: Joi.string().max(200).required(),
-    description: optionalText,
-    price: money.required(),
-    schedule: optionalText,
-    capacity: Joi.number().integer().min(0).allow(null),
-    destination_id: id.required(),
-    tour_category_id: id.allow(null),
-  }),
+  tour: require('./tour.validator').create.body,
   location: Joi.object({
     travel_destination_id: id,
     name: Joi.string().trim().max(255),
