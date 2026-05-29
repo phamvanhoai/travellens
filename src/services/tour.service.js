@@ -5,6 +5,76 @@ const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 
 class TourService extends BaseService {
+  async list(query = {}) {
+
+    let sql = `SELECT * FROM tour WHERE 1=1`;
+
+    const values = [];
+
+    let index = 1;
+
+    // SEARCH
+    if (query.search) {
+
+      sql += ` AND (name ILIKE $${index} OR description ILIKE $${index})`;
+
+      values.push(`%${query.search}%`);
+
+      index++;
+    }
+
+    // FILTER DESTINATION
+    if (query.destination_id) {
+
+      sql += ` AND destination_id = $${index}`;
+
+      values.push(query.destination_id);
+
+      index++;
+    }
+
+    // FILTER CATEGORY
+    if (query.tour_category_id) {
+
+      sql += ` AND tour_category_id = $${index}`;
+
+      values.push(query.tour_category_id);
+
+      index++;
+    }
+
+    // SORT
+    switch (query.sort) {
+
+      case 'newest':
+        sql += ` ORDER BY tour_id DESC`;
+        break;
+
+      case 'price_asc':
+        sql += ` ORDER BY price ASC`;
+        break;
+
+      case 'price_desc':
+        sql += ` ORDER BY price DESC`;
+        break;
+
+      default:
+        sql += ` ORDER BY tour_id DESC`;
+    }
+
+    // PAGINATION
+    const page = parseInt(query.page) || 1;
+
+    const limit = parseInt(query.limit) || 10;
+
+    const offset = (page - 1) * limit;
+
+    sql += ` LIMIT ${limit} OFFSET ${offset}`;
+
+    const result = await db.query(sql, values);
+
+    return result.rows;
+  }
   async create(payload) {
     await this.ensureTravelDestinationExists(payload.destination_id);
     await this.ensureTourCategoryExists(payload.tour_category_id);
