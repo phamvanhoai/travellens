@@ -10,6 +10,7 @@ const options = {
     },
     tags: [
       { name: 'Auth', description: 'Authentication and profile endpoints' },
+      { name: 'Admin Users', description: 'Admin user management' },
       { name: 'Admin Statistics', description: 'Admin dashboard and reporting endpoints' },
       { name: 'Admin Travel Destinations', description: 'Admin travel destination management' },
       { name: 'Admin Locations', description: 'Admin location management' },
