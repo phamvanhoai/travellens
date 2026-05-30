@@ -244,6 +244,10 @@ CREATE TABLE booking (
     booking_id SERIAL PRIMARY KEY,
     user_id INT NOT NULL,
     tour_id INT NOT NULL,
+    coupon_id INT,
+    original_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (original_amount >= 0),
+    discount_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (discount_amount >= 0),
+    final_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (final_amount >= 0),
     status VARCHAR(50) NOT NULL CHECK (status IN ('confirmed', 'canceled', 'pending')),
     payment_status VARCHAR(50) NOT NULL CHECK (payment_status IN ('paid', 'refunded', 'pending')),
     date_created DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -304,16 +308,31 @@ CREATE TABLE coupon (
     code VARCHAR(50) NOT NULL UNIQUE,
     name VARCHAR(150) NOT NULL,
     description TEXT,
-    discount_type VARCHAR(50) NOT NULL CHECK (discount_type IN ('percent', 'fixed')),
+    discount_type VARCHAR(50) NOT NULL CHECK (discount_type IN ('percentage', 'fixed')),
     discount_value NUMERIC(12,2) NOT NULL CHECK (discount_value >= 0),
     min_order_amount NUMERIC(12,2) DEFAULT 0 CHECK (min_order_amount >= 0),
     max_discount_amount NUMERIC(12,2) CHECK (max_discount_amount IS NULL OR max_discount_amount >= 0),
-    usage_limit INT CHECK (usage_limit IS NULL OR usage_limit >= 0),
+    usage_limit INT CHECK (usage_limit IS NULL OR usage_limit > 0),
     used_count INT NOT NULL DEFAULT 0 CHECK (used_count >= 0),
-    starts_at TIMESTAMP,
-    expires_at TIMESTAMP,
-    status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'expired'))
+    start_date DATE,
+    end_date DATE,
+    status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'expired', 'deleted')),
+    created_by INT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
+    CONSTRAINT fk_coupon_created_by
+        FOREIGN KEY (created_by)
+        REFERENCES users(user_id)
+        ON DELETE SET NULL
 );
+
+ALTER TABLE booking
+    ADD CONSTRAINT fk_booking_coupon
+    FOREIGN KEY (coupon_id)
+    REFERENCES coupon(coupon_id)
+    ON UPDATE CASCADE
+    ON DELETE SET NULL;
 
 -- =========================================================
 -- Blog
@@ -432,6 +451,7 @@ CREATE INDEX idx_view360_deleted_at ON view360(deleted_at);
 CREATE INDEX idx_view360_image_deleted_at ON view360_image(deleted_at);
 CREATE INDEX idx_booking_user_id ON booking(user_id);
 CREATE INDEX idx_booking_tour_id ON booking(tour_id);
+CREATE INDEX idx_booking_coupon_id ON booking(coupon_id);
 CREATE INDEX idx_booking_detail_booking_id ON booking_detail(booking_id);
 CREATE INDEX idx_payment_booking_id ON payment(booking_id);
 CREATE INDEX idx_review_location_id ON review(location_id);
@@ -444,6 +464,7 @@ CREATE INDEX idx_review_photo_review_id ON review_photo(review_id);
 CREATE INDEX idx_review_photo_deleted_at ON review_photo(deleted_at);
 CREATE INDEX idx_coupon_code ON coupon(code);
 CREATE INDEX idx_coupon_status ON coupon(status);
+CREATE INDEX idx_coupon_deleted_at ON coupon(deleted_at);
 CREATE INDEX idx_blog_user_id ON blog(user_id);
 CREATE INDEX idx_blog_location_blog_id ON blog_location(blog_id);
 CREATE INDEX idx_blog_location_location_id ON blog_location(location_id);

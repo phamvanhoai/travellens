@@ -60,6 +60,11 @@ module.exports = {
   booking: Joi.object({
     user_id: id.required(),
     tour_id: id.required(),
+    coupon_id: id.allow(null),
+    coupon_code: Joi.string().trim().uppercase().allow(null, ''),
+    original_amount: money,
+    discount_amount: money,
+    final_amount: money,
     status: Joi.string().valid('confirmed', 'canceled', 'pending').default('pending'),
     payment_status: Joi.string().valid('paid', 'refunded', 'pending').default('pending'),
     passengers: Joi.array().items(Joi.object({
