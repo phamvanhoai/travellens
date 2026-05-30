@@ -1,7 +1,9 @@
 const express = require('express');
 const controller = require('../controllers/location.controller');
+const reviewController = require('../controllers/review.controller');
+const { authenticate } = require('../middlewares/auth.middleware');
 const validate = require('../middlewares/validate.middleware');
-const { common, location } = require('../validators');
+const { common, location, review } = require('../validators');
 
 const router = express.Router();
 
@@ -70,8 +72,53 @@ const router = express.Router();
  *         description: Location detail
  *       404:
  *         description: Location not found
+ *
+ * /locations/{locationId}/reviews:
+ *   post:
+ *     summary: Submit a review for a location
+ *     tags: [Locations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: locationId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [rating]
+ *             properties:
+ *               rating:
+ *                 type: integer
+ *                 minimum: 1
+ *                 maximum: 5
+ *                 example: 5
+ *               comment:
+ *                 type: string
+ *                 maxLength: 1000
+ *                 example: This location is very beautiful and worth visiting.
+ *     responses:
+ *       201:
+ *         description: Review submitted successfully
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Location Not Found
+ *       409:
+ *         description: Review Already Exists
  */
 router.get('/', validate(location.list), controller.list);
+router.post(
+  '/:locationId/reviews',
+  authenticate,
+  validate(review.submitLocationReview),
+  reviewController.submitLocationReview
+);
 router.get('/:id', validate({ params: common.idParam }), controller.get);
 
 module.exports = router;

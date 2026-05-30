@@ -3,6 +3,7 @@ module.exports = {
   destinationCategory: require('./destinationCategory.model'),
   tourCategory: require('./tourCategory.model'),
   tour: require('./tour.model'),
+  tourDestination: require('./tourDestination.model'),
   travelDestination: require('./travelDestination.model'),
   location: require('./location.model'),
   view360: require('./view360.model'),
@@ -15,5 +16,6 @@ module.exports = {
   blog: require('./blog.model'),
   blogLocation: require('./blogLocation.model'),
   review: require('./review.model'),
+  reviewPhoto: require('./reviewPhoto.model'),
   statistics: require('./statistics.model'),
 };

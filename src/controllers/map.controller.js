@@ -16,6 +16,14 @@ module.exports = {
     });
   }),
 
+  travel: asyncHandler(async (req, res) => {
+    const data = await mapService.travel(req.query);
+    res.status(httpStatus.OK).json({
+      success: true,
+      data,
+    });
+  }),
+
   create: asyncHandler(async (req, res) => {
     const data = await mapService.create(req.body);
     response.success(res, data, 'Map created successfully', httpStatus.CREATED);
