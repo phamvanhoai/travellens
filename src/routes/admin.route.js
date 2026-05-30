@@ -15,6 +15,8 @@ router.use(authenticate, authorize('admin'));
  * tags:
  *   - name: Admin Statistics
  *     description: Admin dashboard and reporting endpoints. Requires Bearer token with role `admin`.
+ *   - name: Admin Users
+ *     description: Admin user management. Requires Bearer token with role `admin`.
  *   - name: Admin Travel Destinations
  *     description: Admin travel destination management. Requires Bearer token with role `admin`.
  *   - name: Admin Destination Categories
@@ -70,6 +72,262 @@ router.get('/statistics/system', statisticsController.dashboard);
 router.get('/statistics/users', statisticsController.users);
 router.get('/statistics/locations', statisticsController.locations);
 router.get('/statistics/content', statisticsController.content);
+
+/**
+ * @swagger
+ * /admin/users:
+ *   get:
+ *     summary: Admin list users
+ *     description: Admin can view users with pagination, search, role/status filters, and sorting.
+ *     tags: [Admin Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         example: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         example: 10
+ *       - in: query
+ *         name: search
+ *         description: Search by user name, email, phone, or address.
+ *         schema:
+ *           type: string
+ *         example: nguyen
+ *       - in: query
+ *         name: role
+ *         schema:
+ *           type: string
+ *           enum: [admin, staff, user]
+ *         example: user
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           maxLength: 50
+ *         example: active
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [user_id, name, email, role, status, created_at, updated_at]
+ *           default: created_at
+ *         example: created_at
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [ASC, DESC]
+ *           default: DESC
+ *         example: DESC
+ *     responses:
+ *       200:
+ *         description: User list with pagination
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       user_id:
+ *                         type: integer
+ *                         example: 1
+ *                       name:
+ *                         type: string
+ *                         example: Nguyen Van A
+ *                       email:
+ *                         type: string
+ *                         format: email
+ *                         example: user@example.com
+ *                       role:
+ *                         type: string
+ *                         example: user
+ *                       status:
+ *                         type: string
+ *                         example: active
+ *                       profile_info:
+ *                         type: string
+ *                         nullable: true
+ *                       google_id:
+ *                         type: string
+ *                         nullable: true
+ *                       avatar_url:
+ *                         type: string
+ *                         nullable: true
+ *                       phone:
+ *                         type: string
+ *                         nullable: true
+ *                       date_of_birth:
+ *                         type: string
+ *                         format: date
+ *                         nullable: true
+ *                       gender:
+ *                         type: string
+ *                         nullable: true
+ *                       address:
+ *                         type: string
+ *                         nullable: true
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ *                       updated_at:
+ *                         type: string
+ *                         format: date-time
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     page:
+ *                       type: integer
+ *                       example: 1
+ *                     limit:
+ *                       type: integer
+ *                       example: 10
+ *                     total:
+ *                       type: integer
+ *                       example: 25
+ *                     totalPages:
+ *                       type: integer
+ *                       example: 3
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Admin role required
+ *   post:
+ *     summary: Admin create user
+ *     description: Admin creates a user with a temporary password. The password is hashed by the backend before saving.
+ *     tags: [Admin Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name, email, password, role, status]
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 maxLength: 150
+ *                 description: Must contain at least 2 words and letters/spaces only.
+ *                 example: Nguyen Van A
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: user@example.com
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 minLength: 6
+ *                 description: Must be at least 6 characters and not contain only spaces.
+ *                 example: Temp123456
+ *               role:
+ *                 type: string
+ *                 enum: [admin, staff, user]
+ *                 example: user
+ *               status:
+ *                 type: string
+ *                 enum: [active, inactive, pending]
+ *                 example: active
+ *               phone:
+ *                 type: string
+ *                 pattern: '^0(?:3|5|7|8|9)\\d{8}$'
+ *                 nullable: true
+ *                 example: "0901234567"
+ *     responses:
+ *       201:
+ *         description: User created successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Admin role required
+ *       409:
+ *         description: Email already exists
+ *
+ * /admin/users/{id}:
+ *   put:
+ *     summary: Admin update user
+ *     description: Admin updates one or more user fields. If password is provided, the backend hashes it before saving.
+ *     tags: [Admin Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         example: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             minProperties: 1
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 maxLength: 150
+ *                 description: Must contain at least 2 words and letters/spaces only.
+ *                 example: Nguyen Van B
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: user.updated@example.com
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 minLength: 6
+ *                 description: Must be at least 6 characters and not contain only spaces.
+ *                 example: NewTemp123456
+ *               role:
+ *                 type: string
+ *                 enum: [admin, staff, user]
+ *                 example: staff
+ *               status:
+ *                 type: string
+ *                 enum: [active, inactive, pending]
+ *                 example: active
+ *               phone:
+ *                 type: string
+ *                 pattern: '^0(?:3|5|7|8|9)\\d{8}$'
+ *                 nullable: true
+ *                 example: "0907654321"
+ *     responses:
+ *       200:
+ *         description: User updated successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Admin role required
+ *       404:
+ *         description: User not found
+ *       409:
+ *         description: Email already exists
+ */
 
 /**
  * @swagger
