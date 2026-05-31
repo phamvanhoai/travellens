@@ -22,7 +22,7 @@ router.use('/navigation', require('./navigation.route'));
 router.use('/bookings', require('./booking.route'));
 router.use('/booking-details', require('./bookingDetail.route'));
 router.use('/payments', require('./payment.route'));
-router.use('/coupons', require('./coupon.route'));
+router.use('/coupons', require('./couponPublic.route'));
 router.use('/blogs', require('./blog.route'));
 router.use('/blog-locations', require('./blogLocation.route'));
 router.use('/reviews', require('./review.route'));

@@ -7,4 +7,3 @@ module.exports = new BaseModel({
   searchable: ['title', 'content'],
   filters: ['user_id'],
 });
-
