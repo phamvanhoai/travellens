@@ -9,5 +9,20 @@ module.exports = {
     const data = await paymentService.refund(req.params.id, req.body);
     response.success(res, data, 'Payment refunded');
   }),
+
+  updateStatus: asyncHandler(async (req, res) => {
+
+    const data = await paymentService.updateStatus(
+      req.params.id,
+      req.body.status
+    );
+
+    response.success(
+      res,
+      data,
+      'Payment status updated'
+    );
+  }),
 };
+
 

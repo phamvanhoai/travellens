@@ -7,5 +7,6 @@ const router = createCrudRoute(controller, entity.payment);
 
 router.patch('/:id/refund', validate({ params: common.idParam }), controller.refund);
 
+router.patch('/:id/status', validate({ params: common.idParam, body: entity.paymentStatus,}), controller.updateStatus);
 module.exports = router;
 
