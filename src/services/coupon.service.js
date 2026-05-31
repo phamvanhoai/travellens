@@ -126,7 +126,7 @@ class CouponService {
   validateBusinessRules(payload) {
     if (payload.discount_type === 'percentage') {
       if (Number(payload.discount_value) < 1 || Number(payload.discount_value) > 100) {
-        throw new ApiError(httpStatus.BAD_REQUEST, 'Percentage discount value must be from 1 to 100');
+        throw new ApiError(httpStatus.BAD_REQUEST, 'Percentage discount value must be between 1 and 100 (inclusive)');
       }
     }
 
