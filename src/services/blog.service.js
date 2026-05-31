@@ -74,4 +74,3 @@ class BlogService extends BaseService {
 }
 
 module.exports = new BlogService(blogModel);
-
