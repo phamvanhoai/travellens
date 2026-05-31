@@ -1,6 +1,10 @@
 const express = require('express');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
+const validate = require('../middlewares/validate.middleware');
 const statisticsController = require('../controllers/statistics.controller');
+const view360Controller = require('../controllers/view360.controller');
+const view360ImageController = require('../controllers/view360Image.controller');
+const { view360, view360Image } = require('../validators');
 
 const router = express.Router();
 
@@ -11,12 +15,16 @@ router.use(authenticate, authorize('admin'));
  * tags:
  *   - name: Admin Statistics
  *     description: Admin dashboard and reporting endpoints. Requires Bearer token with role `admin`.
+ *   - name: Admin Users
+ *     description: Admin user management. Requires Bearer token with role `admin`.
  *   - name: Admin Travel Destinations
  *     description: Admin travel destination management. Requires Bearer token with role `admin`.
  *   - name: Admin Destination Categories
  *     description: Admin destination category management. Requires Bearer token with role `admin`.
  *   - name: Admin Tour Categories
  *     description: Admin tour category management. Requires Bearer token with role `admin`.
+ *   - name: Admin Tours
+ *     description: Admin tour viewing endpoints. Requires Bearer token with role `admin`.
  *
  * /admin/statistics/system:
  *   get:
@@ -67,6 +75,750 @@ router.get('/statistics/users', statisticsController.users);
 router.get('/statistics/locations', statisticsController.locations);
 router.get('/statistics/content', statisticsController.content);
 
+/**
+ * @swagger
+ * /admin/users:
+ *   get:
+ *     summary: Admin list users
+ *     description: Admin can view users with pagination, search, role/status filters, and sorting.
+ *     tags: [Admin Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         example: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         example: 10
+ *       - in: query
+ *         name: search
+ *         description: Search by user name, email, phone, or address.
+ *         schema:
+ *           type: string
+ *         example: nguyen
+ *       - in: query
+ *         name: role
+ *         schema:
+ *           type: string
+ *           enum: [admin, staff, user]
+ *         example: user
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           maxLength: 50
+ *         example: active
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [user_id, name, email, role, status, created_at, updated_at]
+ *           default: created_at
+ *         example: created_at
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [ASC, DESC]
+ *           default: DESC
+ *         example: DESC
+ *     responses:
+ *       200:
+ *         description: User list with pagination
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       user_id:
+ *                         type: integer
+ *                         example: 1
+ *                       name:
+ *                         type: string
+ *                         example: Nguyen Van A
+ *                       email:
+ *                         type: string
+ *                         format: email
+ *                         example: user@example.com
+ *                       role:
+ *                         type: string
+ *                         example: user
+ *                       status:
+ *                         type: string
+ *                         example: active
+ *                       profile_info:
+ *                         type: string
+ *                         nullable: true
+ *                       google_id:
+ *                         type: string
+ *                         nullable: true
+ *                       avatar_url:
+ *                         type: string
+ *                         nullable: true
+ *                       phone:
+ *                         type: string
+ *                         nullable: true
+ *                       date_of_birth:
+ *                         type: string
+ *                         format: date
+ *                         nullable: true
+ *                       gender:
+ *                         type: string
+ *                         nullable: true
+ *                       address:
+ *                         type: string
+ *                         nullable: true
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ *                       updated_at:
+ *                         type: string
+ *                         format: date-time
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     page:
+ *                       type: integer
+ *                       example: 1
+ *                     limit:
+ *                       type: integer
+ *                       example: 10
+ *                     total:
+ *                       type: integer
+ *                       example: 25
+ *                     totalPages:
+ *                       type: integer
+ *                       example: 3
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Admin role required
+ *   post:
+ *     summary: Admin create user
+ *     description: Admin creates a user with a temporary password. The password is hashed by the backend before saving.
+ *     tags: [Admin Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name, email, password, role, status]
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 maxLength: 150
+ *                 description: Must contain at least 2 words and letters/spaces only.
+ *                 example: Nguyen Van A
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: user@example.com
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 minLength: 6
+ *                 description: Must be at least 6 characters and not contain only spaces.
+ *                 example: Temp123456
+ *               role:
+ *                 type: string
+ *                 enum: [admin, staff, user]
+ *                 example: user
+ *               status:
+ *                 type: string
+ *                 enum: [active, inactive, pending]
+ *                 example: active
+ *               phone:
+ *                 type: string
+ *                 pattern: '^0(?:3|5|7|8|9)\\d{8}$'
+ *                 nullable: true
+ *                 example: "0901234567"
+ *     responses:
+ *       201:
+ *         description: User created successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Admin role required
+ *       409:
+ *         description: Email already exists
+ *
+ * /admin/users/{id}:
+ *   put:
+ *     summary: Admin update user
+ *     description: Admin updates one or more user fields. If password is provided, the backend hashes it before saving.
+ *     tags: [Admin Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         example: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             minProperties: 1
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 maxLength: 150
+ *                 description: Must contain at least 2 words and letters/spaces only.
+ *                 example: Nguyen Van B
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: user.updated@example.com
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 minLength: 6
+ *                 description: Must be at least 6 characters and not contain only spaces.
+ *                 example: NewTemp123456
+ *               role:
+ *                 type: string
+ *                 enum: [admin, staff, user]
+ *                 example: staff
+ *               status:
+ *                 type: string
+ *                 enum: [active, inactive, pending]
+ *                 example: active
+ *               phone:
+ *                 type: string
+ *                 pattern: '^0(?:3|5|7|8|9)\\d{8}$'
+ *                 nullable: true
+ *                 example: "0907654321"
+ *     responses:
+ *       200:
+ *         description: User updated successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Admin role required
+ *       404:
+ *         description: User not found
+ *       409:
+ *         description: Email already exists
+ */
+
+/**
+ * @swagger
+ * /admin/locations/{locationId}/view360:
+ *   get:
+ *     summary: Admin list View360 scenes by location
+ *     tags: [Admin View360]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: locationId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: View360 scene list
+ *       404:
+ *         description: Location not found
+ *   post:
+ *     summary: Admin create View360 scene
+ *     tags: [Admin View360]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: locationId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [title]
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 example: Main Gate 360 View
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: 360 experience at the main gate
+ *               audio_file:
+ *                 type: string
+ *                 nullable: true
+ *                 example: https://example.com/audio-url.mp3
+ *               language:
+ *                 type: string
+ *                 default: vi
+ *                 example: vi
+ *               order_index:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 1
+ *     responses:
+ *       201:
+ *         description: View360 created successfully
+ *       404:
+ *         description: Location not found
+ *
+ * /admin/view360/{viewId}:
+ *   put:
+ *     summary: Admin update View360 scene
+ *     tags: [Admin View360]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: viewId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             minProperties: 1
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 example: Main Gate 360 View Updated
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *               audio_file:
+ *                 type: string
+ *                 nullable: true
+ *               language:
+ *                 type: string
+ *                 example: en
+ *               order_index:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 2
+ *     responses:
+ *       200:
+ *         description: View360 updated successfully
+ *   delete:
+ *     summary: Admin soft delete View360 scene and related images
+ *     tags: [Admin View360]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: viewId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: View360 deleted successfully
+ *
+ * /admin/view360/{viewId}/images:
+ *   get:
+ *     summary: Admin list View360 images
+ *     tags: [Admin View360]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: viewId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: View360 image list
+ *   post:
+ *     summary: Admin add View360 image
+ *     tags: [Admin View360]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: viewId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [image_file]
+ *             properties:
+ *               image_file:
+ *                 type: string
+ *                 example: https://example.com/image-360-url.jpg
+ *               order_index:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 1
+ *     responses:
+ *       201:
+ *         description: View360 image created successfully
+ *
+ * /admin/view360-images/{imageId}:
+ *   put:
+ *     summary: Admin update View360 image
+ *     tags: [Admin View360]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: imageId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             minProperties: 1
+ *             properties:
+ *               image_file:
+ *                 type: string
+ *                 example: https://example.com/image-360-updated.jpg
+ *               order_index:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 2
+ *     responses:
+ *       200:
+ *         description: View360 image updated successfully
+ *   delete:
+ *     summary: Admin soft delete View360 image
+ *     tags: [Admin View360]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: imageId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: View360 image deleted successfully
+ */
+router
+  .route('/locations/:locationId/view360')
+  .get(validate(view360.locationParam), view360Controller.listByLocation)
+  .post(validate(view360.create), view360Controller.createForLocation);
+
+router
+  .route('/view360/:viewId')
+  .put(validate(view360.update), view360Controller.update)
+  .delete(validate(view360.viewParam), view360Controller.remove);
+
+router
+  .route('/view360/:viewId/images')
+  .get(validate(view360Image.viewParam), view360ImageController.listByView)
+  .post(validate(view360Image.create), view360ImageController.createForView);
+
+router
+  .route('/view360-images/:imageId')
+  .put(validate(view360Image.update), view360ImageController.update)
+  .delete(validate(view360Image.imageParam), view360ImageController.remove);
+
+/**
+ * @swagger
+ * /admin/tours:
+ *   get:
+ *     summary: Admin view tour list
+ *     description: Admin can view all tours with pagination, tour-name search, destination/category/status filters, and sorting. Default sort is created_at DESC.
+ *     tags: [Admin Tours]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           example: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           example: 10
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *           example: dinh
+ *       - in: query
+ *         name: destination_id
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: tour_category_id
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [active, inactive, draft, deleted]
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [tour_id, name, price, capacity, status, created_at, updated_at]
+ *           example: created_at
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [ASC, DESC]
+ *           example: DESC
+ *     responses:
+ *       200:
+ *         description: Tour list with pagination
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Internal Server Error
+ *   post:
+ *     summary: Admin create tour
+ *     description: Creates a bookable tour under one tour category and one or more travel destinations. Tour names must be unique.
+ *     tags: [Admin Tours]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [tour_category_id, name, price, schedule, capacity, destinations]
+ *             properties:
+ *               tour_category_id:
+ *                 type: integer
+ *                 example: 1
+ *               name:
+ *                 type: string
+ *                 maxLength: 255
+ *                 example: Dinh Doc Lap Half-day Tour
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: Explore Dinh Doc Lap with 360 preview and tour guide
+ *               price:
+ *                 type: number
+ *                 minimum: 0
+ *                 example: 250000
+ *               schedule:
+ *                 type: string
+ *                 example: 08:00 - 12:00
+ *               capacity:
+ *                 type: integer
+ *                 minimum: 1
+ *                 example: 30
+ *               thumbnail:
+ *                 type: string
+ *                 format: uri
+ *                 nullable: true
+ *                 example: https://example.com/tour.jpg
+ *               status:
+ *                 type: string
+ *                 enum: [active, inactive, draft]
+ *                 default: active
+ *               destinations:
+ *                 type: array
+ *                 minItems: 1
+ *                 items:
+ *                   type: object
+ *                   required: [destination_id, order_index]
+ *                   properties:
+ *                     destination_id:
+ *                       type: integer
+ *                       example: 1
+ *                     order_index:
+ *                       type: integer
+ *                       minimum: 1
+ *                       example: 1
+ *                     estimated_time:
+ *                       type: string
+ *                       nullable: true
+ *                       example: 90 minutes
+ *                     note:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Start point
+ *     responses:
+ *       201:
+ *         description: Tour created successfully
+ *       400:
+ *         description: Bad Request
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: TravelDestination Not Found or TourCategory Not Found
+ *       409:
+ *         description: Duplicate Tour
+ *       500:
+ *         description: Internal Server Error
+ *
+ * /admin/tours/{id}:
+ *   get:
+ *     summary: Admin view tour detail
+ *     tags: [Admin Tours]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Tour detail
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Tour not found
+ *       500:
+ *         description: Internal Server Error
+ *   put:
+ *     summary: Admin update tour
+ *     description: Updates tour fields and, when provided, replaces the tour destinations list inside a transaction.
+ *     tags: [Admin Tours]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             minProperties: 1
+ *             properties:
+ *               tour_category_id:
+ *                 type: integer
+ *                 example: 1
+ *               name:
+ *                 type: string
+ *                 maxLength: 255
+ *                 example: Saigon Full Day Tour Updated
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *               price:
+ *                 type: number
+ *                 minimum: 0
+ *               schedule:
+ *                 type: string
+ *               capacity:
+ *                 type: integer
+ *                 minimum: 1
+ *               thumbnail:
+ *                 type: string
+ *                 format: uri
+ *                 nullable: true
+ *               status:
+ *                 type: string
+ *                 enum: [active, inactive, draft]
+ *               destinations:
+ *                 type: array
+ *                 minItems: 1
+ *                 items:
+ *                   type: object
+ *                   required: [destination_id, order_index]
+ *                   properties:
+ *                     destination_id:
+ *                       type: integer
+ *                     order_index:
+ *                       type: integer
+ *                       minimum: 1
+ *                     estimated_time:
+ *                       type: string
+ *                       nullable: true
+ *                     note:
+ *                       type: string
+ *                       nullable: true
+ *     responses:
+ *       200:
+ *         description: Tour updated successfully
+ *       400:
+ *         description: Bad Request
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Tour, TourCategory, or TravelDestination not found
+ *       409:
+ *         description: Duplicate Tour
+ *       500:
+ *         description: Internal Server Error
+ *   delete:
+ *     summary: Admin delete tour
+ *     description: Soft deletes a tour when it has no active bookings.
+ *     tags: [Admin Tours]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Tour deleted successfully
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Tour Not Found
+ *       409:
+ *         description: Tour Has Active Bookings
+ *       500:
+ *         description: Internal Server Error
+ */
 /**
  * @swagger
  * /admin/travel-destinations:
@@ -328,6 +1080,459 @@ router.get('/statistics/content', statisticsController.content);
  *     responses:
  *       201:
  *         description: Tour category created
+ *
+ * /admin/locations:
+ *   get:
+ *     summary: Admin list locations
+ *     description: Admin can view all locations with pagination, search, destination filter, and sorting. Default sort is created_at DESC.
+ *     tags: [Admin Locations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           example: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           example: 10
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *           example: dinh
+ *       - in: query
+ *         name: destination_id
+ *         schema:
+ *           type: integer
+ *           example: 1
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [location_id, name, created_at, updated_at]
+ *           example: created_at
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [ASC, DESC]
+ *           example: DESC
+ *     responses:
+ *       200:
+ *         description: Location list with total records
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       location_id:
+ *                         type: integer
+ *                         example: 1
+ *                       name:
+ *                         type: string
+ *                         example: Main Gate
+ *                       description:
+ *                         type: string
+ *                         example: Main entrance area
+ *                       travel_destination_id:
+ *                         type: integer
+ *                         example: 1
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ *                       updated_at:
+ *                         type: string
+ *                         format: date-time
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     page:
+ *                       type: integer
+ *                       example: 1
+ *                     limit:
+ *                       type: integer
+ *                       example: 10
+ *                     total:
+ *                       type: integer
+ *                       example: 20
+ *       403:
+ *         description: Forbidden
+ *   post:
+ *     summary: Admin create new location
+ *     description: Creates a new location inside a TravelDestination. Duplicate location names inside the same destination are not allowed.
+ *     tags: [Admin Locations]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [travel_destination_id, name]
+ *             properties:
+ *               travel_destination_id:
+ *                 type: integer
+ *                 example: 1
+ *               name:
+ *                 type: string
+ *                 maxLength: 255
+ *                 example: Main Gate
+ *               description:
+ *                 type: string
+ *                 example: Main entrance of Dinh Doc Lap
+ *               latitude:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 10.777
+ *               longitude:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 106.695
+ *               thumbnail:
+ *                 type: string
+ *                 format: uri
+ *                 nullable: true
+ *                 example: https://example.com/main-gate.jpg
+ *     responses:
+ *       201:
+ *         description: Location created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Location created successfully
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     location_id:
+ *                       type: integer
+ *                       example: 1
+ *       400:
+ *         description: Bad request
+ *       404:
+ *         description: Destination not found
+ *       409:
+ *         description: Duplicate location
+ *
+ * /admin/locations/{id}:
+ *   put:
+ *     summary: Admin update location
+ *     description: Updates location information. Deleted locations cannot be updated and updated_at is changed automatically.
+ *     tags: [Admin Locations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             minProperties: 1
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 maxLength: 255
+ *                 example: Main Gate Updated
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: Updated description
+ *               latitude:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 10.777
+ *               longitude:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 106.695
+ *               thumbnail:
+ *                 type: string
+ *                 format: uri
+ *                 nullable: true
+ *                 example: https://example.com/new-image.jpg
+ *     responses:
+ *       200:
+ *         description: Location updated successfully
+ *       400:
+ *         description: Bad request
+ *       404:
+ *         description: Location not found
+ *   delete:
+ *     summary: Admin delete location
+ *     description: Soft deletes a location only when it has no related View360, View360Image, Map, Review, or Blog_Location data.
+ *     tags: [Admin Locations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Location deleted successfully
+ *       404:
+ *         description: Location not found
+ *       409:
+ *         description: Location has related data
+ *
+ * /admin/maps:
+ *   get:
+ *     summary: Admin list maps
+ *     description: Admin can view all maps with pagination, location filter, and title search.
+ *     tags: [Admin Maps]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           example: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           example: 10
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *           example: Ground Floor
+ *       - in: query
+ *         name: location_id
+ *         schema:
+ *           type: integer
+ *           example: 5
+ *     responses:
+ *       200:
+ *         description: Map list with pagination
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       map_id:
+ *                         type: integer
+ *                         example: 1
+ *                       title:
+ *                         type: string
+ *                         example: Ground Floor Map
+ *                       location_id:
+ *                         type: integer
+ *                         example: 5
+ *                       location_name:
+ *                         type: string
+ *                         example: Main Building
+ *                       map_file:
+ *                         type: string
+ *                         example: map.jpg
+ *                       description:
+ *                         type: string
+ *                         nullable: true
+ *                         example: Map of the ground floor
+ *                       display_order:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: 1
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     page:
+ *                       type: integer
+ *                       example: 1
+ *                     limit:
+ *                       type: integer
+ *                       example: 10
+ *                     total:
+ *                       type: integer
+ *                       example: 1
+ *                     totalPages:
+ *                       type: integer
+ *                       example: 1
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Internal Server Error
+ *   post:
+ *     summary: Admin create map
+ *     description: Admin uploads and creates a map for an active location. Supports jpg, jpeg, png, webp, and svg files.
+ *     tags: [Admin Maps]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [location_id, title, map_file]
+ *             properties:
+ *               location_id:
+ *                 type: integer
+ *                 example: 5
+ *               title:
+ *                 type: string
+ *                 example: Ground Floor Map
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: Ground floor layout
+ *               map_file:
+ *                 type: string
+ *                 format: binary
+ *               display_order:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 1
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [location_id, title, map_file]
+ *             properties:
+ *               location_id:
+ *                 type: integer
+ *                 example: 5
+ *               title:
+ *                 type: string
+ *                 example: Ground Floor Map
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: Ground floor layout
+ *               map_file:
+ *                 type: string
+ *                 example: /public/maps/ground-floor.png
+ *               display_order:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 1
+ *     responses:
+ *       201:
+ *         description: Map created successfully
+ *       400:
+ *         description: Validation error or unsupported file format
+ *       404:
+ *         description: Location not found
+ *
+ * /admin/maps/{id}:
+ *   put:
+ *     summary: Admin update map
+ *     description: Admin updates map information. Location relationship cannot be changed.
+ *     tags: [Admin Maps]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             minProperties: 1
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 example: Ground Floor Updated
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: Updated layout
+ *               map_file:
+ *                 type: string
+ *                 format: binary
+ *               display_order:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 2
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             minProperties: 1
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 example: Ground Floor Updated
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: Updated layout
+ *               map_file:
+ *                 type: string
+ *                 example: /public/maps/ground-floor-updated.png
+ *               display_order:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 2
+ *     responses:
+ *       200:
+ *         description: Map updated successfully
+ *       400:
+ *         description: Validation error or unsupported file format
+ *       404:
+ *         description: Map not found
+ *   delete:
+ *     summary: Admin delete map
+ *     description: Soft deletes a map. The database record is kept for audit history and the uploaded file is not physically removed.
+ *     tags: [Admin Maps]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Map deleted successfully
+ *       404:
+ *         description: Map not found
  */
 router.use('/users', require('./user.route'));
 router.use('/travel-destinations', require('./travelDestination.route'));
