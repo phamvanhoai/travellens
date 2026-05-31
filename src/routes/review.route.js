@@ -7,4 +7,3 @@ const router = createCrudRoute(controller, entity.review);
 router.use('/:reviewId/photos', require('./reviewPhoto.route'));
 
 module.exports = router;
-
