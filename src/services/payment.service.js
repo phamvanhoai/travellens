@@ -26,6 +26,40 @@ class PaymentService extends BaseService {
     await bookingModel.update(payment.booking_id, { payment_status: 'refunded' });
     return payment;
   }
+
+  async updateStatus(id, status) {
+
+    const payment = await this.model.update(
+      id,
+      {
+        status,
+        payment_date: new Date(),
+      }
+    );
+
+    if (status === 'paid') {
+
+      await bookingModel.update(
+        payment.booking_id,
+        {
+          payment_status: 'paid',
+          status: 'confirmed',
+        }
+      );
+    }
+
+    if (status === 'refunded') {
+
+      await bookingModel.update(
+        payment.booking_id,
+        {
+          payment_status: 'refunded',
+        }
+      );
+    }
+
+    return payment;
+  }
 }
 
 module.exports = new PaymentService(paymentModel);
