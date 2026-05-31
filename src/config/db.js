@@ -9,8 +9,6 @@ const config = process.env.DATABASE_URL
       user: process.env.DB_USER || 'postgres',
       password: process.env.DB_PASSWORD || 'postgres',
     };
-    
-  console.log("DB CONFIG:", config);
 
 const pool = new Pool(config);
 
