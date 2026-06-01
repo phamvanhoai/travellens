@@ -82,6 +82,9 @@ class CouponService {
     const now = new Date();
     const startDate = coupon.start_date ? new Date(coupon.start_date) : null;
     const endDate = coupon.end_date ? new Date(coupon.end_date) : null;
+    if (endDate) {
+      endDate.setHours(23, 59, 59, 999);
+    }
 
     if (coupon.status !== 'active') {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Coupon is not active');

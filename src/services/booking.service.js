@@ -86,9 +86,9 @@ class BookingService extends BaseService {
       const passengers = payload.passengers || payload.details || [];
       const originalAmount = passengers.reduce((sum, passenger) => sum + Number(passenger.price || 0), 0);
       let couponSnapshot = {
-        coupon_id: payload.coupon_id || null,
-        discount_amount: Number(payload.discount_amount || 0),
-        final_amount: payload.final_amount !== undefined ? Number(payload.final_amount) : originalAmount,
+        coupon_id: null,
+        discount_amount: 0,
+        final_amount: originalAmount,
       };
 
       if (payload.coupon_code) {
@@ -96,6 +96,8 @@ class BookingService extends BaseService {
           code: payload.coupon_code,
           booking_amount: originalAmount,
         });
+      } else if (payload.coupon_id) {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'Use coupon_code to apply coupon');
       }
 
       const bookingResult = await client.query(
