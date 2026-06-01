@@ -15,9 +15,7 @@ router
 
 router
   .route('/:id')
-  .get(validate({ params: common.idParam }), controller.customerGet)
-  .put(validate({ params: common.idParam }), controller.customerUpdate)
-  .delete(validate({ params: common.idParam }), controller.customerRemove);
+  .get(validate({ params: common.idParam }), controller.customerGet);
 
 router.patch('/:id/cancel', validate({ params: common.idParam }), controller.customerCancel);
 

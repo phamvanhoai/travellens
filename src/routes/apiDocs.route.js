@@ -527,37 +527,6 @@ const router = express.Router();
  *         schema: { type: integer }
  *     responses:
  *       200: { description: Booking detail }
- *   put:
- *     summary: Update booking
- *     description: Customer can update only their own booking.
- *     tags: [Bookings]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema: { $ref: '#/components/schemas/GenericInput' }
- *     responses:
- *       200: { description: Booking updated }
- *   delete:
- *     summary: Delete booking
- *     description: Customer can delete only their own booking.
- *     tags: [Bookings]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     responses:
- *       200: { description: Booking deleted }
  *
  * /bookings/{id}/cancel:
  *   patch:
