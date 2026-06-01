@@ -21,6 +21,24 @@ const extractPaymentCode = (payload = {}) => {
   return null;
 };
 
+const buildQrUrl = ({ amount, transfer_content: transferContent } = {}) => {
+  const account = process.env.SEPAY_BANK_ACCOUNT;
+  const bank = process.env.SEPAY_BANK_NAME;
+
+  if (!account || !bank || amount === undefined || !transferContent) {
+    return null;
+  }
+
+  const params = new URLSearchParams({
+    acc: account,
+    bank,
+    amount: String(amount),
+    des: transferContent,
+  });
+
+  return `https://qr.sepay.vn/img?${params.toString()}`;
+};
+
 module.exports = {
   verifyApiKey(headers = {}) {
     const expected = process.env.SEPAY_WEBHOOK_API_KEY;
@@ -37,4 +55,5 @@ module.exports = {
   },
 
   extractPaymentCode,
+  buildQrUrl,
 };

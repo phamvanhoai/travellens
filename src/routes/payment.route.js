@@ -34,6 +34,14 @@ router.use(authenticate, authorize('customer'));
  *     responses:
  *       201:
  *         description: Payment created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 message: { type: string, example: Payment created successfully }
+ *                 data: { $ref: '#/components/schemas/CustomerPayment' }
  *       400:
  *         description: Booking is not payable
  *       403:
@@ -56,6 +64,14 @@ router.use(authenticate, authorize('customer'));
  *     responses:
  *       200:
  *         description: Payment detail
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 message: { type: string, example: Success }
+ *                 data: { $ref: '#/components/schemas/CustomerPayment' }
  *       404:
  *         description: Payment not found
  *

@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const db = require('../config/db');
 const paymentModel = require('../models/payment.model');
+const sepayService = require('./sepay.service');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 
@@ -8,6 +9,18 @@ const PAYMENT_CODE_PREFIX = process.env.PAYMENT_CODE_PREFIX || 'TVL';
 const EXPIRE_MINUTES = Number(process.env.PAYMENT_EXPIRE_MINUTES || 15);
 
 class PaymentService {
+  withQrData(payment) {
+    if (!payment) {
+      return payment;
+    }
+
+    return {
+      ...payment,
+      bank_name: process.env.SEPAY_BANK_NAME || null,
+      qr_url: sepayService.buildQrUrl(payment),
+    };
+  }
+
   list(query) {
     return paymentModel.findAll(query);
   }
@@ -58,7 +71,7 @@ class PaymentService {
 
       if (activePaymentResult.rows[0]) {
         await client.query('COMMIT');
-        return activePaymentResult.rows[0];
+        return this.withQrData(activePaymentResult.rows[0]);
       }
 
       await client.query(
@@ -94,7 +107,7 @@ class PaymentService {
       );
 
       await client.query('COMMIT');
-      return payment;
+      return this.withQrData(payment);
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -108,7 +121,7 @@ class PaymentService {
     if (!payment) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Payment not found');
     }
-    return payment;
+    return this.withQrData(payment);
   }
 
   async getOwnedStatus(id, userId) {

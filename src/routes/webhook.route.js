@@ -15,13 +15,8 @@ const router = express.Router();
  *   post:
  *     summary: Receive SePay payment webhook
  *     tags: [Webhooks]
- *     parameters:
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Apikey your_sepay_webhook_api_key
+ *     security:
+ *       - sepayApiKey: []
  *     requestBody:
  *       required: true
  *       content:

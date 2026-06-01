@@ -58,6 +58,12 @@ const options = {
           scheme: 'bearer',
           bearerFormat: 'JWT',
         },
+        sepayApiKey: {
+          type: 'apiKey',
+          in: 'header',
+          name: 'Authorization',
+          description: 'Enter the full SePay API key header value, for example: Apikey 1234567890',
+        },
       },
       schemas: {
         CategoryInput: {
@@ -127,6 +133,27 @@ const options = {
         GenericInput: {
           type: 'object',
           additionalProperties: true,
+        },
+        CustomerPayment: {
+          type: 'object',
+          properties: {
+            payment_id: { type: 'integer', example: 1 },
+            booking_id: { type: 'integer', example: 123 },
+            payment_code: { type: 'string', example: 'TVL000123ABCD' },
+            amount: { type: 'number', example: 700000 },
+            currency: { type: 'string', example: 'VND' },
+            status: { type: 'string', enum: ['pending', 'paid', 'failed', 'expired', 'refunded'] },
+            bank_account: { type: 'string', nullable: true, example: '123456789' },
+            bank_name: { type: 'string', nullable: true, example: 'MBBank' },
+            transfer_content: { type: 'string', example: 'TVL000123ABCD' },
+            qr_url: {
+              type: 'string',
+              format: 'uri',
+              nullable: true,
+              example: 'https://qr.sepay.vn/img?acc=123456789&bank=MBBank&amount=700000&des=TVL000123ABCD',
+            },
+            expired_at: { type: 'string', format: 'date-time' },
+          },
         },
       },
     },
