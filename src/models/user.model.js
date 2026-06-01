@@ -160,7 +160,7 @@ class UserModel extends BaseModel {
   async verifyGuestUser(userId) {
     const result = await db.query(
       `UPDATE users
-       SET role = 'user', status = 'active'
+       SET role = 'customer', status = 'active'
        WHERE user_id = $1 AND role = 'guest'
        RETURNING *`,
       [userId]

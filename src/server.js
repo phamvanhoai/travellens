@@ -11,6 +11,7 @@ const limiter = require('./middlewares/rateLimiter.middleware');
 const { notFound, errorHandler } = require('./middlewares/error.middleware');
 const swaggerSpec = require('./docs/swagger');
 const startBookingExpiryJob = require('./jobs/bookingExpiry.job');
+const startPaymentExpiryJob = require('./jobs/paymentExpiry.job');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -32,6 +33,7 @@ app.use(errorHandler);
 if (require.main === module) {
   app.listen(port, () => {
     logger.info(`Travel360 API listening on port ${port}`);
+    logger.info(`Travel360 API docs available at http://localhost:${port}/api-docs`);
   });
 
   db.query('SELECT NOW() AS connected_at')
@@ -45,6 +47,7 @@ if (require.main === module) {
     });
 
   startBookingExpiryJob();
+  startPaymentExpiryJob();
 }
 
 module.exports = app;
