@@ -84,7 +84,7 @@ const router = express.Router();
  *                           example: user@example.com
  *                         role:
  *                           type: string
- *                           example: user
+ *                           example: customer
  *                         status:
  *                           type: string
  *                           example: active
@@ -191,7 +191,7 @@ router.post('/verify-email', validate(auth.verifyEmail), authController.verifyEm
  *                           example: user@example.com
  *                         role:
  *                           type: string
- *                           example: user
+ *                           example: customer
  *                         status:
  *                           type: string
  *                           example: active
@@ -432,7 +432,7 @@ router.put(
  *                       example: user@example.com
  *                     role:
  *                       type: string
- *                       example: user
+ *                       example: customer
  *                     status:
  *                       type: string
  *                       example: active

@@ -6,6 +6,8 @@ module.exports = {
   tour: require('./tour.validator'),
   location: require('./location.validator'),
   coupon: require('./coupon.validator'),
+  payment: require('./payment.validator'),
+  sepayWebhook: require('./sepayWebhook.validator'),
   map: require('./map.validator'),
   nearby: require('./nearby.validator'),
   mapFilter: require('./mapFilter.validator'),
