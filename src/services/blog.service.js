@@ -31,8 +31,6 @@ class BlogService extends BaseService {
 
   async update(id, payload, user) {
 
-    console.log('USER:', user);
-
     const blog = await this.model.findById(id);
 
     if (!blog) {
@@ -41,20 +39,6 @@ class BlogService extends BaseService {
         'Blog not found'
       );
     }
-
-    console.log('BLOG:', blog);
-
-    console.log(
-      'BLOG USER ID:',
-      blog.user_id,
-      typeof blog.user_id
-    );
-
-    console.log(
-      'TOKEN USER ID:',
-      user.sub,
-      typeof user.sub
-    );
 
     if (
       user.role !== 'admin' &&

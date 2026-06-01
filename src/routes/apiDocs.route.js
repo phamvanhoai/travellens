@@ -180,39 +180,6 @@ const router = express.Router();
  *         schema: { type: integer }
  *     responses:
  *       200: { description: Blog deleted }
- *
- * /admin/statistics/dashboard/summary:
- *   get:
- *     summary: Admin dashboard statistics summary
- *     tags: [Admin Statistics]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200: { description: Dashboard statistics }
- * /admin/statistics/users/summary:
- *   get:
- *     summary: Admin user statistics summary
- *     tags: [Admin Statistics]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200: { description: User statistics }
- * /admin/statistics/locations/summary:
- *   get:
- *     summary: Admin location statistics summary
- *     tags: [Admin Statistics]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200: { description: Location statistics }
- * /admin/statistics/content/summary:
- *   get:
- *     summary: Admin content statistics summary
- *     tags: [Admin Statistics]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200: { description: Content statistics }
  */
 
 /**
@@ -792,86 +759,6 @@ const router = express.Router();
 
 /**
  * @swagger
- * /statistics/dashboard/summary:
- *   get:
- *     summary: Get dashboard statistics summary
- *     tags: [Statistics]
- *     responses:
- *       200: { description: Dashboard statistics }
- * /statistics/users/summary:
- *   get:
- *     summary: Get user statistics summary
- *     tags: [Statistics]
- *     responses:
- *       200: { description: User statistics }
- * /statistics/locations/summary:
- *   get:
- *     summary: Get location statistics summary
- *     tags: [Statistics]
- *     responses:
- *       200: { description: Location statistics }
- * /statistics/content/summary:
- *   get:
- *     summary: Get content statistics summary
- *     tags: [Statistics]
- *     responses:
- *       200: { description: Content statistics }
- * /statistics:
- *   get:
- *     summary: List statistics records
- *     tags: [Statistics]
- *     responses:
- *       200: { description: Statistics list }
- *   post:
- *     summary: Create statistics record
- *     tags: [Statistics]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema: { $ref: '#/components/schemas/GenericInput' }
- *     responses:
- *       201: { description: Statistics record created }
- * /statistics/{id}:
- *   get:
- *     summary: Get statistics record
- *     tags: [Statistics]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     responses:
- *       200: { description: Statistics record }
- *   put:
- *     summary: Update statistics record
- *     tags: [Statistics]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema: { $ref: '#/components/schemas/GenericInput' }
- *     responses:
- *       200: { description: Statistics record updated }
- *   delete:
- *     summary: Delete statistics record
- *     tags: [Statistics]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     responses:
- *       200: { description: Statistics record deleted }
- */
-
-/**
- * @swagger
  * /chat:
  *   post:
  *     summary: Ask AI travel assistant
@@ -898,72 +785,6 @@ const router = express.Router();
  *           schema: { $ref: '#/components/schemas/GenericInput' }
  *     responses:
  *       200: { description: Travel suggestions }
- */
-
-/**
- * @swagger
- * /users:
- *   get:
- *     summary: Admin list users through legacy alias
- *     tags: [Admin Users]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200: { description: User list }
- *   post:
- *     summary: Admin create user through legacy alias
- *     tags: [Admin Users]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema: { $ref: '#/components/schemas/GenericInput' }
- *     responses:
- *       201: { description: User created }
- * /users/{id}:
- *   get:
- *     summary: Admin get user detail through legacy alias
- *     tags: [Admin Users]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     responses:
- *       200: { description: User detail }
- *   put:
- *     summary: Admin update user through legacy alias
- *     tags: [Admin Users]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema: { $ref: '#/components/schemas/GenericInput' }
- *     responses:
- *       200: { description: User updated }
- *   delete:
- *     summary: Admin delete user through legacy alias
- *     tags: [Admin Users]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     responses:
- *       200: { description: User deleted }
  */
 
 /**
@@ -1357,69 +1178,6 @@ const router = express.Router();
  *       - bearerAuth: []
  *     responses:
  *       200: { description: Nearby suggestions }
- *
- * /admin/statistics:
- *   get:
- *     summary: Admin list statistics records
- *     tags: [Admin Statistics]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200: { description: Statistics list }
- *   post:
- *     summary: Admin create statistics record
- *     tags: [Admin Statistics]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema: { $ref: '#/components/schemas/GenericInput' }
- *     responses:
- *       201: { description: Statistics record created }
- * /admin/statistics/{id}:
- *   get:
- *     summary: Admin get statistics record
- *     tags: [Admin Statistics]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     responses:
- *       200: { description: Statistics record }
- *   put:
- *     summary: Admin update statistics record
- *     tags: [Admin Statistics]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema: { $ref: '#/components/schemas/GenericInput' }
- *     responses:
- *       200: { description: Statistics record updated }
- *   delete:
- *     summary: Admin delete statistics record
- *     tags: [Admin Statistics]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     responses:
- *       200: { description: Statistics record deleted }
  */
 
 module.exports = router;

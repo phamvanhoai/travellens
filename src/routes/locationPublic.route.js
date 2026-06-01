@@ -1,7 +1,7 @@
 const express = require('express');
 const controller = require('../controllers/location.controller');
 const reviewController = require('../controllers/review.controller');
-const { authenticate } = require('../middlewares/auth.middleware');
+const { authenticate, authorize } = require('../middlewares/auth.middleware');
 const validate = require('../middlewares/validate.middleware');
 const { common, location, review } = require('../validators');
 
@@ -116,6 +116,7 @@ router.get('/', validate(location.list), controller.list);
 router.post(
   '/:locationId/reviews',
   authenticate,
+  authorize('customer'),
   validate(review.submitLocationReview),
   reviewController.submitLocationReview
 );

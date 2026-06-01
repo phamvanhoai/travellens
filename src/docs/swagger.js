@@ -33,11 +33,8 @@ const options = {
       { name: 'Travel Destinations', description: 'Travel destination endpoints' },
       { name: 'Maps', description: 'Map endpoints' },
       { name: 'Bookings', description: 'Customer booking endpoints. Requires Bearer token with role customer.' },
-      { name: 'Booking Details', description: 'Booking passenger detail endpoints' },
       { name: 'Blogs', description: 'Travel blog endpoints' },
-      { name: 'Blog Locations', description: 'Blog and location relationship endpoints' },
       { name: 'Reviews', description: 'Location review endpoints' },
-      { name: 'Statistics', description: 'Statistics endpoints' },
       { name: 'AI Chat', description: 'AI travel chat endpoints' },
       { name: 'AI Suggestions', description: 'AI travel suggestion endpoints' },
       { name: 'View360', description: 'Virtual tour scene endpoints' },
@@ -161,4 +158,47 @@ const options = {
   apis: ['src/routes/*.js'],
 };
 
-module.exports = swaggerJsdoc(options);
+const swaggerSpec = swaggerJsdoc(options);
+
+const removeOperations = (path, operations) => {
+  if (!swaggerSpec.paths[path]) return;
+
+  for (const operation of operations) {
+    delete swaggerSpec.paths[path][operation];
+  }
+
+  if (!Object.keys(swaggerSpec.paths[path]).length) {
+    delete swaggerSpec.paths[path];
+  }
+};
+
+const publicReadOnlyResources = [
+  '/destination-categories',
+  '/destination-categories/{id}',
+  '/tour-categories',
+  '/tour-categories/{id}',
+  '/tours',
+  '/tours/{id}',
+  '/travel-destinations',
+  '/travel-destinations/{id}',
+  '/view360',
+  '/view360/{id}',
+  '/view360-images',
+  '/view360-images/{id}',
+  '/maps',
+  '/maps/{id}',
+  '/reviews',
+  '/reviews/{id}',
+];
+
+for (const path of publicReadOnlyResources) {
+  removeOperations(path, ['post', 'put', 'patch', 'delete']);
+}
+
+delete swaggerSpec.paths['/booking-details'];
+delete swaggerSpec.paths['/booking-details/{id}'];
+delete swaggerSpec.paths['/blog-locations'];
+delete swaggerSpec.paths['/blog-locations/{id}'];
+delete swaggerSpec.paths['/staff/reviews/{reviewId}/photos'];
+
+module.exports = swaggerSpec;

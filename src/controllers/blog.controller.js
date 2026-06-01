@@ -23,8 +23,6 @@ baseController.list = async (req, res, next) => {
 
 baseController.create = async (req, res, next) => {
   try {
-    console.log('CREATE USER:', req.user);
-
     const result = await blogService.create(
       req.body,
       req.user.sub
@@ -43,8 +41,6 @@ baseController.create = async (req, res, next) => {
 
 baseController.update = async (req, res, next) => {
   try {
-    console.log('UPDATE USER:', req.user);
-
     const result = await blogService.update(
       req.params.id,
       req.body,
