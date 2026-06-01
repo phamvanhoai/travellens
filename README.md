@@ -231,7 +231,7 @@ Customer booking rules:
 - `GET /api/reviews`
 - `GET /api/reviews/:id`
 
-Some legacy CRUD aliases still exist in code, such as `/api/tours`, `/api/travel-destinations`, `/api/maps`, `/api/statistics`, and `/api/users`. Prefer the role-specific prefixes below for new frontend work.
+Public discovery routes are read-only. Create, update, and delete operations belong under the role-specific prefixes below.
 
 ### Admin
 
@@ -245,7 +245,6 @@ Admin APIs require role `admin` and use prefix `/api/admin`.
 - `/api/admin/locations`
 - `/api/admin/maps`
 - `/api/admin/blogs`
-- `/api/admin/statistics`
 - `/api/admin/locations/:locationId/view360`
 - `/api/admin/view360/:viewId`
 - `/api/admin/view360/:viewId/images`
@@ -257,10 +256,6 @@ Admin statistics:
 - `GET /api/admin/statistics/users`
 - `GET /api/admin/statistics/locations`
 - `GET /api/admin/statistics/content`
-- `GET /api/admin/statistics/dashboard/summary`
-- `GET /api/admin/statistics/users/summary`
-- `GET /api/admin/statistics/locations/summary`
-- `GET /api/admin/statistics/content/summary`
 
 ### Staff
 

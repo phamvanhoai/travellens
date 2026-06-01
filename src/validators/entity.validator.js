@@ -112,7 +112,7 @@ module.exports = {
     status: Joi.string().valid('active', 'inactive', 'expired').default('active'),
   }),
   blog: Joi.object({
-    user_id: id.required(),
+    user_id: id,
     title: Joi.string().max(255).required(),
     content: optionalText,
     location_ids: Joi.array().items(id).default([]),

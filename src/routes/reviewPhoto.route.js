@@ -1,7 +1,7 @@
 const express = require('express');
 const controller = require('../controllers/reviewPhoto.controller');
 const validate = require('../middlewares/validate.middleware');
-const { authenticate } = require('../middlewares/auth.middleware');
+const { authenticate, authorize } = require('../middlewares/auth.middleware');
 const { handleReviewPhotoUpload } = require('../middlewares/upload.middleware');
 const { reviewPhoto } = require('../validators');
 
@@ -54,6 +54,7 @@ const router = express.Router({ mergeParams: true });
 router.post(
   '/',
   authenticate,
+  authorize('customer'),
   validate(reviewPhoto.uploadForReview),
   handleReviewPhotoUpload,
   controller.uploadForReview

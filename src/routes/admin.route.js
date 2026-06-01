@@ -1542,6 +1542,5 @@ router.use('/blogs', require('./blog.route'));
 router.use('/maps', require('./map.route'));
 router.use('/destination-categories', require('./destinationCategory.route'));
 router.use('/tour-categories', require('./tourCategory.route'));
-router.use('/statistics', require('./statistics.route'));
 
 module.exports = router;
