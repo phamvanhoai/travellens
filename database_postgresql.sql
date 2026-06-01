@@ -248,8 +248,8 @@ CREATE TABLE booking (
     original_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (original_amount >= 0),
     discount_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (discount_amount >= 0),
     final_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (final_amount >= 0),
-    status VARCHAR(50) NOT NULL CHECK (status IN ('confirmed', 'canceled', 'pending')),
-    payment_status VARCHAR(50) NOT NULL CHECK (payment_status IN ('paid', 'refunded', 'pending')),
+    status VARCHAR(50) NOT NULL CHECK (status IN ('pending', 'confirmed', 'canceled', 'expired')),
+    payment_status VARCHAR(50) NOT NULL CHECK (payment_status IN ('unpaid', 'paid', 'failed', 'refunded', 'pending')),
     date_created DATE NOT NULL DEFAULT CURRENT_DATE,
     CONSTRAINT fk_booking_user
         FOREIGN KEY (user_id)
@@ -287,17 +287,44 @@ CREATE TABLE booking_detail (
 CREATE TABLE payment (
     payment_id SERIAL PRIMARY KEY,
     booking_id INT NOT NULL,
+    payment_code VARCHAR(50) NOT NULL UNIQUE,
     amount NUMERIC(12,2) NOT NULL CHECK (amount >= 0),
-    payment_method VARCHAR(100),
+    payment_method VARCHAR(100) DEFAULT 'bank_transfer',
+    payment_provider VARCHAR(50) DEFAULT 'sepay',
     payment_date TIMESTAMP,
-    status VARCHAR(50) NOT NULL CHECK (status IN ('paid', 'pending', 'refunded')),
+    status VARCHAR(50) NOT NULL CHECK (status IN ('pending', 'paid', 'failed', 'expired', 'refunded')),
     transaction_code VARCHAR(255),
-    currency VARCHAR(20),
+    sepay_transaction_id VARCHAR(100) UNIQUE,
+    bank_account VARCHAR(100),
+    transfer_content TEXT,
+    paid_at TIMESTAMP,
+    expired_at TIMESTAMP,
+    currency VARCHAR(20) DEFAULT 'VND',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
     CONSTRAINT fk_payment_booking
         FOREIGN KEY (booking_id)
         REFERENCES booking(booking_id)
         ON UPDATE CASCADE
         ON DELETE CASCADE
+);
+
+CREATE TABLE sepay_webhook_log (
+    sepay_webhook_log_id SERIAL PRIMARY KEY,
+    sepay_transaction_id VARCHAR(100) NOT NULL UNIQUE,
+    payment_id INT,
+    payment_code VARCHAR(50),
+    transfer_amount NUMERIC(12,2),
+    transfer_type VARCHAR(50),
+    raw_payload JSONB NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'received',
+    message TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_sepay_webhook_log_payment
+        FOREIGN KEY (payment_id)
+        REFERENCES payment(payment_id)
+        ON DELETE SET NULL
 );
 
 -- =========================================================

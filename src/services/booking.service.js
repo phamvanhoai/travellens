@@ -111,8 +111,8 @@ class BookingService extends BaseService {
           originalAmount,
           couponSnapshot.discount_amount,
           couponSnapshot.final_amount,
-          payload.status || 'pending',
-          payload.payment_status || 'pending',
+          'pending',
+          'unpaid',
         ]
       );
       const booking = bookingResult.rows[0];
@@ -133,10 +133,6 @@ class BookingService extends BaseService {
           ]
         );
         details.push(detailResult.rows[0]);
-      }
-
-      if (couponSnapshot.coupon_id) {
-        await couponService.markUsed(couponSnapshot.coupon_id, client);
       }
 
       await client.query('COMMIT');

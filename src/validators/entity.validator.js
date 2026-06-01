@@ -66,7 +66,7 @@ module.exports = {
     discount_amount: money,
     final_amount: money,
     status: Joi.string().valid('confirmed', 'canceled', 'pending').default('pending'),
-    payment_status: Joi.string().valid('paid', 'refunded', 'pending').default('pending'),
+    payment_status: Joi.string().valid('unpaid', 'paid', 'failed', 'refunded', 'pending').default('unpaid'),
     passengers: Joi.array().items(Joi.object({
       passenger_name: Joi.string().max(150).required(),
       age_category: Joi.string().valid('adult', 'child', 'infant').required(),
@@ -88,7 +88,7 @@ module.exports = {
     amount: money.required(),
     payment_method: optionalText,
     payment_date: Joi.date(),
-    status: Joi.string().valid('paid', 'pending', 'refunded').required(),
+    status: Joi.string().valid('pending', 'paid', 'failed', 'expired', 'refunded').required(),
     transaction_code: optionalText,
     currency: Joi.string().max(20).default('VND'),
   }),

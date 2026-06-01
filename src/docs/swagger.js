@@ -25,6 +25,8 @@ const options = {
       { name: 'Staff Bookings', description: 'Staff booking management endpoints' },
       { name: 'Staff Reviews', description: 'Staff review moderation endpoints' },
       { name: 'Staff Payments', description: 'Staff payment management endpoints' },
+      { name: 'Payments', description: 'Customer payment endpoints' },
+      { name: 'Webhooks', description: 'External provider webhook endpoints' },
       { name: 'DestinationCategories', description: 'Public destination category endpoints' },
       { name: 'TourCategories', description: 'Public tour category endpoints' },
       { name: 'Coupons', description: 'Coupon endpoints' },

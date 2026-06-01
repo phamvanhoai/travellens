@@ -1,12 +1,82 @@
-const createCrudRoute = require('./crud.route');
+const express = require('express');
 const controller = require('../controllers/payment.controller');
 const validate = require('../middlewares/validate.middleware');
-const { common, entity } = require('../validators');
+const { authenticate, authorize } = require('../middlewares/auth.middleware');
+const { payment } = require('../validators');
 
-const router = createCrudRoute(controller, entity.payment);
+const router = express.Router();
 
-router.patch('/:id/refund', validate({ params: common.idParam }), controller.refund);
+router.use(authenticate, authorize('user'));
 
-router.patch('/:id/status', validate({ params: common.idParam, body: entity.paymentStatus,}), controller.updateStatus);
+/**
+ * @swagger
+ * tags:
+ *   - name: Payments
+ *     description: Customer SePay bank-transfer payment endpoints
+ *
+ * /payments:
+ *   post:
+ *     summary: Create SePay payment for a booking
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [booking_id]
+ *             properties:
+ *               booking_id:
+ *                 type: integer
+ *                 example: 123
+ *     responses:
+ *       201:
+ *         description: Payment created successfully
+ *       400:
+ *         description: Booking is not payable
+ *       403:
+ *         description: Permission denied
+ *       404:
+ *         description: Booking not found
+ *
+ * /payments/{id}:
+ *   get:
+ *     summary: Get own payment detail
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Payment detail
+ *       404:
+ *         description: Payment not found
+ *
+ * /payments/{id}/status:
+ *   get:
+ *     summary: Get own payment status
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Latest payment status
+ */
+router.post('/', validate(payment.create), controller.create);
+router.get('/:id', validate(payment.idParam), controller.getOwned);
+router.get('/:id/status', validate(payment.idParam), controller.getOwnedStatus);
+
 module.exports = router;
-

@@ -11,6 +11,7 @@ const limiter = require('./middlewares/rateLimiter.middleware');
 const { notFound, errorHandler } = require('./middlewares/error.middleware');
 const swaggerSpec = require('./docs/swagger');
 const startBookingExpiryJob = require('./jobs/bookingExpiry.job');
+const startPaymentExpiryJob = require('./jobs/paymentExpiry.job');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -45,6 +46,7 @@ if (require.main === module) {
     });
 
   startBookingExpiryJob();
+  startPaymentExpiryJob();
 }
 
 module.exports = app;
