@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const BaseService = require('./base.service');
 const bookingModel = require('../models/booking.model');
+const tourModel = require('../models/tour.model');
 const couponService = require('./coupon.service');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
@@ -83,6 +84,8 @@ class BookingService extends BaseService {
     try {
       await client.query('BEGIN');
 
+      await this.ensureBookableTourExists(payload.tour_id, client);
+
       const passengers = payload.passengers || payload.details || [];
       const originalAmount = passengers.reduce((sum, passenger) => sum + Number(passenger.price || 0), 0);
       let couponSnapshot = {
@@ -139,6 +142,9 @@ class BookingService extends BaseService {
       return { ...booking, details };
     } catch (error) {
       await client.query('ROLLBACK');
+      if (error.code === '23503' && error.constraint === 'fk_booking_tour') {
+        throw new ApiError(httpStatus.NOT_FOUND, 'Tour not found');
+      }
       throw error;
     } finally {
       client.release();
@@ -147,6 +153,16 @@ class BookingService extends BaseService {
 
   listForUser(userId, query = {}) {
     return this.list({ ...query, user_id: userId });
+  }
+
+  async ensureBookableTourExists(tourId, client = db) {
+    const tour = await tourModel.findRawById(tourId, client);
+    if (!tour) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Tour not found');
+    }
+    if (tour.status !== 'active') {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Tour is not available for booking');
+    }
   }
 
   async getForUser(id, userId) {

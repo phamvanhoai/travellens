@@ -508,6 +508,10 @@ const router = express.Router();
  *           schema: { $ref: '#/components/schemas/BookingInput' }
  *     responses:
  *       201: { description: Booking created }
+ *       400: { description: Tour is not available for booking or request data is invalid }
+ *       401: { description: Authentication required }
+ *       403: { description: Customer role required }
+ *       404: { description: Tour not found }
  *
  * /bookings/{id}:
  *   get:
