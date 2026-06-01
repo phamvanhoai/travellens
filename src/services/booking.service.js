@@ -6,6 +6,78 @@ const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 
 class BookingService extends BaseService {
+  // LIST BOOKING
+  async list(query = {}) {
+
+    let sql = `
+      SELECT *
+      FROM booking
+      WHERE 1=1
+    `;
+
+    const values = [];
+
+    let index = 1;
+
+    // FILTER USER
+    if (query.user_id) {
+
+      sql += ` AND user_id = $${index}`;
+
+      values.push(query.user_id);
+
+      index++;
+    }
+
+    // FILTER TOUR
+    if (query.tour_id) {
+
+      sql += ` AND tour_id = $${index}`;
+
+      values.push(query.tour_id);
+
+      index++;
+    }
+
+    // FILTER STATUS
+    if (query.status) {
+
+      sql += ` AND status = $${index}`;
+
+      values.push(query.status);
+
+      index++;
+    }
+
+    // SORT
+    switch (query.sort) {
+
+      case 'newest':
+        sql += ` ORDER BY booking_id DESC`;
+        break;
+
+      case 'oldest':
+        sql += ` ORDER BY booking_id ASC`;
+        break;
+
+      default:
+        sql += ` ORDER BY booking_id DESC`;
+    }
+
+    // PAGINATION
+    const page = parseInt(query.page) || 1;
+
+    const limit = parseInt(query.limit) || 10;
+
+    const offset = (page - 1) * limit;
+
+    sql += ` LIMIT ${limit} OFFSET ${offset}`;
+
+    const result = await db.query(sql, values);
+
+    return result.rows;
+  }
+
   async create(payload) {
     const client = await db.getClient();
     try {

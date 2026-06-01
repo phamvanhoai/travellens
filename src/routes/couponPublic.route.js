@@ -40,4 +40,3 @@ const router = express.Router();
 router.post('/validate', validate(coupon.validateCoupon), controller.validateCoupon);
 
 module.exports = router;
-

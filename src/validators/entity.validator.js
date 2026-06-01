@@ -92,6 +92,11 @@ module.exports = {
     transaction_code: optionalText,
     currency: Joi.string().max(20).default('VND'),
   }),
+  paymentStatus: Joi.object({
+    status: Joi.string()
+      .valid('paid', 'pending', 'refunded')
+      .required(),
+  }),
   coupon: Joi.object({
     code: Joi.string().trim().uppercase().max(50).required(),
     name: Joi.string().trim().max(150).required(),
