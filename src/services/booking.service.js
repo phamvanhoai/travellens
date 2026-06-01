@@ -205,17 +205,86 @@ class BookingService extends BaseService {
     return booking;
   }
 
-  async cancel(id) {
-    const booking = await this.model.update(id, { status: 'canceled' });
-    if (!booking) {
-      throw new ApiError(httpStatus.NOT_FOUND, 'Booking not found');
+  async cancel(id, options = {}) {
+    const client = await db.getClient();
+    try {
+      await client.query('BEGIN');
+
+      const values = [id];
+      let ownerClause = '';
+      if (options.userId) {
+        values.push(options.userId);
+        ownerClause = `AND user_id = $${values.length}`;
+      }
+
+      const bookingResult = await client.query(
+        `SELECT *
+         FROM booking
+         WHERE booking_id = $1
+           ${ownerClause}
+         FOR UPDATE`,
+        values
+      );
+      const booking = bookingResult.rows[0];
+
+      if (!booking) {
+        throw new ApiError(httpStatus.NOT_FOUND, 'Booking not found');
+      }
+
+      if (['canceled', 'expired'].includes(booking.status)) {
+        throw new ApiError(httpStatus.BAD_REQUEST, `Booking is already ${booking.status}`);
+      }
+
+      const paidPaymentResult = await client.query(
+        `SELECT payment_id
+         FROM payment
+         WHERE booking_id = $1
+           AND status = 'paid'
+           AND deleted_at IS NULL
+         LIMIT 1`,
+        [id]
+      );
+
+      if (booking.payment_status === 'paid' || paidPaymentResult.rows[0]) {
+        throw new ApiError(httpStatus.CONFLICT, 'Paid booking requires staff refund before cancellation');
+      }
+
+      const pendingPaymentResult = await client.query(
+        `UPDATE payment
+         SET status = 'expired',
+             updated_at = CURRENT_TIMESTAMP
+         WHERE booking_id = $1
+           AND status = 'pending'
+           AND deleted_at IS NULL
+         RETURNING payment_id`,
+        [id]
+      );
+
+      const nextPaymentStatus = pendingPaymentResult.rowCount > 0
+        ? 'failed'
+        : booking.payment_status;
+
+      const canceledResult = await client.query(
+        `UPDATE booking
+         SET status = 'canceled',
+             payment_status = $2
+         WHERE booking_id = $1
+         RETURNING *`,
+        [id, nextPaymentStatus]
+      );
+
+      await client.query('COMMIT');
+      return canceledResult.rows[0];
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
-    return booking;
   }
 
   async cancelForUser(id, userId) {
-    await this.getForUser(id, userId);
-    return this.cancel(id);
+    return this.cancel(id, { userId });
   }
 }
 

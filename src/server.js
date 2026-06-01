@@ -33,6 +33,7 @@ app.use(errorHandler);
 if (require.main === module) {
   app.listen(port, () => {
     logger.info(`Travel360 API listening on port ${port}`);
+    logger.info(`Travel360 API docs available at http://localhost:${port}/api-docs`);
   });
 
   db.query('SELECT NOW() AS connected_at')

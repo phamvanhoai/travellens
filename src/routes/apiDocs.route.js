@@ -263,6 +263,7 @@ const router = express.Router();
  * /staff/bookings/{id}/cancel:
  *   patch:
  *     summary: Staff cancel booking
+ *     description: Cancels an unpaid booking. Pending payment records are expired. Paid bookings must be refunded through the staff payment refund flow.
  *     tags: [Staff Bookings]
  *     security:
  *       - bearerAuth: []
@@ -273,6 +274,9 @@ const router = express.Router();
  *         schema: { type: integer }
  *     responses:
  *       200: { description: Booking canceled }
+ *       400: { description: Booking is already canceled or expired }
+ *       404: { description: Booking not found }
+ *       409: { description: Paid booking requires staff refund before cancellation }
  *
  * /staff/reviews:
  *   post:
@@ -531,7 +535,7 @@ const router = express.Router();
  * /bookings/{id}/cancel:
  *   patch:
  *     summary: Cancel booking
- *     description: Customer can cancel only their own booking.
+ *     description: Customer can cancel only their own unpaid booking. Pending payment records are expired. Paid bookings must be handled by staff refund.
  *     tags: [Bookings]
  *     security:
  *       - bearerAuth: []
@@ -542,6 +546,9 @@ const router = express.Router();
  *         schema: { type: integer }
  *     responses:
  *       200: { description: Booking canceled }
+ *       400: { description: Booking is already canceled or expired }
+ *       404: { description: Booking not found }
+ *       409: { description: Paid booking requires staff refund before cancellation }
  */
 
 /**
