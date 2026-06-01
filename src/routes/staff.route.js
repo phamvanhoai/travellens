@@ -240,7 +240,7 @@ router.use(authenticate, authorize('staff', 'admin'));
  */
 router.use('/reviews', require('./review.route'));
 router.use('/coupons', require('./coupon.route'));
-router.use('/bookings', require('./booking.route'));
+router.use('/bookings', require('./bookingStaff.route'));
 router.use('/booking-details', require('./bookingDetail.route'));
 router.use('/payments', require('./paymentStaff.route'));
 

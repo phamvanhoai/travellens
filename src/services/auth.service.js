@@ -87,7 +87,7 @@ class AuthService {
     }
 
     await emailVerificationTokenModel.markAsUsed(validToken.verification_id);
-    await userModel.update(user.user_id, { status: 'active' });
+    await userModel.verifyGuestUser(user.user_id);
 
     return { message: 'Email verified successfully. You can now login.' };
   }
@@ -178,7 +178,7 @@ class AuthService {
         email,
         google_id: googleId,
         avatar_url: avatarUrl,
-        role: 'user',
+        role: 'customer',
         status: 'active',
       });
     } else if (!user.google_id) {

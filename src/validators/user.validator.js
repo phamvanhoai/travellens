@@ -18,7 +18,7 @@ module.exports = {
       page: Joi.number().integer().min(1).default(1),
       limit: Joi.number().integer().min(1).max(100).default(10),
       search: Joi.string().trim().allow(''),
-      role: Joi.string().trim().valid('admin', 'staff', 'user'),
+      role: Joi.string().trim().valid('admin', 'staff', 'customer'),
       status: Joi.string().trim().max(50).allow(''),
       sortBy: Joi.string().valid('user_id', 'name', 'email', 'role', 'status', 'created_at', 'updated_at').default('created_at'),
       sortOrder: Joi.string().uppercase().valid('ASC', 'DESC').default('DESC'),
@@ -41,7 +41,7 @@ module.exports = {
         'string.min': 'Password must be at least 6 characters',
         'any.required': 'Password is required',
       }),
-      role: Joi.string().trim().valid('admin', 'staff', 'user').required(),
+      role: Joi.string().trim().valid('admin', 'staff', 'customer').required(),
       status: Joi.string().trim().valid('active', 'inactive', 'pending').required(),
       phone: Joi.string().trim().pattern(vietnamPhonePattern).allow(null, '').messages({
         'string.base': 'Phone must be a string',
@@ -67,7 +67,7 @@ module.exports = {
         'string.empty': 'Password cannot be empty',
         'string.min': 'Password must be at least 6 characters',
       }),
-      role: Joi.string().trim().valid('admin', 'staff', 'user'),
+      role: Joi.string().trim().valid('admin', 'staff', 'customer'),
       status: Joi.string().trim().valid('active', 'inactive', 'pending'),
       phone: Joi.string().trim().pattern(vietnamPhonePattern).allow(null, '').messages({
         'string.base': 'Phone must be a string',

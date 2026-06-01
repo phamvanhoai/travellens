@@ -6,7 +6,7 @@ const { payment } = require('../validators');
 
 const router = express.Router();
 
-router.use(authenticate, authorize('user'));
+router.use(authenticate, authorize('customer'));
 
 /**
  * @swagger

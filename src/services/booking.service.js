@@ -145,12 +145,61 @@ class BookingService extends BaseService {
     }
   }
 
+  listForUser(userId, query = {}) {
+    return this.list({ ...query, user_id: userId });
+  }
+
+  async getForUser(id, userId) {
+    const result = await db.query(
+      'SELECT * FROM booking WHERE booking_id = $1 AND user_id = $2',
+      [id, userId]
+    );
+    const booking = result.rows[0];
+    if (!booking) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Booking not found');
+    }
+    return booking;
+  }
+
+  createForUser(payload, userId) {
+    return this.create({
+      ...payload,
+      user_id: userId,
+    });
+  }
+
+  async updateForUser(id, userId, payload) {
+    await this.getForUser(id, userId);
+    const booking = await this.model.update(id, {
+      ...payload,
+      user_id: userId,
+    });
+    if (!booking) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Booking not found');
+    }
+    return booking;
+  }
+
+  async removeForUser(id, userId) {
+    await this.getForUser(id, userId);
+    const booking = await this.model.remove(id);
+    if (!booking) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Booking not found');
+    }
+    return booking;
+  }
+
   async cancel(id) {
     const booking = await this.model.update(id, { status: 'canceled' });
     if (!booking) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Booking not found');
     }
     return booking;
+  }
+
+  async cancelForUser(id, userId) {
+    await this.getForUser(id, userId);
+    return this.cancel(id);
   }
 }
 

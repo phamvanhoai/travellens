@@ -9,7 +9,7 @@ module.exports = {
     name: Joi.string().max(150).required(),
     email: Joi.string().email().required(),
     password: Joi.string().min(6).allow(null, ''),
-    role: Joi.string().valid('admin', 'staff', 'user').default('user'),
+    role: Joi.string().valid('admin', 'staff', 'customer').default('customer'),
     status: Joi.string().allow(null, ''),
     profile_info: optionalText,
     google_id: optionalText,
@@ -58,7 +58,7 @@ module.exports = {
   }),
   view360Image: Joi.object({ view_id: id.required(), image_file: Joi.string().required(), order_index: Joi.number().integer().min(0).allow(null) }),
   booking: Joi.object({
-    user_id: id.required(),
+    user_id: id,
     tour_id: id.required(),
     coupon_id: id.allow(null),
     coupon_code: Joi.string().trim().uppercase().allow(null, ''),

@@ -110,8 +110,8 @@ router.get('/statistics/content', statisticsController.content);
  *         name: role
  *         schema:
  *           type: string
- *           enum: [admin, staff, user]
- *         example: user
+ *           enum: [admin, staff, customer]
+ *         example: customer
  *       - in: query
  *         name: status
  *         schema:
@@ -160,7 +160,7 @@ router.get('/statistics/content', statisticsController.content);
  *                         example: user@example.com
  *                       role:
  *                         type: string
- *                         example: user
+ *                         example: customer
  *                       status:
  *                         type: string
  *                         example: active
@@ -242,8 +242,8 @@ router.get('/statistics/content', statisticsController.content);
  *                 example: Temp123456
  *               role:
  *                 type: string
- *                 enum: [admin, staff, user]
- *                 example: user
+ *                 enum: [admin, staff, customer]
+ *                 example: customer
  *               status:
  *                 type: string
  *                 enum: [active, inactive, pending]
@@ -305,7 +305,7 @@ router.get('/statistics/content', statisticsController.content);
  *                 example: NewTemp123456
  *               role:
  *                 type: string
- *                 enum: [admin, staff, user]
+ *                 enum: [admin, staff, customer]
  *                 example: staff
  *               status:
  *                 type: string
