@@ -4,6 +4,18 @@ const id = Joi.number().integer().positive();
 const fullNamePattern = /^[\p{L}]+(?:\s+[\p{L}]+)+$/u;
 const fullNameMessage = 'Name must contain at least 2 words and use letters/spaces only, for example: Nguyen Van A or Le Minh';
 const vietnamPhonePattern = /^0(?:3|5|7|8|9)\d{8}$/;
+const avatarUrl = Joi.string().trim().custom((value, helpers) => {
+  if (!value || value.startsWith('/public/users/')) {
+    return value;
+  }
+
+  const { error } = Joi.string().uri().validate(value);
+  if (error) {
+    return helpers.error('string.uri');
+  }
+
+  return value;
+}).allow(null, '');
 const passwordNotBlank = (value, helpers) => {
   if (!value.trim()) {
     return helpers.message('Password must not contain only spaces');
@@ -47,6 +59,7 @@ module.exports = {
         'string.base': 'Phone must be a string',
         'string.pattern.base': 'Phone must be a valid Vietnamese mobile number with 10 digits, for example: 0901234567',
       }),
+      avatar_url: avatarUrl,
     }),
   },
 
@@ -73,6 +86,7 @@ module.exports = {
         'string.base': 'Phone must be a string',
         'string.pattern.base': 'Phone must be a valid Vietnamese mobile number with 10 digits, for example: 0901234567',
       }),
+      avatar_url: avatarUrl,
     }).min(1).unknown(false).messages({
       'object.min': 'Please provide at least one field to update',
       'object.unknown': '{{#label}} cannot be updated',

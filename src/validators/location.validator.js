@@ -2,6 +2,18 @@ const Joi = require('joi');
 
 const id = Joi.number().integer().positive();
 const optionalText = Joi.string().trim().allow(null, '');
+const thumbnail = Joi.string().trim().custom((value, helpers) => {
+  if (!value || value.startsWith('/public/locations/')) {
+    return value;
+  }
+
+  const { error } = Joi.string().uri().validate(value);
+  if (error) {
+    return helpers.error('string.uri');
+  }
+
+  return value;
+}).allow(null, '');
 
 module.exports = {
   list: {
@@ -22,7 +34,7 @@ module.exports = {
       description: optionalText,
       latitude: Joi.number().allow(null),
       longitude: Joi.number().allow(null),
-      thumbnail: Joi.string().trim().uri().allow(null, ''),
+      thumbnail,
     }),
   },
 
@@ -35,7 +47,7 @@ module.exports = {
       description: optionalText,
       latitude: Joi.number().allow(null),
       longitude: Joi.number().allow(null),
-      thumbnail: Joi.string().trim().uri().allow(null, ''),
+      thumbnail,
     }).min(1),
   },
 };
