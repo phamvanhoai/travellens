@@ -1,5 +1,8 @@
 const swaggerJsdoc = require('swagger-jsdoc');
 
+// Keep documentation-only route annotations in Vercel's serverless bundle.
+require('../routes/apiDocs.route');
+
 const options = {
   definition: {
     openapi: '3.0.0',
