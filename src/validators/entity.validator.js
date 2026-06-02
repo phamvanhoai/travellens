@@ -3,6 +3,18 @@ const Joi = require('joi');
 const optionalText = Joi.string().allow(null, '');
 const id = Joi.number().integer().positive();
 const money = Joi.number().min(0);
+const uploadedOrRemoteImage = (folder) => Joi.string().trim().custom((value, helpers) => {
+  if (!value || value.startsWith(`/public/${folder}/`)) {
+    return value;
+  }
+
+  const { error } = Joi.string().uri().validate(value);
+  if (error) {
+    return helpers.error('string.uri');
+  }
+
+  return value;
+}).allow(null, '');
 
 module.exports = {
   user: Joi.object({
@@ -26,7 +38,7 @@ module.exports = {
   travelDestination: Joi.object({
     name: Joi.string().trim().max(200).required(),
     description: optionalText,
-    thumbnail: Joi.string().trim().uri().allow(null, ''),
+    thumbnail: uploadedOrRemoteImage('travel-destinations'),
     latitude: Joi.number().min(-90).max(90).allow(null),
     longitude: Joi.number().min(-180).max(180).allow(null),
     destination_category_id: id.allow(null),

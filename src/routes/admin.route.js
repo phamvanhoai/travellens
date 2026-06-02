@@ -4,6 +4,10 @@ const validate = require('../middlewares/validate.middleware');
 const statisticsController = require('../controllers/statistics.controller');
 const view360Controller = require('../controllers/view360.controller');
 const view360ImageController = require('../controllers/view360Image.controller');
+const {
+  handleView360AudioUpload,
+  handleView360ImageUpload,
+} = require('../middlewares/upload.middleware');
 const { view360, view360Image } = require('../validators');
 
 const router = express.Router();
@@ -213,13 +217,46 @@ router.get('/statistics/content', statisticsController.content);
  *         description: Admin role required
  *   post:
  *     summary: Admin create user
- *     description: Admin creates a user with a temporary password. The password is hashed by the backend before saving.
+ *     description: Admin creates a user with a temporary password and optional avatar upload. The password is hashed by the backend before saving.
  *     tags: [Admin Users]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [name, email, password, role, status]
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 maxLength: 150
+ *                 example: Nguyen Van A
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: user@example.com
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 minLength: 6
+ *                 example: Temp123456
+ *               role:
+ *                 type: string
+ *                 enum: [admin, staff, customer]
+ *                 example: customer
+ *               status:
+ *                 type: string
+ *                 enum: [active, inactive, pending]
+ *                 example: active
+ *               phone:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "0901234567"
+ *               avatar_file:
+ *                 type: string
+ *                 format: binary
  *         application/json:
  *           schema:
  *             type: object
@@ -253,6 +290,11 @@ router.get('/statistics/content', statisticsController.content);
  *                 pattern: '^0(?:3|5|7|8|9)\\d{8}$'
  *                 nullable: true
  *                 example: "0901234567"
+ *               avatar_url:
+ *                 type: string
+ *                 format: uri
+ *                 nullable: true
+ *                 example: https://example.com/avatar.jpg
  *     responses:
  *       201:
  *         description: User created successfully
@@ -268,7 +310,7 @@ router.get('/statistics/content', statisticsController.content);
  * /admin/users/{id}:
  *   put:
  *     summary: Admin update user
- *     description: Admin updates one or more user fields. If password is provided, the backend hashes it before saving.
+ *     description: Admin updates one or more user fields and can upload a new avatar. If password is provided, the backend hashes it before saving.
  *     tags: [Admin Users]
  *     security:
  *       - bearerAuth: []
@@ -283,6 +325,39 @@ router.get('/statistics/content', statisticsController.content);
  *     requestBody:
  *       required: true
  *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             minProperties: 1
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 maxLength: 150
+ *                 example: Nguyen Van B
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: user.updated@example.com
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 minLength: 6
+ *                 example: NewTemp123456
+ *               role:
+ *                 type: string
+ *                 enum: [admin, staff, customer]
+ *                 example: staff
+ *               status:
+ *                 type: string
+ *                 enum: [active, inactive, pending]
+ *                 example: active
+ *               phone:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "0907654321"
+ *               avatar_file:
+ *                 type: string
+ *                 format: binary
  *         application/json:
  *           schema:
  *             type: object
@@ -316,6 +391,11 @@ router.get('/statistics/content', statisticsController.content);
  *                 pattern: '^0(?:3|5|7|8|9)\\d{8}$'
  *                 nullable: true
  *                 example: "0907654321"
+ *               avatar_url:
+ *                 type: string
+ *                 format: uri
+ *                 nullable: true
+ *                 example: https://example.com/avatar-updated.jpg
  *     responses:
  *       200:
  *         description: User updated successfully
@@ -364,6 +444,29 @@ router.get('/statistics/content', statisticsController.content);
  *     requestBody:
  *       required: true
  *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [title]
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 example: Main Gate 360 View
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: 360 experience at the main gate
+ *               audio_file:
+ *                 type: string
+ *                 format: binary
+ *               language:
+ *                 type: string
+ *                 default: vi
+ *                 example: vi
+ *               order_index:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 1
  *         application/json:
  *           schema:
  *             type: object
@@ -409,6 +512,27 @@ router.get('/statistics/content', statisticsController.content);
  *     requestBody:
  *       required: true
  *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             minProperties: 1
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 example: Main Gate 360 View Updated
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *               audio_file:
+ *                 type: string
+ *                 format: binary
+ *               language:
+ *                 type: string
+ *                 example: en
+ *               order_index:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 2
  *         application/json:
  *           schema:
  *             type: object
@@ -477,6 +601,18 @@ router.get('/statistics/content', statisticsController.content);
  *     requestBody:
  *       required: true
  *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [image_file]
+ *             properties:
+ *               image_file:
+ *                 type: string
+ *                 format: binary
+ *               order_index:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 1
  *         application/json:
  *           schema:
  *             type: object
@@ -508,6 +644,18 @@ router.get('/statistics/content', statisticsController.content);
  *     requestBody:
  *       required: true
  *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             minProperties: 1
+ *             properties:
+ *               image_file:
+ *                 type: string
+ *                 format: binary
+ *               order_index:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 2
  *         application/json:
  *           schema:
  *             type: object
@@ -541,21 +689,21 @@ router.get('/statistics/content', statisticsController.content);
 router
   .route('/locations/:locationId/view360')
   .get(validate(view360.locationParam), view360Controller.listByLocation)
-  .post(validate(view360.create), view360Controller.createForLocation);
+  .post(handleView360AudioUpload, validate(view360.create), view360Controller.createForLocation);
 
 router
   .route('/view360/:viewId')
-  .put(validate(view360.update), view360Controller.update)
+  .put(handleView360AudioUpload, validate(view360.update), view360Controller.update)
   .delete(validate(view360.viewParam), view360Controller.remove);
 
 router
   .route('/view360/:viewId/images')
   .get(validate(view360Image.viewParam), view360ImageController.listByView)
-  .post(validate(view360Image.create), view360ImageController.createForView);
+  .post(handleView360ImageUpload, validate(view360Image.create), view360ImageController.createForView);
 
 router
   .route('/view360-images/:imageId')
-  .put(validate(view360Image.update), view360ImageController.update)
+  .put(handleView360ImageUpload, validate(view360Image.update), view360ImageController.update)
   .delete(validate(view360Image.imageParam), view360ImageController.remove);
 
 /**
@@ -619,13 +767,51 @@ router
  *         description: Internal Server Error
  *   post:
  *     summary: Admin create tour
- *     description: Creates a bookable tour under one tour category and one or more travel destinations. Tour names must be unique.
+ *     description: Creates a bookable tour under one tour category and one or more travel destinations. Supports uploading a thumbnail file. When using multipart/form-data, send destinations as a JSON string. Tour names must be unique.
  *     tags: [Admin Tours]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [tour_category_id, name, price, schedule, capacity, destinations]
+ *             properties:
+ *               tour_category_id:
+ *                 type: integer
+ *                 example: 1
+ *               name:
+ *                 type: string
+ *                 maxLength: 255
+ *                 example: Dinh Doc Lap Half-day Tour
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: Explore Dinh Doc Lap with 360 preview and tour guide
+ *               price:
+ *                 type: number
+ *                 minimum: 0
+ *                 example: 250000
+ *               schedule:
+ *                 type: string
+ *                 example: 08:00 - 12:00
+ *               capacity:
+ *                 type: integer
+ *                 minimum: 1
+ *                 example: 30
+ *               thumbnail_file:
+ *                 type: string
+ *                 format: binary
+ *               status:
+ *                 type: string
+ *                 enum: [active, inactive, draft]
+ *                 default: active
+ *               destinations:
+ *                 type: string
+ *                 description: JSON array of tour destinations.
+ *                 example: '[{"destination_id":1,"order_index":1,"estimated_time":"90 minutes","note":"Start point"}]'
  *         application/json:
  *           schema:
  *             type: object
@@ -721,7 +907,7 @@ router
  *         description: Internal Server Error
  *   put:
  *     summary: Admin update tour
- *     description: Updates tour fields and, when provided, replaces the tour destinations list inside a transaction.
+ *     description: Updates tour fields and, when provided, replaces the tour destinations list inside a transaction. Supports uploading a new thumbnail file. When using multipart/form-data, send destinations as a JSON string.
  *     tags: [Admin Tours]
  *     security:
  *       - bearerAuth: []
@@ -734,6 +920,39 @@ router
  *     requestBody:
  *       required: true
  *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             minProperties: 1
+ *             properties:
+ *               tour_category_id:
+ *                 type: integer
+ *                 example: 1
+ *               name:
+ *                 type: string
+ *                 maxLength: 255
+ *                 example: Saigon Full Day Tour Updated
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *               price:
+ *                 type: number
+ *                 minimum: 0
+ *               schedule:
+ *                 type: string
+ *               capacity:
+ *                 type: integer
+ *                 minimum: 1
+ *               thumbnail_file:
+ *                 type: string
+ *                 format: binary
+ *               status:
+ *                 type: string
+ *                 enum: [active, inactive, draft]
+ *               destinations:
+ *                 type: string
+ *                 description: JSON array of tour destinations.
+ *                 example: '[{"destination_id":1,"order_index":1,"estimated_time":"120 minutes","note":"Updated start point"}]'
  *         application/json:
  *           schema:
  *             type: object
@@ -854,13 +1073,39 @@ router
  *         description: Travel destination list with pagination
  *   post:
  *     summary: Admin create travel destination
- *     description: Creates a destination after validating admin role and duplicate name.
+ *     description: Creates a destination after validating admin role and duplicate name. Supports uploading a thumbnail file or passing an existing thumbnail URL.
  *     tags: [Admin Travel Destinations]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [name]
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: Dinh Doc Lap
+ *               description:
+ *                 type: string
+ *                 example: Historic landmark in Ho Chi Minh City
+ *               thumbnail_file:
+ *                 type: string
+ *                 format: binary
+ *               latitude:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 10.7769
+ *               longitude:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 106.7009
+ *               destination_category_id:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 1
  *         application/json:
  *           schema:
  *             type: object
@@ -876,6 +1121,14 @@ router
  *                 type: string
  *                 format: uri
  *                 example: https://example.com/dinhdoclap.jpg
+ *               latitude:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 10.7769
+ *               longitude:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 106.7009
  *               destination_category_id:
  *                 type: integer
  *                 nullable: true
@@ -904,7 +1157,7 @@ router
  *         description: Travel destination detail
  *   put:
  *     summary: Admin update travel destination
- *     description: Updates one or more travel destination fields. Fields not provided are kept unchanged.
+ *     description: Updates one or more travel destination fields. Supports uploading a new thumbnail file or passing an existing thumbnail URL. Fields not provided are kept unchanged.
  *     tags: [Admin Travel Destinations]
  *     security:
  *       - bearerAuth: []
@@ -917,6 +1170,32 @@ router
  *     requestBody:
  *       required: true
  *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             minProperties: 1
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: Dinh Doc Lap Updated
+ *               description:
+ *                 type: string
+ *                 example: Updated historic landmark description
+ *               thumbnail_file:
+ *                 type: string
+ *                 format: binary
+ *               latitude:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 10.7769
+ *               longitude:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 106.7009
+ *               destination_category_id:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 1
  *         application/json:
  *           schema:
  *             type: object
@@ -933,6 +1212,14 @@ router
  *                 format: uri
  *                 nullable: true
  *                 example: https://example.com/dinhdoclap-updated.jpg
+ *               latitude:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 10.7769
+ *               longitude:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 106.7009
  *               destination_category_id:
  *                 type: integer
  *                 nullable: true
@@ -1174,13 +1461,39 @@ router
  *         description: Forbidden
  *   post:
  *     summary: Admin create new location
- *     description: Creates a new location inside a TravelDestination. Duplicate location names inside the same destination are not allowed.
+ *     description: Creates a new location inside a TravelDestination. Supports uploading a thumbnail file or passing an existing thumbnail URL. Duplicate location names inside the same destination are not allowed.
  *     tags: [Admin Locations]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [travel_destination_id, name]
+ *             properties:
+ *               travel_destination_id:
+ *                 type: integer
+ *                 example: 1
+ *               name:
+ *                 type: string
+ *                 maxLength: 255
+ *                 example: Main Gate
+ *               description:
+ *                 type: string
+ *                 example: Main entrance of Dinh Doc Lap
+ *               latitude:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 10.777
+ *               longitude:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 106.695
+ *               thumbnail_file:
+ *                 type: string
+ *                 format: binary
  *         application/json:
  *           schema:
  *             type: object
@@ -1230,7 +1543,7 @@ router
  *                       type: integer
  *                       example: 1
  *       400:
- *         description: Bad request
+ *         description: Bad request or unsupported file format
  *       404:
  *         description: Destination not found
  *       409:
@@ -1239,7 +1552,7 @@ router
  * /admin/locations/{id}:
  *   put:
  *     summary: Admin update location
- *     description: Updates location information. Deleted locations cannot be updated and updated_at is changed automatically.
+ *     description: Updates location information. Supports uploading a new thumbnail file or passing an existing thumbnail URL. Deleted locations cannot be updated and updated_at is changed automatically.
  *     tags: [Admin Locations]
  *     security:
  *       - bearerAuth: []
@@ -1252,6 +1565,30 @@ router
  *     requestBody:
  *       required: true
  *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             minProperties: 1
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 maxLength: 255
+ *                 example: Main Gate Updated
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: Updated description
+ *               latitude:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 10.777
+ *               longitude:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 106.695
+ *               thumbnail_file:
+ *                 type: string
+ *                 format: binary
  *         application/json:
  *           schema:
  *             type: object
@@ -1282,7 +1619,7 @@ router
  *       200:
  *         description: Location updated successfully
  *       400:
- *         description: Bad request
+ *         description: Bad request or unsupported file format
  *       404:
  *         description: Location not found
  *   delete:

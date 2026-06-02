@@ -2,6 +2,18 @@ const Joi = require('joi');
 
 const id = Joi.number().integer().positive();
 const optionalText = Joi.string().allow(null, '');
+const thumbnail = Joi.string().trim().custom((value, helpers) => {
+  if (!value || value.startsWith('/public/tours/')) {
+    return value;
+  }
+
+  const { error } = Joi.string().uri().validate(value);
+  if (error) {
+    return helpers.error('string.uri');
+  }
+
+  return value;
+}).allow(null, '');
 
 const destinationSchema = Joi.object({
   destination_id: id.required(),
@@ -17,7 +29,7 @@ const tourBody = {
   price: Joi.number().min(0).required(),
   schedule: Joi.string().trim().required(),
   capacity: Joi.number().integer().min(1).required(),
-  thumbnail: Joi.string().trim().uri().allow(null, ''),
+  thumbnail,
   status: Joi.string().valid('active', 'inactive', 'draft').default('active'),
 };
 
@@ -56,7 +68,7 @@ module.exports = {
       price: Joi.number().min(0),
       schedule: Joi.string().trim(),
       capacity: Joi.number().integer().min(1),
-      thumbnail: Joi.string().trim().uri().allow(null, ''),
+      thumbnail,
       status: Joi.string().valid('active', 'inactive', 'draft'),
       destinations: Joi.array().items(destinationSchema).min(1),
     }).min(1),
