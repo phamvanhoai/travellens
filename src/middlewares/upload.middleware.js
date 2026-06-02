@@ -4,6 +4,12 @@ const multer = require('multer');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 
+const isVercel = Boolean(process.env.VERCEL);
+const vercelUploadError = new ApiError(
+  httpStatus.BAD_REQUEST,
+  'Local file upload is not supported on Vercel. Use external storage such as Supabase Storage, Cloudinary, or S3.'
+);
+
 const mapUploadDir = path.join(__dirname, '..', '..', 'public', 'maps');
 const locationUploadDir = path.join(__dirname, '..', '..', 'public', 'locations');
 const travelDestinationUploadDir = path.join(__dirname, '..', '..', 'public', 'travel-destinations');
@@ -32,17 +38,24 @@ const allowedAudioMimeTypes = new Set([
   'audio/x-m4a',
 ]);
 
-fs.mkdirSync(mapUploadDir, { recursive: true });
-fs.mkdirSync(locationUploadDir, { recursive: true });
-fs.mkdirSync(travelDestinationUploadDir, { recursive: true });
-fs.mkdirSync(view360AudioUploadDir, { recursive: true });
-fs.mkdirSync(view360ImageUploadDir, { recursive: true });
-fs.mkdirSync(userAvatarUploadDir, { recursive: true });
-fs.mkdirSync(tourThumbnailUploadDir, { recursive: true });
-fs.mkdirSync(reviewUploadDir, { recursive: true });
+if (!isVercel) {
+  fs.mkdirSync(mapUploadDir, { recursive: true });
+  fs.mkdirSync(locationUploadDir, { recursive: true });
+  fs.mkdirSync(travelDestinationUploadDir, { recursive: true });
+  fs.mkdirSync(view360AudioUploadDir, { recursive: true });
+  fs.mkdirSync(view360ImageUploadDir, { recursive: true });
+  fs.mkdirSync(userAvatarUploadDir, { recursive: true });
+  fs.mkdirSync(tourThumbnailUploadDir, { recursive: true });
+  fs.mkdirSync(reviewUploadDir, { recursive: true });
+}
 
 const createStorage = (uploadDir, fallbackName) => multer.diskStorage({
   destination: (req, file, cb) => {
+    if (isVercel) {
+      cb(vercelUploadError);
+      return;
+    }
+
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
