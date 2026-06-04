@@ -32,7 +32,11 @@ app.use(limiter);
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
-app.use('/public', express.static(path.join(__dirname, '..', 'public')));
+app.use('/public', (req, res, next) => {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  next();
+}, express.static(path.join(__dirname, '..', 'public')));
 
 app.get('/api-docs/swagger.json', (req, res) => {
   res.json(swaggerSpec);

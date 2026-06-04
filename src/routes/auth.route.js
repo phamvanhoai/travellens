@@ -2,6 +2,7 @@ const express = require('express');
 const authController = require('../controllers/auth.controller');
 const validate = require('../middlewares/validate.middleware');
 const { authenticate, requireActiveAccount } = require('../middlewares/auth.middleware');
+const { handleUserAvatarUpload } = require('../middlewares/upload.middleware');
 const { auth } = require('../validators');
 
 const router = express.Router();
@@ -482,7 +483,7 @@ router.put(
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
@@ -493,11 +494,9 @@ router.put(
  *                 type: string
  *                 nullable: true
  *                 example: Loves beaches and mountain trips
- *               avatar_url:
+ *               avatar_file:
  *                 type: string
- *                 format: uri
- *                 nullable: true
- *                 example: https://example.com/avatar.png
+ *                 format: binary
  *               phone:
  *                 type: string
  *                 nullable: true
@@ -531,6 +530,7 @@ router
   .put(
     authenticate,
     requireActiveAccount,
+    handleUserAvatarUpload,
     validate(auth.updateProfile),
     authController.updateProfile
   );

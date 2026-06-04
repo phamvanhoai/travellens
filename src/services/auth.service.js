@@ -10,6 +10,7 @@ const { OAuth2Client } = require('google-auth-library');
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const passwordResetCodeModel = require('../models/passwordResetCode.model');
 const emailService = require('./email.service');
+const { removeLocalUserAvatar } = require('../utils/avatarFile');
 
 const sanitizeUser = (user) => {
   if (!user) return user;
@@ -222,6 +223,10 @@ class AuthService {
   }
 
   async updateProfile(userId, payload) {
+    const currentUser = payload.avatar_url
+      ? await userModel.findById(userId)
+      : null;
+
     const user = await userModel.update(userId, {
       name: payload.name,
       profile_info: payload.profile_info,
@@ -234,6 +239,14 @@ class AuthService {
 
     if (!user) {
       throw new ApiError(httpStatus.NOT_FOUND, 'User not found');
+    }
+
+    if (
+      payload.avatar_url
+      && currentUser?.avatar_url
+      && currentUser.avatar_url !== user.avatar_url
+    ) {
+      await removeLocalUserAvatar(currentUser.avatar_url);
     }
 
     return sanitizeUser(user);
