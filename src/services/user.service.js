@@ -3,6 +3,7 @@ const BaseService = require('./base.service');
 const userModel = require('../models/user.model');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
+const { removeLocalUserAvatar } = require('../utils/avatarFile');
 
 const sanitize = (user) => {
   if (!user) return user;
@@ -50,6 +51,9 @@ class UserService extends BaseService {
 
   async update(id, payload) {
     const nextPayload = { ...payload };
+    const currentUser = nextPayload.avatar_url
+      ? await this.model.findById(id)
+      : null;
 
     if (nextPayload.name) {
       nextPayload.name = nextPayload.name.trim();
@@ -68,7 +72,18 @@ class UserService extends BaseService {
     }
 
     try {
-      return sanitize(await super.update(id, nextPayload));
+      const user = await super.update(id, nextPayload);
+
+      if (
+        nextPayload.avatar_url
+        && currentUser?.avatar_url
+        && user?.avatar_url
+        && currentUser.avatar_url !== user.avatar_url
+      ) {
+        await removeLocalUserAvatar(currentUser.avatar_url);
+      }
+
+      return sanitize(user);
     } catch (error) {
       if (error.code === '23505') {
         throw new ApiError(httpStatus.CONFLICT, 'Email already exists');

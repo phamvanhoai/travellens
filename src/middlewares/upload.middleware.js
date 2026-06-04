@@ -297,11 +297,23 @@ const handleView360ImageUpload = (req, res, next) => {
 };
 
 const handleUserAvatarUpload = (req, res, next) => {
-  uploadUserAvatar.single('avatar_file')(req, res, (error) => {
+  uploadUserAvatar.fields([
+    { name: 'avatar_file', maxCount: 1 },
+    { name: 'avatar', maxCount: 1 },
+    { name: 'avatar_url', maxCount: 1 },
+  ])(req, res, (error) => {
     if (!error) {
-      if (req.file) {
-        req.body.avatar_url = `/public/users/${req.file.filename}`;
+      delete req.body.avatar_file;
+      delete req.body.avatar;
+
+      const avatarFile = req.files?.avatar_file?.[0]
+        || req.files?.avatar?.[0]
+        || req.files?.avatar_url?.[0];
+
+      if (avatarFile) {
+        req.body.avatar_url = `/public/users/${avatarFile.filename}`;
       }
+
       next();
       return;
     }
