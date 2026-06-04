@@ -4,6 +4,13 @@ const fullNamePattern = /^[\p{L}]+(?:\s+[\p{L}]+)+$/u;
 const fullNameMessage = 'Name must contain at least 2 words and use letters/spaces only, for example: Nguyen Van A or Le Minh';
 const vietnamPhonePattern = /^0(?:3|5|7|8|9)\d{8}$/;
 const dateOnlyPattern = /^\d{4}-\d{2}-\d{2}$/;
+const avatarUrl = Joi.string().trim().max(500).custom((value, helpers) => {
+  if (!value || value.startsWith('/public/users/')) {
+    return value;
+  }
+
+  return helpers.error('string.uploadOnly');
+}).allow(null, '');
 
 const validateDateOfBirth = (value, helpers) => {
   if (!dateOnlyPattern.test(value)) {
@@ -85,11 +92,10 @@ module.exports = {
         'string.min': 'Profile info must contain at least 1 character if provided',
         'string.max': 'Profile info must not exceed 500 characters',
       }),
-      avatar_url: Joi.string().trim().max(500).uri({ scheme: ['http', 'https'] }).allow(null, '').messages({
+      avatar_url: avatarUrl.messages({
         'string.base': 'Avatar URL must be a string',
         'string.max': 'Avatar URL must not exceed 500 characters',
-        'string.uri': 'Avatar URL must be a valid http:// or https:// URL, for example: https://example.com/avatar.png',
-        'string.uriCustomScheme': 'Avatar URL must start with http:// or https://',
+        'string.uploadOnly': 'Avatar must be uploaded as an image file',
       }),
       phone: Joi.string().trim().pattern(vietnamPhonePattern).allow(null, '').messages({
         'string.base': 'Phone must be a string',
