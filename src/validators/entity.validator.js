@@ -9,7 +9,7 @@ module.exports = {
     name: Joi.string().max(150).required(),
     email: Joi.string().email().required(),
     password: Joi.string().min(6).allow(null, ''),
-    role: Joi.string().valid('admin', 'staff', 'user').default('user'),
+    role: Joi.string().valid('admin', 'staff', 'customer', 'guest').default('customer'),
     status: Joi.string().allow(null, ''),
     profile_info: optionalText,
     google_id: optionalText,

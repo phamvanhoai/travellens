@@ -39,8 +39,8 @@ class AuthService {
         name: payload.name.trim(),
         email,
         password: hashedPassword,
-        role: 'guest',
-        status: 'pending',
+        role: 'customer',
+        status: 'active',
         profile_info: payload.profile_info,
         avatar_url: payload.avatar_url,
       });
@@ -178,7 +178,7 @@ class AuthService {
         email,
         google_id: googleId,
         avatar_url: avatarUrl,
-        role: 'user',
+        role: 'customer',
         status: 'active',
       });
     } else if (!user.google_id) {
