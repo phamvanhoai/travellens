@@ -31,7 +31,7 @@ class AuthService {
         name: payload.name.trim(),
         email,
         password: hashedPassword,
-        role: 'user',
+        role: 'customer',
         status: 'active',
         profile_info: payload.profile_info,
         avatar_url: payload.avatar_url,
@@ -82,7 +82,7 @@ class AuthService {
       user = await userModel.create({
         name: payload.name || payload.email,
         email: payload.email,
-        role: 'user',
+        role: 'customer',
         status: 'active',
         google_id: payload.google_id,
         avatar_url: payload.avatar_url,
