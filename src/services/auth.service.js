@@ -223,6 +223,10 @@ class AuthService {
       throw new ApiError(httpStatus.FORBIDDEN, 'Account is not active');
     }
 
+    if (user.google_id && !user.password) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Cannot reset password for Google linked accounts');
+    }
+
     const resetCode = await passwordResetCodeModel.createCode(user.user_id);
 
     try {
