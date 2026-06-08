@@ -40,7 +40,7 @@ class AuthService {
         name: payload.name.trim(),
         email,
         password: hashedPassword,
-        role: 'guest',
+        role: 'customer',
         status: 'pending',
         profile_info: payload.profile_info,
         avatar_url: payload.avatar_url,
@@ -265,6 +265,10 @@ class AuthService {
 
     if (user.status && user.status !== 'active') {
       throw new ApiError(httpStatus.FORBIDDEN, 'Account is not active');
+    }
+
+    if (user.google_id && !user.password) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Cannot reset password for Google linked accounts');
     }
 
     const resetCode = await passwordResetCodeModel.createCode(user.user_id);
