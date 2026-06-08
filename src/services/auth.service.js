@@ -40,7 +40,7 @@ class AuthService {
         email,
         password: hashedPassword,
         role: 'customer',
-        status: 'active',
+        status: 'pending',
         profile_info: payload.profile_info,
         avatar_url: payload.avatar_url,
       });
