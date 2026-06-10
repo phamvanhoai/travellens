@@ -7,9 +7,9 @@ const startBookingExpiryJob = () => {
     try {
       const result = await db.query(
         `UPDATE booking
-         SET status = 'canceled'
+         SET status = 'expired'
          WHERE status = 'pending'
-           AND payment_status = 'pending'
+           AND payment_status IN ('unpaid', 'pending')
            AND date_created < CURRENT_DATE
          RETURNING booking_id`
       );
@@ -24,4 +24,3 @@ const startBookingExpiryJob = () => {
 };
 
 module.exports = startBookingExpiryJob;
-

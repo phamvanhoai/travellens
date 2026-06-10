@@ -10,6 +10,7 @@ const { OAuth2Client } = require('google-auth-library');
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const passwordResetCodeModel = require('../models/passwordResetCode.model');
 const emailService = require('./email.service');
+const { removeLocalUserAvatar } = require('../utils/avatarFile');
 
 const sanitizeUser = (user) => {
   if (!user) return user;
@@ -87,7 +88,7 @@ class AuthService {
     }
 
     await emailVerificationTokenModel.markAsUsed(validToken.verification_id);
-    await userModel.update(user.user_id, { status: 'active' });
+    await userModel.verifyGuestUser(user.user_id);
 
     return { message: 'Email verified successfully. You can now login.' };
   }
@@ -142,7 +143,7 @@ class AuthService {
 
   async googleLogin(payload) {
     if (!payload.id_token) {
-      throw new ApiError(httpStatus.BAD_REQUEST, 'Google profile requires email and google_id');
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Google ID token is required');
     }
 
     let googlePayload;
@@ -222,6 +223,10 @@ class AuthService {
   }
 
   async updateProfile(userId, payload) {
+    const currentUser = payload.avatar_url
+      ? await userModel.findById(userId)
+      : null;
+
     const user = await userModel.update(userId, {
       name: payload.name,
       profile_info: payload.profile_info,
@@ -234,6 +239,14 @@ class AuthService {
 
     if (!user) {
       throw new ApiError(httpStatus.NOT_FOUND, 'User not found');
+    }
+
+    if (
+      payload.avatar_url
+      && currentUser?.avatar_url
+      && currentUser.avatar_url !== user.avatar_url
+    ) {
+      await removeLocalUserAvatar(currentUser.avatar_url);
     }
 
     return sanitizeUser(user);
@@ -252,6 +265,10 @@ class AuthService {
 
     if (user.status && user.status !== 'active') {
       throw new ApiError(httpStatus.FORBIDDEN, 'Account is not active');
+    }
+
+    if (user.google_id && !user.password) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Cannot reset password for Google linked accounts');
     }
 
     const resetCode = await passwordResetCodeModel.createCode(user.user_id);
@@ -293,6 +310,7 @@ class AuthService {
       reset_token: verified.rawResetToken,
     };
   }
+
   async resetPassword({ reset_token, new_password }) {
     if (!reset_token) {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Reset token is required');

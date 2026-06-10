@@ -1,7 +1,8 @@
 const express = require('express');
 const authController = require('../controllers/auth.controller');
 const validate = require('../middlewares/validate.middleware');
-const { authenticate } = require('../middlewares/auth.middleware');
+const { authenticate, requireActiveAccount } = require('../middlewares/auth.middleware');
+const { handleUserAvatarUpload } = require('../middlewares/upload.middleware');
 const { auth } = require('../validators');
 
 const router = express.Router();
@@ -84,7 +85,7 @@ const router = express.Router();
  *                           example: user@example.com
  *                         role:
  *                           type: string
- *                           example: user
+ *                           example: customer
  *                         status:
  *                           type: string
  *                           example: active
@@ -191,7 +192,7 @@ router.post('/verify-email', validate(auth.verifyEmail), authController.verifyEm
  *                           example: user@example.com
  *                         role:
  *                           type: string
- *                           example: user
+ *                           example: customer
  *                         status:
  *                           type: string
  *                           example: active
@@ -432,7 +433,7 @@ router.put(
  *                       example: user@example.com
  *                     role:
  *                       type: string
- *                       example: user
+ *                       example: customer
  *                     status:
  *                       type: string
  *                       example: active
@@ -482,7 +483,7 @@ router.put(
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
@@ -493,11 +494,9 @@ router.put(
  *                 type: string
  *                 nullable: true
  *                 example: Loves beaches and mountain trips
- *               avatar_url:
+ *               avatar_file:
  *                 type: string
- *                 format: uri
- *                 nullable: true
- *                 example: https://example.com/avatar.png
+ *                 format: binary
  *               phone:
  *                 type: string
  *                 nullable: true
@@ -522,10 +521,18 @@ router.put(
  *         description: Validation error
  *       401:
  *         description: Authentication required
+ *       403:
+ *         description: Account is not active
  */
 router
   .route('/profile')
   .get(authenticate, authController.profile)
-  .put(authenticate, validate(auth.updateProfile), authController.updateProfile);
+  .put(
+    authenticate,
+    requireActiveAccount,
+    handleUserAvatarUpload,
+    validate(auth.updateProfile),
+    authController.updateProfile
+  );
 
 module.exports = router;

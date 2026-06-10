@@ -1,114 +1,364 @@
-# TravelLens / Travel360 Backend
+# Travel360 Backend
 
-Node.js + Express backend mau cho he thong dat tour du lich, quan ly dia diem, map, View360, booking nhieu ve, thanh toan, blog, review, dashboard statistics va AI suggestion placeholder.
+Travel360 is a Node.js + Express backend for a travel booking platform. It supports travel destinations, tours, locations, maps, View360, bookings, SePay bank-transfer payments, coupons, blogs, reviews, staff operations, admin management, statistics, and AI suggestion placeholders.
 
-## Tech stack
+## Tech Stack
 
 - Node.js + Express
-- PostgreSQL qua `pg`
+- PostgreSQL with `pg`
 - JWT authentication
 - Joi validation
-- Winston + Morgan logging
 - Swagger UI
-- Node cron job cho booking het han
+- Winston + Morgan logging
+- Multer upload middleware
+- Node cron jobs
+- SePay webhook payment flow
 
-## Cai dat
+## Project Structure
+
+```text
+src/
+  config/          App, DB, CORS, logger, Swagger config
+  constants/       HTTP status and shared messages
+  controllers/     Request handlers
+  docs/            Swagger setup
+  jobs/            Cron jobs
+  middlewares/     Auth, validation, upload, error handling
+  models/          PostgreSQL query layer
+  routes/          Express routes and Swagger docs
+  services/        Business logic
+  utils/           Shared helpers
+migrations/        Incremental database migrations
+database_postgresql.sql
+```
+
+## Install
 
 ```bash
 npm install
 cp .env.example .env
 ```
 
-Sua `DATABASE_URL` va `JWT_SECRET` trong `.env`, sau do tao database bang:
-
-```bash
-psql -U postgres -d travel360 -f database_postgresql.sql
-```
-
-Chay development server:
+Edit `.env`, then start the server:
 
 ```bash
 npm run dev
 ```
 
-Hoac production:
+Production:
 
 ```bash
 npm start
 ```
 
-API mac dinh chay tai:
+Default URLs:
 
-- `GET /api/health`
-- Swagger: `/api-docs`
+- Health: `GET http://localhost:3000/api/health`
+- Swagger API docs: `http://localhost:3000/api-docs`
 
-## Authentication
+When the server starts, it logs both the API port and API docs URL.
 
-Sau khi register hoac login, API tra ve JWT token. Voi cac API can dang nhap, gui header:
+## Environment Variables
+
+Required core config:
+
+```env
+NODE_ENV=development
+PORT=3000
+
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=travel360
+DB_USER=postgres
+DB_PASSWORD=your_db_password
+DB_SSL=false
+
+JWT_SECRET=change_me_to_a_long_random_secret
+JWT_EXPIRES_IN=7d
+CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173
+```
+
+Supabase pooler example:
+
+```env
+DB_HOST=aws-1-ap-northeast-2.pooler.supabase.com
+DB_PORT=5432
+DB_NAME=postgres
+DB_USER=postgres.project_ref
+DB_PASSWORD=your_supabase_password
+DB_SSL=true
+```
+
+SePay payment config:
+
+```env
+SEPAY_WEBHOOK_API_KEY=your_webhook_api_key
+SEPAY_WEBHOOK_SECRET=
+SEPAY_BANK_ACCOUNT=your_bank_account
+SEPAY_BANK_NAME=your_bank_code
+PAYMENT_CODE_PREFIX=TVL
+PAYMENT_EXPIRE_MINUTES=15
+```
+
+AI and OAuth config:
+
+```env
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+OPENAI_API_KEY=
+```
+
+## Database Setup
+
+For a new database:
+
+```bash
+psql -U postgres -d travel360 -f database_postgresql.sql
+```
+
+For an existing database, run migrations in order:
+
+```bash
+psql -U postgres -d travel360 -f migrations/001_update_travel_destination.sql
+psql -U postgres -d travel360 -f migrations/002_split_categories.sql
+psql -U postgres -d travel360 -f migrations/003_add_user_profile_fields.sql
+psql -U postgres -d travel360 -f migrations/003_update_location_timestamps.sql
+psql -U postgres -d travel360 -f migrations/004_update_location_create_fields.sql
+psql -U postgres -d travel360 -f migrations/005_update_view360_management.sql
+psql -U postgres -d travel360 -f migrations/006_update_location_soft_delete.sql
+psql -U postgres -d travel360 -f migrations/007_update_location_delete_fields.sql
+psql -U postgres -d travel360 -f migrations/008_create_revoked_tokens.sql
+psql -U postgres -d travel360 -f migrations/009_staff_coupon_management.sql
+psql -U postgres -d travel360 -f migrations/019_customer_sepay_payment.sql
+psql -U postgres -d travel360 -f migrations/020_rename_user_role_to_customer.sql
+```
+
+Some migration numbers are shared by older branch work. Run every file in `migrations/` that has not already been applied to your database.
+
+## Roles
+
+Current roles:
+
+- `guest`: registered but not email-verified
+- `customer`: verified customer account
+- `staff`: staff operations
+- `admin`: full admin management
+
+Register flow:
+
+1. `POST /api/auth/register` creates a `guest` account with `pending` status.
+2. `POST /api/auth/verify-email` activates the account and changes role to `customer`.
+3. `POST /api/auth/login` returns a JWT token.
+
+Protected API header:
 
 ```http
-Authorization: Bearer <token>
+Authorization: Bearer <jwt_token>
 ```
 
-Neu dung Swagger tai `/api-docs`, bam nut `Authorize` va nhap:
+In Swagger, use **Authorize** and enter:
 
 ```text
-Bearer <token>
+Bearer <jwt_token>
 ```
 
-## Endpoint chinh
+For SePay webhook docs, use `sepayApiKey` authorization:
 
-Category da duoc tach thanh 2 entity rieng:
+```text
+Apikey <SEPAY_WEBHOOK_API_KEY>
+```
 
-- `DestinationCategory`: phan loai `TravelDestination` nhu Historical, Nature, Beach.
-- `TourCategory`: phan loai `Tour` nhu Family, Adventure, Luxury.
-- `Location` va `Map` khong con category.
+## Main API Groups
 
-Guest/Customer endpoints khong can prefix role rieng:
+Swagger is the source of truth for request bodies and responses:
+
+```text
+http://localhost:3000/api-docs
+```
+
+### Auth
 
 - `POST /api/auth/register`
+- `POST /api/auth/verify-email`
 - `POST /api/auth/login`
 - `POST /api/auth/google`
+- `POST /api/auth/logout`
+- `POST /api/auth/forgot-password`
+- `POST /api/auth/verify-reset-code`
+- `POST /api/auth/reset-password`
 - `GET /api/auth/profile`
 - `PUT /api/auth/profile`
-- `GET /api/travel-destinations`
-- `GET /api/tours`
+- `PUT /api/auth/change-password`
+
+### Customer
+
+Customer APIs require role `customer` where protected.
+
+- `GET /api/bookings`
+- `POST /api/bookings`
+- `GET /api/bookings/:id`
+- `PATCH /api/bookings/:id/cancel`
+- `POST /api/payments`
+- `GET /api/payments/:id`
+- `GET /api/payments/:id/status`
+- `POST /api/coupons/validate`
+- `POST /api/locations/:locationId/reviews`
+- `POST /api/reviews/:reviewId/photos`
+- `POST /api/blogs`
+- `PUT /api/blogs/:id`
+- `DELETE /api/blogs/:id`
+
+Customer booking rules:
+
+- Customer can list and view only their own bookings.
+- Customer cannot delete booking.
+- Customer cannot directly mark booking as paid.
+- Customer can cancel only unpaid bookings.
+- Paid bookings require staff refund handling.
+
+### Public Read APIs
+
 - `GET /api/locations`
-- `GET /api/maps`
-- `GET /api/view360`
-- `GET /api/view360-images`
-- `GET /api/coupons`
+- `GET /api/locations/:id`
+- `GET /api/maps/travel`
+- `GET /api/maps/filter`
+- `GET /api/maps/nearby`
+- `GET /api/navigation/routes/:tourId`
 - `GET /api/destination-categories`
 - `GET /api/tour-categories`
 - `GET /api/blogs`
-- `POST /api/blogs`
+- `GET /api/blogs/:id`
 - `GET /api/reviews`
-- `POST /api/reviews`
-- CRUD: `/api/bookings`
-- CRUD: `/api/booking-details`
-- CRUD: `/api/payments`
-- `POST /api/chat`
-- `POST /api/suggestions`
+- `GET /api/reviews/:id`
 
-Admin endpoints dung prefix `/api/admin` va yeu cau token co role `admin`:
+Public discovery routes are read-only. Create, update, and delete operations belong under the role-specific prefixes below.
 
-- CRUD: `/api/admin/users`
-- CRUD: `/api/admin/destination-categories`
-- CRUD: `/api/admin/tour-categories`
-- CRUD: `/api/admin/travel-destinations`
-- CRUD: `/api/admin/tours`
-- CRUD: `/api/admin/locations`
-- CRUD: `/api/admin/blogs`
-- CRUD: `/api/admin/maps`
-- CRUD: `/api/admin/statistics`
+### Admin
+
+Admin APIs require role `admin` and use prefix `/api/admin`.
+
+- `/api/admin/users`
+- `/api/admin/travel-destinations`
+- `/api/admin/destination-categories`
+- `/api/admin/tour-categories`
+- `/api/admin/tours`
+- `/api/admin/locations`
+- `/api/admin/maps`
+- `/api/admin/blogs`
+- `/api/admin/locations/:locationId/view360`
+- `/api/admin/view360/:viewId`
+- `/api/admin/view360/:viewId/images`
+- `/api/admin/view360-images/:imageId`
+
+Admin statistics:
+
 - `GET /api/admin/statistics/system`
 - `GET /api/admin/statistics/users`
 - `GET /api/admin/statistics/locations`
 - `GET /api/admin/statistics/content`
-- `GET /api/admin/locations?page=1&limit=10&search=dinh&destination_id=1&sortBy=created_at&sortOrder=DESC`
-- `POST /api/admin/locations`
-- `PUT /api/admin/locations/:id`
-- `DELETE /api/admin/locations/:id`
+
+### Staff
+
+Staff APIs require role `staff` or `admin` and use prefix `/api/staff`.
+
+- `/api/staff/coupons`
+- `/api/staff/bookings`
+- `/api/staff/booking-details`
+- `/api/staff/reviews`
+- `/api/staff/payments`
+
+Staff payment operations:
+
+- `GET /api/staff/payments`
+- `GET /api/staff/payments/:id`
+- `PATCH /api/staff/payments/:id/status`
+- `PATCH /api/staff/payments/:id/refund`
+
+### Webhooks
+
+SePay webhook:
+
+- `POST /api/webhooks/sepay`
+
+Required header:
+
+```http
+Authorization: Apikey <SEPAY_WEBHOOK_API_KEY>
+```
+
+Example payload:
+
+```json
+{
+  "id": 61401120,
+  "gateway": "MBBank",
+  "transactionDate": "2026-06-01 17:16:00",
+  "accountNumber": "6511223344",
+  "code": "TVL00000798EB92",
+  "content": "131564661280-TVL00000798EB92-CHUYEN TIEN",
+  "transferType": "in",
+  "transferAmount": 8500,
+  "referenceCode": "FT26152540980426",
+  "accumulated": 0
+}
+```
+
+Webhook rules:
+
+- Only money-in transactions are processed.
+- Payment code must start with `TVL` or your configured `PAYMENT_CODE_PREFIX`.
+- Duplicate webhook transaction IDs are ignored safely.
+- Payment and booking are updated inside a DB transaction.
+- Amount mismatch marks payment as `failed`.
+
+## Business Modules
+
+### Destination Categories and Tour Categories
+
+Categories are split into two entities:
+
+- `destination_category`: categorizes `travel_destination`
+- `tour_category`: categorizes `tour`
+
+`location` and `map` do not have category fields.
+
+### Travel Destinations
+
+`travel_destination` is the parent entity for:
+
+- Locations
+- Tours
+- View360 scenes through locations
+- Map data through locations
+
+Admin endpoint:
+
+```http
+/api/admin/travel-destinations
+```
+
+### Locations
+
+Location represents a specific area inside a travel destination, for example:
+
+- Main Gate
+- Beach Area
+- Cave
+- Historical Room
+
+Admin delete uses soft delete and prevents deletion if related data exists.
+
+### View360
+
+Relationships:
+
+```text
+Location 1 - N View360
+View360 1 - N View360Image
+```
+
+Admin manages View360 scenes and images:
+
 - `GET /api/admin/locations/:locationId/view360`
 - `POST /api/admin/locations/:locationId/view360`
 - `PUT /api/admin/view360/:viewId`
@@ -118,236 +368,152 @@ Admin endpoints dung prefix `/api/admin` va yeu cau token co role `admin`:
 - `PUT /api/admin/view360-images/:imageId`
 - `DELETE /api/admin/view360-images/:imageId`
 
-Vi du header admin:
+### Coupons
+
+Staff manages coupons:
+
+- `GET /api/staff/coupons`
+- `POST /api/staff/coupons`
+- `GET /api/staff/coupons/:id`
+- `PUT /api/staff/coupons/:id`
+- `DELETE /api/staff/coupons/:id`
+
+Customer validates coupon before booking/payment:
 
 ```http
-Authorization: Bearer <admin_token>
+POST /api/coupons/validate
 ```
 
-### Admin Travel Destinations
+Coupon fields:
 
-Module `/api/admin/travel-destinations` dung de admin quan ly diem den du lich tong the. `TravelDestination` la entity cha cua `Tour` va `Location`.
+- `code`
+- `discount_type`: `percentage` or `fixed`
+- `discount_value`
+- `max_discount_amount`
+- `min_order_amount`
+- `usage_limit`
+- `used_count`
+- `start_date`
+- `end_date`
+- `status`
 
-Endpoints:
+Coupon delete is soft delete. Deleted coupons are hidden from normal list responses.
 
-- `POST /api/admin/travel-destinations`
-- `GET /api/admin/travel-destinations?page=1&limit=10&search=dinh&destination_category_id=1`
-- `GET /api/admin/travel-destinations/:id`
-- `PUT /api/admin/travel-destinations/:id`
-- `DELETE /api/admin/travel-destinations/:id`
+### Booking
 
-Create payload:
-
-```json
-{
-  "name": "Dinh Doc Lap",
-  "description": "Historic landmark in Ho Chi Minh City",
-  "thumbnail": "https://example.com/dinhdoclap.jpg",
-  "destination_category_id": 1
-}
-```
-
-Tour payload dung `tour_category_id`:
-
-```json
-{
-  "name": "Dinh Doc Lap Half Day Tour",
-  "description": "Guided tour package",
-  "price": 500000,
-  "schedule": "08:00 - 12:00",
-  "capacity": 30,
-  "destination_id": 1,
-  "tour_category_id": 1
-}
-```
-
-Business logic da ho tro:
-
-- Check JWT va role `admin` qua prefix `/api/admin`
-- Validate body
-- Check destination name khong trung
-- Pagination/search/filter category
-- Sort theo `created_at`
-- Detail include `locations`, `tours`, `view360`, `statistics`
-- `PUT` co the update mot phan field, khong bat buoc gui day du resource
-- Delete dang soft delete va chan xoa neu con `tour` hoac `location`
-
-Neu database da tao truoc do, chay migration:
-
-```bash
-psql -U postgres -d travel360 -f migrations/001_update_travel_destination.sql
-psql -U postgres -d travel360 -f migrations/002_split_categories.sql
-psql -U postgres -d travel360 -f migrations/003_update_location_timestamps.sql
-psql -U postgres -d travel360 -f migrations/004_update_location_create_fields.sql
-psql -U postgres -d travel360 -f migrations/005_update_view360_management.sql
-psql -U postgres -d travel360 -f migrations/006_update_location_soft_delete.sql
-psql -U postgres -d travel360 -f migrations/007_update_location_delete_fields.sql
-```
-
-ERD sau refactor nam tai `docs/ERD.md`.
-
-Staff endpoints dung prefix `/api/staff` va yeu cau token co role `staff` hoac `admin`:
-
-- CRUD: `/api/staff/reviews`
-- CRUD: `/api/staff/coupons`
-- CRUD: `/api/staff/bookings`
-- CRUD: `/api/staff/booking-details`
-- CRUD: `/api/staff/payments`
-
-Vi du header staff:
+Customer creates booking:
 
 ```http
-Authorization: Bearer <staff_token>
+POST /api/bookings
+Authorization: Bearer <customer_token>
 ```
 
-## Vi du payload
-
-### Register
+Example:
 
 ```json
 {
-  "name": "Nguyen Van A",
-  "email": "user@example.com",
-  "password": "secret123",
-  "profile_info": "Travel lover from Da Nang",
-  "avatar_url": "https://example.com/avatar.png"
-}
-```
-
-Response:
-
-```json
-{
-  "success": true,
-  "message": "Registered successfully",
-  "data": {
-    "user": {
-      "user_id": 1,
-      "name": "Nguyen Van A",
-      "email": "user@example.com",
-      "role": "user",
-      "status": "active",
-      "profile_info": "Travel lover from Da Nang",
-      "google_id": null,
-      "avatar_url": "https://example.com/avatar.png"
-    },
-    "token": "<jwt_token>"
-  }
-}
-```
-
-### Login
-
-```json
-{
-  "email": "user@example.com",
-  "password": "secret123"
-}
-```
-
-Response:
-
-```json
-{
-  "success": true,
-  "message": "Logged in successfully",
-  "data": {
-    "user": {
-      "user_id": 1,
-      "name": "Nguyen Van A",
-      "email": "user@example.com",
-      "role": "user",
-      "status": "active"
-    },
-    "token": "<jwt_token>"
-  }
-}
-```
-
-### Get Profile
-
-```http
-GET /api/auth/profile
-Authorization: Bearer <token>
-```
-
-### Update Profile
-
-```http
-PUT /api/auth/profile
-Authorization: Bearer <token>
-```
-
-```json
-{
-  "name": "Nguyen Van A",
-  "profile_info": "Loves beaches and mountain trips",
-  "avatar_url": "https://example.com/avatar.png"
-}
-```
-
-### Booking nhieu ve
-
-```json
-{
-  "user_id": 1,
   "tour_id": 1,
+  "coupon_code": "SUMMER20",
   "passengers": [
     {
       "passenger_name": "Nguyen Van A",
       "age_category": "adult",
-      "price": 1200000
-    },
-    {
-      "passenger_name": "Nguyen Van B",
-      "age_category": "child",
-      "price": 800000
+      "price": 700000
     }
   ]
 }
 ```
 
-### Payment
+Server rules:
+
+- `user_id` is resolved from JWT, not from request body.
+- `status` starts as `pending`.
+- `payment_status` starts as `unpaid`.
+- `original_amount`, `discount_amount`, and `final_amount` are calculated by server.
+- Invalid `tour_id` returns `404 Tour not found`.
+
+Cancel booking:
+
+```http
+PATCH /api/bookings/:id/cancel
+```
+
+Rules:
+
+- Customer can cancel only their own unpaid booking.
+- Pending payments are expired.
+- Paid booking requires staff refund before cancellation.
+
+### Payment with SePay
+
+Create payment:
+
+```http
+POST /api/payments
+Authorization: Bearer <customer_token>
+```
+
+Payload:
 
 ```json
 {
-  "booking_id": 1,
-  "amount": 2000000,
-  "payment_method": "bank_transfer",
-  "status": "paid",
-  "transaction_code": "TXN001",
-  "currency": "VND"
+  "booking_id": 123
 }
 ```
 
-### Coupon
+Response includes QR URL:
 
 ```json
 {
-  "code": "SUMMER10",
-  "name": "Summer discount",
-  "description": "Discount for summer tours",
-  "discount_type": "percent",
-  "discount_value": 10,
-  "min_order_amount": 1000000,
-  "max_discount_amount": 300000,
-  "usage_limit": 100,
-  "starts_at": "2026-06-01T00:00:00.000Z",
-  "expires_at": "2026-08-31T23:59:59.000Z",
-  "status": "active"
+  "success": true,
+  "message": "Payment created successfully",
+  "data": {
+    "payment_id": 1,
+    "booking_id": 123,
+    "payment_code": "TVL000123ABCD",
+    "amount": 700000,
+    "currency": "VND",
+    "status": "pending",
+    "bank_account": "123456789",
+    "bank_name": "MBBank",
+    "transfer_content": "TVL000123ABCD",
+    "qr_url": "https://qr.sepay.vn/img?acc=123456789&bank=MBBank&amount=700000&des=TVL000123ABCD",
+    "expired_at": "2026-06-01T10:15:00.000Z"
+  }
 }
 ```
 
-Coupon endpoints:
+Payment rules:
 
-- `GET /api/coupons`
-- `POST /api/coupons`
-- `GET /api/coupons/:id`
-- `PUT /api/coupons/:id`
-- `DELETE /api/coupons/:id`
+- Frontend cannot mark payment as paid.
+- Only SePay webhook or staff operation can update paid/refund status.
+- Payment code starts with `TVL`.
+- Payment expires after `PAYMENT_EXPIRE_MINUTES`.
+- Paid payment confirms the booking.
 
-## Ghi chu
+## Cron Jobs
 
-- `src/services/chat.service.js` hien la placeholder de gan AI provider sau.
-- `src/services/suggestion.service.js` dang goi y tour theo rule-based filters.
-- `src/jobs/bookingExpiry.job.js` tu dong huy booking pending qua ngay.
+Registered in `src/server.js`:
+
+- `bookingExpiry.job.js`: expires old unpaid pending bookings.
+- `paymentExpiry.job.js`: expires pending payments past `expired_at` and updates booking status.
+
+## Useful Commands
+
+```bash
+npm run dev
+npm start
+npm run lint
+```
+
+Check one file manually:
+
+```bash
+node --check src/server.js
+```
+
+## Notes
+
+- This project currently uses raw PostgreSQL queries through `pg`, not Sequelize.
+- `src/services/chat.service.js` and `src/services/suggestion.service.js` are placeholders/rule-based helpers for future AI integration.
+- Use Swagger `/api-docs` as the most accurate API reference during development.

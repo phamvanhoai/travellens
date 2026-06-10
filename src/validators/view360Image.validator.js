@@ -1,6 +1,18 @@
 const Joi = require('joi');
 
 const id = Joi.number().integer().positive();
+const imageFile = Joi.string().trim().custom((value, helpers) => {
+  if (!value || value.startsWith('/public/view360-images/')) {
+    return value;
+  }
+
+  const { error } = Joi.string().uri().validate(value);
+  if (error) {
+    return helpers.error('string.uri');
+  }
+
+  return value;
+});
 
 module.exports = {
   viewParam: {
@@ -20,7 +32,7 @@ module.exports = {
       viewId: id.required(),
     }),
     body: Joi.object({
-      image_file: Joi.string().trim().required(),
+      image_file: imageFile.required(),
       order_index: Joi.number().integer().min(0).allow(null),
     }),
   },
@@ -30,7 +42,7 @@ module.exports = {
       imageId: id.required(),
     }),
     body: Joi.object({
-      image_file: Joi.string().trim(),
+      image_file: imageFile,
       order_index: Joi.number().integer().min(0).allow(null),
     }).min(1),
   },
