@@ -1779,7 +1779,7 @@ router
  *                 example: Ground floor layout
  *               map_file:
  *                 type: string
- *                 example: /public/maps/ground-floor.png
+ *                 example: https://s3.cloudfly.vn/travellens/maps/ground-floor.png
  *               display_order:
  *                 type: integer
  *                 nullable: true
@@ -1841,7 +1841,7 @@ router
  *                 example: Updated layout
  *               map_file:
  *                 type: string
- *                 example: /public/maps/ground-floor-updated.png
+ *                 example: https://s3.cloudfly.vn/travellens/maps/ground-floor-updated.png
  *               display_order:
  *                 type: integer
  *                 nullable: true
