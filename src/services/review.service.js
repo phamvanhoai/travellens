@@ -4,6 +4,7 @@ const reviewPhotoModel = require('../models/reviewPhoto.model');
 const db = require('../config/db');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
+const { removeUploadedFiles } = require('../utils/uploadedFile');
 
 class ReviewService extends BaseService {
   async submitLocationReview(locationId, userId, payload) {
@@ -40,7 +41,8 @@ class ReviewService extends BaseService {
       throw new ApiError(httpStatus.NOT_FOUND, 'Review not found');
     }
 
-    await reviewPhotoModel.softDeleteByReview(id);
+    const photos = await reviewPhotoModel.softDeleteByReview(id);
+    await removeUploadedFiles(photos.map((photo) => photo.photo_url));
 
     return review;
   }

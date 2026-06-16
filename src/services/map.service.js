@@ -3,6 +3,7 @@ const mapModel = require('../models/map.model');
 const db = require('../config/db');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
+const { removeUploadedFile } = require('../utils/uploadedFile');
 
 class MapService extends BaseService {
   list(query = {}) {
@@ -185,10 +186,22 @@ class MapService extends BaseService {
   }
 
   async update(id, payload) {
+    const currentMap = payload.map_file
+      ? await this.get(id)
+      : null;
+
     const map = await this.model.updateMap(id, payload);
 
     if (!map) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Map not found');
+    }
+
+    if (
+      payload.map_file
+      && currentMap?.map_file
+      && currentMap.map_file !== map.map_file
+    ) {
+      await removeUploadedFile(currentMap.map_file);
     }
 
     return map;
@@ -200,6 +213,8 @@ class MapService extends BaseService {
     if (!map) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Map not found');
     }
+
+    await removeUploadedFile(map.map_file);
 
     return map;
   }

@@ -1,6 +1,7 @@
 const locationModel = require('../models/location.model');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
+const { removeUploadedFile } = require('../utils/uploadedFile');
 
 class LocationService {
   async list(query = {}) {
@@ -66,6 +67,15 @@ class LocationService {
       }, client);
 
       await client.query('COMMIT');
+
+      if (
+        payload.thumbnail
+        && current.thumbnail
+        && current.thumbnail !== location.thumbnail
+      ) {
+        await removeUploadedFile(current.thumbnail);
+      }
+
       return location;
     } catch (error) {
       await client.query('ROLLBACK');
@@ -83,7 +93,7 @@ class LocationService {
 
     try {
       await client.query('BEGIN');
-      await this.ensureExists(id, client);
+      const current = await this.ensureExists(id, client);
 
       const relations = await locationModel.countRelatedData(id, client);
       const hasRelatedData = Object.values(relations).some((total) => Number(total) > 0);
@@ -97,6 +107,9 @@ class LocationService {
       }
 
       await client.query('COMMIT');
+
+      await removeUploadedFile(current.thumbnail);
+
       return location;
     } catch (error) {
       await client.query('ROLLBACK');

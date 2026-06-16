@@ -3,6 +3,7 @@ const BaseService = require('./base.service');
 const view360ImageModel = require('../models/view360Image.model');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
+const { removeUploadedFile } = require('../utils/uploadedFile');
 
 class View360ImageService extends BaseService {
   async listByView(viewId) {
@@ -33,7 +34,7 @@ class View360ImageService extends BaseService {
   }
 
   async update(imageId, payload) {
-    await this.ensureImageExists(imageId);
+    const currentImage = await this.get(imageId);
 
     const fields = ['image_file', 'order_index']
       .filter((field) => payload[field] !== undefined);
@@ -54,11 +55,21 @@ class View360ImageService extends BaseService {
       values
     );
 
-    return result.rows[0];
+    const image = result.rows[0];
+
+    if (
+      payload.image_file
+      && currentImage.image_file
+      && currentImage.image_file !== image.image_file
+    ) {
+      await removeUploadedFile(currentImage.image_file);
+    }
+
+    return image;
   }
 
   async remove(imageId) {
-    await this.ensureImageExists(imageId);
+    const currentImage = await this.get(imageId);
 
     const result = await db.query(
       `UPDATE view360_image
@@ -67,6 +78,8 @@ class View360ImageService extends BaseService {
        RETURNING *`,
       [imageId]
     );
+
+    await removeUploadedFile(currentImage.image_file);
 
     return result.rows[0];
   }
