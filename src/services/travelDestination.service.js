@@ -1,6 +1,7 @@
 const travelDestinationModel = require('../models/travelDestination.model');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
+const { removeUploadedFile } = require('../utils/uploadedFile');
 
 class TravelDestinationService {
   async list(query = {}) {
@@ -47,7 +48,7 @@ class TravelDestinationService {
   }
 
   async update(id, payload) {
-    await this.ensureExists(id);
+    const current = await this.ensureExists(id);
 
     if (payload.name) {
       await this.ensureUniqueName(payload.name, id);
@@ -60,6 +61,15 @@ class TravelDestinationService {
       if (!destination) {
         throw new ApiError(httpStatus.NOT_FOUND, 'Travel destination not found');
       }
+
+      if (
+        payload.thumbnail
+        && current.thumbnail
+        && current.thumbnail !== destination.thumbnail
+      ) {
+        await removeUploadedFile(current.thumbnail);
+      }
+
       return destination;
     } catch (error) {
       if (error.code === '23505') {
@@ -73,7 +83,7 @@ class TravelDestinationService {
   }
 
   async remove(id) {
-    await this.ensureExists(id);
+    const current = await this.ensureExists(id);
 
     const relations = await travelDestinationModel.countRelations(id);
     if (relations.total_tours > 0 || relations.total_locations > 0) {
@@ -88,6 +98,9 @@ class TravelDestinationService {
     if (!destination) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Travel destination not found');
     }
+
+    await removeUploadedFile(current.thumbnail);
+
     return destination;
   }
 
@@ -96,6 +109,7 @@ class TravelDestinationService {
     if (!destination) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Travel destination not found');
     }
+    return destination;
   }
 
   async ensureUniqueName(name, exceptDestinationId) {
