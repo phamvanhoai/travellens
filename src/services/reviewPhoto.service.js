@@ -32,7 +32,7 @@ class ReviewPhotoService {
     }
 
     const photos = files.map((file) => ({
-      photo_url: `/public/reviews/${file.filename}`,
+      photo_url: file.url || `/public/reviews/${file.filename}`,
       original_name: file.originalname,
       mime_type: file.mimetype,
       file_size: file.size,
