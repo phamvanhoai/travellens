@@ -4,6 +4,7 @@ const tourModel = require('../models/tour.model');
 const tourDestinationModel = require('../models/tourDestination.model');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
+const { removeUploadedFile } = require('../utils/uploadedFile');
 
 class TourService extends BaseService {
   async viewTourList(query = {}) {
@@ -84,6 +85,15 @@ class TourService extends BaseService {
       }
 
       await client.query('COMMIT');
+
+      if (
+        payload.thumbnail
+        && existingTour.thumbnail
+        && existingTour.thumbnail !== payload.thumbnail
+      ) {
+        await removeUploadedFile(existingTour.thumbnail);
+      }
+
       return { tour_id: Number(id) };
     } catch (error) {
       await client.query('ROLLBACK');
@@ -110,6 +120,9 @@ class TourService extends BaseService {
 
       await this.model.softDelete(id, client);
       await client.query('COMMIT');
+
+      await removeUploadedFile(existingTour.thumbnail);
+
       return { tour_id: Number(id) };
     } catch (error) {
       await client.query('ROLLBACK');

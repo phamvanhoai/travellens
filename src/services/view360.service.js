@@ -3,6 +3,7 @@ const BaseService = require('./base.service');
 const view360Model = require('../models/view360.model');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
+const { removeUploadedFile, removeUploadedFiles } = require('../utils/uploadedFile');
 
 class View360Service extends BaseService {
   async listByLocation(locationId) {
@@ -41,7 +42,7 @@ class View360Service extends BaseService {
   }
 
   async update(viewId, payload) {
-    await this.ensureViewExists(viewId);
+    const currentView = await this.get(viewId);
 
     const fields = ['title', 'description', 'audio_file', 'language', 'order_index']
       .filter((field) => payload[field] !== undefined);
@@ -62,15 +63,31 @@ class View360Service extends BaseService {
       values
     );
 
-    return result.rows[0];
+    const view = result.rows[0];
+
+    if (
+      payload.audio_file
+      && currentView.audio_file
+      && currentView.audio_file !== view.audio_file
+    ) {
+      await removeUploadedFile(currentView.audio_file);
+    }
+
+    return view;
   }
 
   async remove(viewId) {
-    await this.ensureViewExists(viewId);
+    const currentView = await this.get(viewId);
 
     const client = await db.getClient();
     try {
       await client.query('BEGIN');
+      const imageResult = await client.query(
+        `SELECT image_file
+         FROM view360_image
+         WHERE view_id = $1 AND deleted_at IS NULL`,
+        [viewId]
+      );
       await client.query(
         `UPDATE view360_image
          SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
@@ -85,6 +102,10 @@ class View360Service extends BaseService {
         [viewId]
       );
       await client.query('COMMIT');
+
+      await removeUploadedFile(currentView.audio_file);
+      await removeUploadedFiles(imageResult.rows.map((image) => image.image_file));
+
       return result.rows[0];
     } catch (error) {
       await client.query('ROLLBACK');
