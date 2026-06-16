@@ -9,7 +9,12 @@ const avatarUrl = Joi.string().trim().max(500).custom((value, helpers) => {
     return value;
   }
 
-  return helpers.error('string.uploadOnly');
+  const { error } = Joi.string().uri({ scheme: ['http', 'https'] }).validate(value);
+  if (error) {
+    return helpers.error('string.uri');
+  }
+
+  return value;
 }).allow(null, '');
 
 const validateDateOfBirth = (value, helpers) => {
@@ -95,7 +100,7 @@ module.exports = {
       avatar_url: avatarUrl.messages({
         'string.base': 'Avatar URL must be a string',
         'string.max': 'Avatar URL must not exceed 500 characters',
-        'string.uploadOnly': 'Avatar must be uploaded as an image file',
+        'string.uri': 'Avatar must be an uploaded image URL',
       }),
       phone: Joi.string().trim().pattern(vietnamPhonePattern).allow(null, '').messages({
         'string.base': 'Phone must be a string',
