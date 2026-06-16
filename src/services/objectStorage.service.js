@@ -52,6 +52,41 @@ const publicUrlFor = (key, uploadResult) => {
   return `${normalizeEndpoint(endpoint).replace(/\/$/, '')}/${bucket}/${key}`;
 };
 
+const keyFromUrl = (url) => {
+  if (!isEnabled || !url || typeof url !== 'string') {
+    return null;
+  }
+
+  const normalizedEndpoint = normalizeEndpoint(endpoint).replace(/\/$/, '');
+  const normalizedPublicBaseUrl = publicBaseUrl?.replace(/\/$/, '');
+
+  if (normalizedPublicBaseUrl && url.startsWith(`${normalizedPublicBaseUrl}/`)) {
+    return decodeURIComponent(url.slice(normalizedPublicBaseUrl.length + 1));
+  }
+
+  if (url.startsWith(`${normalizedEndpoint}/${bucket}/`)) {
+    return decodeURIComponent(url.slice(`${normalizedEndpoint}/${bucket}/`.length));
+  }
+
+  try {
+    const parsedUrl = new URL(url);
+    const endpointUrl = new URL(normalizedEndpoint);
+
+    if (parsedUrl.hostname !== endpointUrl.hostname) {
+      return null;
+    }
+
+    const pathParts = parsedUrl.pathname.split('/').filter(Boolean);
+    if (pathParts[0] !== bucket || pathParts.length < 2) {
+      return null;
+    }
+
+    return decodeURIComponent(pathParts.slice(1).join('/'));
+  } catch (error) {
+    return null;
+  }
+};
+
 const uploadFile = async ({ file, folder, fallbackName, acl = 'public-read' }) => {
   if (!isEnabled || !s3) {
     throw new Error('Object storage is not configured');
@@ -74,7 +109,26 @@ const uploadFile = async ({ file, folder, fallbackName, acl = 'public-read' }) =
   };
 };
 
+const deleteFileByUrl = async (url) => {
+  if (!isEnabled || !s3) {
+    return false;
+  }
+
+  const key = keyFromUrl(url);
+  if (!key) {
+    return false;
+  }
+
+  await s3.deleteObject({
+    Bucket: bucket,
+    Key: key,
+  }).promise();
+
+  return true;
+};
+
 module.exports = {
   isEnabled,
   uploadFile,
+  deleteFileByUrl,
 };

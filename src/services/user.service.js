@@ -3,7 +3,7 @@ const BaseService = require('./base.service');
 const userModel = require('../models/user.model');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
-const { removeLocalUserAvatar } = require('../utils/avatarFile');
+const { removeUserAvatar } = require('../utils/avatarFile');
 
 const sanitize = (user) => {
   if (!user) return user;
@@ -80,7 +80,7 @@ class UserService extends BaseService {
         && user?.avatar_url
         && currentUser.avatar_url !== user.avatar_url
       ) {
-        await removeLocalUserAvatar(currentUser.avatar_url);
+        await removeUserAvatar(currentUser.avatar_url);
       }
 
       return sanitize(user);

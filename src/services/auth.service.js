@@ -10,7 +10,7 @@ const { OAuth2Client } = require('google-auth-library');
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const passwordResetCodeModel = require('../models/passwordResetCode.model');
 const emailService = require('./email.service');
-const { removeLocalUserAvatar } = require('../utils/avatarFile');
+const { removeUserAvatar } = require('../utils/avatarFile');
 
 const sanitizeUser = (user) => {
   if (!user) return user;
@@ -246,7 +246,7 @@ class AuthService {
       && currentUser?.avatar_url
       && currentUser.avatar_url !== user.avatar_url
     ) {
-      await removeLocalUserAvatar(currentUser.avatar_url);
+      await removeUserAvatar(currentUser.avatar_url);
     }
 
     return sanitizeUser(user);

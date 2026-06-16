@@ -1,5 +1,6 @@
 const fs = require('fs/promises');
 const path = require('path');
+const objectStorage = require('../services/objectStorage.service');
 
 const userAvatarDir = path.resolve(__dirname, '..', '..', 'public', 'users');
 
@@ -36,6 +37,15 @@ const removeLocalUserAvatar = async (avatarUrl) => {
   }
 };
 
+const removeUserAvatar = async (avatarUrl) => {
+  if (await objectStorage.deleteFileByUrl(avatarUrl)) {
+    return true;
+  }
+
+  return removeLocalUserAvatar(avatarUrl);
+};
+
 module.exports = {
   removeLocalUserAvatar,
+  removeUserAvatar,
 };
