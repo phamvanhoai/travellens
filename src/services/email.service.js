@@ -1,5 +1,12 @@
 const nodemailer = require('nodemailer');
 
+const escapeHtml = (value) => String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
 class EmailService {
     constructor() {
         this.transporter = nodemailer.createTransport({
@@ -173,6 +180,54 @@ class EmailService {
         });
 
         const text = `Hi ${name}, your TravelLens password reset code is: ${code}. This code expires in 10 minutes.`;
+
+        return this.sendMail({
+            to,
+            subject,
+            html,
+            text,
+        });
+    }
+
+    async sendAdminCreatedAccount({ to, name, password, isTemporaryPassword }) {
+        const subject = 'Your TravelLens account has been created';
+        const passwordLabel = isTemporaryPassword ? 'Temporary Password' : 'Password';
+        const safeName = escapeHtml(name);
+        const safePassword = escapeHtml(password);
+
+        const content = `
+      <p style="margin:0 0 16px; color:#0f172a; font-size:16px; line-height:1.7;">
+        Hi <strong>${safeName}</strong>,
+      </p>
+
+      <p style="margin:0 0 22px; color:#334155; font-size:15px; line-height:1.7;">
+        An administrator has created a TravelLens account for you. You can sign in using the password below.
+      </p>
+
+      <div style="margin:30px 0; text-align:center;">
+        <div style="display:inline-block; background:#eff6ff; border:1px solid #bfdbfe; border-radius:16px; padding:18px 28px;">
+          <div style="color:#64748b; font-size:12px; letter-spacing:1.5px; text-transform:uppercase; font-weight:700; margin-bottom:8px;">
+            ${passwordLabel}
+          </div>
+          <div style="color:#1d4ed8; font-size:24px; line-height:1.3; font-weight:800;">
+            ${safePassword}
+          </div>
+        </div>
+      </div>
+
+      <p style="margin:22px 0 0; color:#64748b; font-size:14px; line-height:1.7;">
+        ${isTemporaryPassword ? 'Please change this temporary password after signing in.' : 'Please keep this password secure.'}
+      </p>
+    `;
+
+        const html = this.getBaseTemplate({
+            title: 'Your account is ready',
+            subtitle: 'Use the password below to sign in to TravelLens.',
+            content,
+            footerText: 'If you did not expect this account, please contact the administrator.',
+        });
+
+        const text = `Hi ${name}, your TravelLens account has been created. ${passwordLabel}: ${password}`;
 
         return this.sendMail({
             to,

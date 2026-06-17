@@ -217,7 +217,7 @@ router.get('/statistics/content', statisticsController.content);
  *         description: Admin role required
  *   post:
  *     summary: Admin create user
- *     description: Admin creates a user with a temporary password and optional avatar upload. The password is hashed by the backend before saving.
+ *     description: Admin creates a user and emails the password to the user. If password is omitted or blank, the backend generates a temporary password, hashes it before saving, and emails it.
  *     tags: [Admin Users]
  *     security:
  *       - bearerAuth: []
@@ -227,7 +227,7 @@ router.get('/statistics/content', statisticsController.content);
  *         multipart/form-data:
  *           schema:
  *             type: object
- *             required: [name, email, password, role, status]
+ *             required: [name, email, role, status]
  *             properties:
  *               name:
  *                 type: string
@@ -241,6 +241,8 @@ router.get('/statistics/content', statisticsController.content);
  *                 type: string
  *                 format: password
  *                 minLength: 6
+ *                 nullable: true
+ *                 description: Optional. If omitted or blank, a temporary password is generated and emailed to the user.
  *                 example: Temp123456
  *               role:
  *                 type: string
@@ -260,7 +262,7 @@ router.get('/statistics/content', statisticsController.content);
  *         application/json:
  *           schema:
  *             type: object
- *             required: [name, email, password, role, status]
+ *             required: [name, email, role, status]
  *             properties:
  *               name:
  *                 type: string
@@ -275,7 +277,8 @@ router.get('/statistics/content', statisticsController.content);
  *                 type: string
  *                 format: password
  *                 minLength: 6
- *                 description: Must be at least 6 characters and not contain only spaces.
+ *                 nullable: true
+ *                 description: Optional. Must be at least 6 characters and not contain only spaces. If omitted or blank, a temporary password is generated and emailed to the user.
  *                 example: Temp123456
  *               role:
  *                 type: string
@@ -409,6 +412,29 @@ router.get('/statistics/content', statisticsController.content);
  *         description: User not found
  *       409:
  *         description: Email already exists
+ *   delete:
+ *     summary: Admin delete user
+ *     description: Deletes a non-admin user only when the account has no related service data such as bookings, active reviews, blogs, or created coupons. If deletion is blocked, the response includes details explaining why.
+ *     tags: [Admin Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: User deleted successfully
+ *       403:
+ *         description: Admin users cannot be deleted
+ *       404:
+ *         description: User not found
+ *       409:
+ *         description: User has related service data and cannot be deleted
  */
 
 /**
