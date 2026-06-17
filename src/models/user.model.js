@@ -180,6 +180,24 @@ class UserModel extends BaseModel {
     return result.rows[0] || null;
   }
 
+  async countDeleteBlockingRelations(userId) {
+    const result = await db.query(
+      `SELECT
+          (SELECT COUNT(*)::int FROM booking WHERE user_id = $1) AS bookings,
+          (SELECT COUNT(*)::int FROM review WHERE user_id = $1 AND deleted_at IS NULL) AS reviews,
+          (SELECT COUNT(*)::int FROM blog WHERE user_id = $1) AS blogs,
+          (SELECT COUNT(*)::int FROM coupon WHERE created_by = $1 AND deleted_at IS NULL) AS coupons_created`,
+      [userId]
+    );
+
+    return result.rows[0] || {
+      bookings: 0,
+      reviews: 0,
+      blogs: 0,
+      coupons_created: 0,
+    };
+  }
+
 }
 
 module.exports = new UserModel();

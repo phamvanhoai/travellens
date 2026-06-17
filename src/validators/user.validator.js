@@ -1,8 +1,8 @@
 const Joi = require('joi');
 
 const id = Joi.number().integer().positive();
-const fullNamePattern = /^[\p{L}]+(?:\s+[\p{L}]+)+$/u;
-const fullNameMessage = 'Name must contain at least 2 words and use letters/spaces only, for example: Nguyen Van A or Le Minh';
+const fullNamePattern = /^[\p{L}\p{N}]+(?:\s+[\p{L}\p{N}]+)*$/u;
+const fullNameMessage = 'Name must use letters, numbers, and spaces only';
 const vietnamPhonePattern = /^0(?:3|5|7|8|9)\d{8}$/;
 const avatarUrl = Joi.string().trim().custom((value, helpers) => {
   if (!value || value.startsWith('/public/users/')) {
@@ -47,11 +47,10 @@ module.exports = {
         'any.required': 'Name is required',
       }),
       email: Joi.string().trim().lowercase().email().required(),
-      password: Joi.string().min(6).custom(passwordNotBlank).required().messages({
+      password: Joi.string().trim().min(6).custom(passwordNotBlank).allow('', null).messages({
         'string.base': 'Password must be a string',
-        'string.empty': 'Password is required',
+        'string.empty': 'Password cannot be empty',
         'string.min': 'Password must be at least 6 characters',
-        'any.required': 'Password is required',
       }),
       role: Joi.string().trim().valid('admin', 'staff', 'customer').required(),
       status: Joi.string().trim().valid('active', 'inactive', 'pending').required(),
