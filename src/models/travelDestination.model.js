@@ -267,6 +267,8 @@ module.exports = {
             WHERE l.destination_id = $1
               AND l.deleted_at IS NULL
               AND l.is_deleted = FALSE
+              AND r.deleted_at IS NULL
+              AND r.status = 'approved'
           ) AS total_reviews`,
       [id]
     );

@@ -1,6 +1,12 @@
-const createCrudRoute = require('./crud.route');
+const express = require('express');
 const controller = require('../controllers/bookingDetail.controller');
-const { entity } = require('../validators');
+const validate = require('../middlewares/validate.middleware');
+const { common } = require('../validators');
 
-module.exports = createCrudRoute(controller, entity.bookingDetail);
+const router = express.Router();
+
+router.get('/', validate({ query: common.paginationQuery }), controller.list);
+router.get('/:id', validate({ params: common.idParam }), controller.get);
+
+module.exports = router;
 

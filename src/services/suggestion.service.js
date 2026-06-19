@@ -24,6 +24,7 @@ class SuggestionService {
     }
 
     clauses.push('deleted_at IS NULL');
+    clauses.push("status = 'active'");
     const where = `WHERE ${clauses.join(' AND ')}`;
     const result = await db.query(`SELECT * FROM tour ${where} ORDER BY price ASC LIMIT 10`, values);
     return {

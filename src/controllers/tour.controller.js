@@ -44,5 +44,20 @@ module.exports = {
       data,
     });
   }),
+  publicList: asyncHandler(async (req, res) => {
+    const data = await tourService.publicList(req.query);
+    res.status(httpStatus.OK).json({
+      success: true,
+      data: data.items,
+      pagination: data.pagination,
+    });
+  }),
+  publicDetail: asyncHandler(async (req, res) => {
+    const data = await tourService.publicDetail(req.params.id);
+    res.status(httpStatus.OK).json({
+      success: true,
+      data,
+    });
+  }),
 };
 

@@ -108,6 +108,8 @@ class MapFilterService {
             WHERE l.destination_id = td.destination_id
               AND l.deleted_at IS NULL
               AND l.is_deleted = FALSE
+              AND r.deleted_at IS NULL
+              AND r.status = 'approved'
          ) rating_stats ON TRUE
          LEFT JOIN LATERAL (
             SELECT v.view_id
@@ -158,6 +160,8 @@ class MapFilterService {
             SELECT AVG(r.rating)::numeric(3,2) AS rating
             FROM review r
             WHERE r.location_id = l.location_id
+              AND r.deleted_at IS NULL
+              AND r.status = 'approved'
          ) rating_stats ON TRUE
          LEFT JOIN LATERAL (
             SELECT v.view_id

@@ -6,6 +6,31 @@ const { httpStatus } = require('../constants');
 const { removeUploadedFile } = require('../utils/uploadedFile');
 
 class View360ImageService extends BaseService {
+  async list(query = {}) {
+    const page = Math.max(Number(query.page || 1), 1);
+    const limit = Math.min(Math.max(Number(query.limit || 20), 1), 100);
+    const offset = (page - 1) * limit;
+    const values = [];
+    const clauses = ['deleted_at IS NULL'];
+
+    if (query.view_id) {
+      values.push(query.view_id);
+      clauses.push(`view_id = $${values.length}`);
+    }
+
+    values.push(limit, offset);
+    const result = await db.query(
+      `SELECT *
+       FROM view360_image
+       WHERE ${clauses.join(' AND ')}
+       ORDER BY order_index ASC NULLS LAST, image_id ASC
+       LIMIT $${values.length - 1} OFFSET $${values.length}`,
+      values
+    );
+
+    return result.rows;
+  }
+
   async listByView(viewId) {
     await this.ensureViewExists(viewId);
 

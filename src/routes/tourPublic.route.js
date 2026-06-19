@@ -5,7 +5,7 @@ const { tour } = require('../validators');
 
 const router = express.Router();
 
-router.get('/', validate(tour.list), controller.viewTourList);
-router.get('/:id', validate(tour.detail), controller.viewTourDetail);
+router.get('/', validate(tour.list), controller.publicList);
+router.get('/:id', validate(tour.detail), controller.publicDetail);
 
 module.exports = router;
