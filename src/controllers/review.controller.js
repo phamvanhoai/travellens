@@ -9,6 +9,16 @@ const baseController = createController(reviewService);
 module.exports = {
   ...baseController,
 
+  publicList: asyncHandler(async (req, res) => {
+    const data = await reviewService.publicList(req.query);
+    response.success(res, data);
+  }),
+
+  publicGet: asyncHandler(async (req, res) => {
+    const data = await reviewService.publicGet(req.params.id);
+    response.success(res, data);
+  }),
+
   submitLocationReview: asyncHandler(async (req, res) => {
     const data = await reviewService.submitLocationReview(
       req.params.locationId,

@@ -19,6 +19,21 @@ class TourService extends BaseService {
     return item;
   }
 
+  async publicList(query = {}) {
+    return this.model.findAllForAdminView({
+      ...query,
+      status: 'active',
+    });
+  }
+
+  async publicDetail(id) {
+    const item = await this.model.findDetailForAdminView(id);
+    if (!item || item.status !== 'active') {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Tour Not Found');
+    }
+    return item;
+  }
+
   async create(payload) {
     this.validateDestinationList(payload.destinations);
 

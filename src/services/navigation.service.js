@@ -33,7 +33,8 @@ class NavigationService {
       `SELECT tour_id, name
        FROM tour
        WHERE tour_id = $1
-         AND deleted_at IS NULL`,
+          AND deleted_at IS NULL
+          AND status = 'active'`,
       [tourId]
     );
 

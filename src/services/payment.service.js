@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const db = require('../config/db');
 const paymentModel = require('../models/payment.model');
+const couponService = require('./coupon.service');
 const sepayService = require('./sepay.service');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
@@ -53,7 +54,7 @@ class PaymentService {
       if (booking.status !== 'pending') {
         throw new ApiError(httpStatus.BAD_REQUEST, 'Booking is not pending');
       }
-      if (!['unpaid', 'pending'].includes(booking.payment_status)) {
+      if (!['unpaid', 'pending', 'failed'].includes(booking.payment_status)) {
         throw new ApiError(httpStatus.BAD_REQUEST, 'Booking is not unpaid');
       }
 
@@ -138,10 +139,15 @@ class PaymentService {
     const client = await db.getClient();
     try {
       await client.query('BEGIN');
-      const payment = await paymentModel.updateStatus(id, 'refunded', payload, client);
-      if (!payment) {
+      const currentPayment = await this.getPaymentForUpdate(id, client);
+      if (!currentPayment) {
         throw new ApiError(httpStatus.NOT_FOUND, 'Payment not found');
       }
+      if (currentPayment.status !== 'paid') {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'Only paid payments can be refunded');
+      }
+
+      const payment = await paymentModel.updateStatus(id, 'refunded', payload, client);
       await client.query(
         `UPDATE booking
          SET payment_status = 'refunded'
@@ -162,12 +168,28 @@ class PaymentService {
     const client = await db.getClient();
     try {
       await client.query('BEGIN');
-      const payment = await paymentModel.updateStatus(id, status, {}, client);
-      if (!payment) {
+
+      const currentPayment = await this.getPaymentForUpdate(id, client);
+      if (!currentPayment) {
         throw new ApiError(httpStatus.NOT_FOUND, 'Payment not found');
       }
 
+      if (currentPayment.status === status) {
+        await client.query('COMMIT');
+        return currentPayment;
+      }
+
+      this.validateStatusTransition(currentPayment, status);
+
+      let payment;
       if (status === 'paid') {
+        payment = await paymentModel.markPaid(id, {
+          transaction_code: null,
+          sepay_transaction_id: null,
+          bank_account: null,
+          transfer_content: currentPayment.transfer_content,
+          paid_at: new Date(),
+        }, client);
         await client.query(
           `UPDATE booking
            SET payment_status = 'paid',
@@ -175,8 +197,12 @@ class PaymentService {
            WHERE booking_id = $1`,
           [payment.booking_id]
         );
+        if (currentPayment.coupon_id) {
+          await couponService.markUsed(currentPayment.coupon_id, client);
+        }
       }
       if (status === 'refunded') {
+        payment = await paymentModel.updateStatus(id, status, {}, client);
         await client.query(
           `UPDATE booking
            SET payment_status = 'refunded'
@@ -185,6 +211,16 @@ class PaymentService {
         );
       }
       if (status === 'failed') {
+        payment = await paymentModel.markFailed(id, {}, client);
+        await client.query(
+          `UPDATE booking
+           SET payment_status = 'failed'
+           WHERE booking_id = $1`,
+          [payment.booking_id]
+        );
+      }
+      if (status === 'expired') {
+        payment = await paymentModel.updateStatus(id, status, {}, client);
         await client.query(
           `UPDATE booking
            SET payment_status = 'failed'
@@ -201,6 +237,55 @@ class PaymentService {
     } finally {
       client.release();
     }
+  }
+
+  async getPaymentForUpdate(id, client) {
+    const result = await client.query(
+      `SELECT p.*,
+              b.status AS booking_status,
+              b.payment_status AS booking_payment_status,
+              b.coupon_id
+       FROM payment p
+       INNER JOIN booking b ON b.booking_id = p.booking_id
+       WHERE p.payment_id = $1
+         AND p.deleted_at IS NULL
+       FOR UPDATE OF p, b`,
+      [id]
+    );
+
+    return result.rows[0] || null;
+  }
+
+  validateStatusTransition(payment, nextStatus) {
+    if (nextStatus === 'pending') {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Payment cannot be moved back to pending');
+    }
+
+    if (nextStatus === 'paid') {
+      if (payment.status !== 'pending') {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'Only pending payments can be marked as paid');
+      }
+      if (payment.booking_status !== 'pending') {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'Only pending bookings can be marked as paid');
+      }
+      return;
+    }
+
+    if (nextStatus === 'refunded') {
+      if (payment.status !== 'paid') {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'Only paid payments can be refunded');
+      }
+      return;
+    }
+
+    if (['failed', 'expired'].includes(nextStatus)) {
+      if (payment.status !== 'pending') {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'Only pending payments can be failed or expired');
+      }
+      return;
+    }
+
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid payment status transition');
   }
 
   async generateUniquePaymentCode(bookingId, client) {

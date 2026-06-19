@@ -6,6 +6,39 @@ const { httpStatus } = require('../constants');
 const { removeUploadedFile, removeUploadedFiles } = require('../utils/uploadedFile');
 
 class View360Service extends BaseService {
+  async list(query = {}) {
+    const page = Math.max(Number(query.page || 1), 1);
+    const limit = Math.min(Math.max(Number(query.limit || 20), 1), 100);
+    const offset = (page - 1) * limit;
+    const values = [];
+    const clauses = ['deleted_at IS NULL'];
+
+    if (query.location_id) {
+      values.push(query.location_id);
+      clauses.push(`location_id = $${values.length}`);
+    }
+    if (query.language) {
+      values.push(query.language);
+      clauses.push(`language = $${values.length}`);
+    }
+    if (query.search) {
+      values.push(`%${query.search}%`);
+      clauses.push(`(title ILIKE $${values.length} OR description ILIKE $${values.length})`);
+    }
+
+    values.push(limit, offset);
+    const result = await db.query(
+      `SELECT *
+       FROM view360
+       WHERE ${clauses.join(' AND ')}
+       ORDER BY order_index ASC NULLS LAST, view_id ASC
+       LIMIT $${values.length - 1} OFFSET $${values.length}`,
+      values
+    );
+
+    return result.rows;
+  }
+
   async listByLocation(locationId) {
     await this.ensureLocationExists(locationId);
 
