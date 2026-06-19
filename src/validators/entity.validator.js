@@ -85,7 +85,7 @@ module.exports = {
       price: money.required(),
       seat_number: optionalText,
       special_request: optionalText,
-    })).default([]),
+    })).min(1).required(),
   }),
   bookingDetail: Joi.object({
     booking_id: id.required(),
