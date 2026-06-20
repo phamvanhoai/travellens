@@ -376,6 +376,7 @@ Staff manages coupons:
 - `POST /api/staff/coupons`
 - `GET /api/staff/coupons/:id`
 - `PUT /api/staff/coupons/:id`
+- `PATCH /api/staff/coupons/:id/archive`
 - `DELETE /api/staff/coupons/:id`
 
 Customer validates coupon before booking/payment:
@@ -397,7 +398,13 @@ Coupon fields:
 - `end_date`
 - `status`
 
-Coupon delete is soft delete. Deleted coupons are hidden from normal list responses.
+Coupon lifecycle rules:
+
+- `DELETE` is a soft delete for coupons created by mistake that have never been used or referenced by a booking.
+- A deleted unused coupon code may be reused.
+- Coupons that have been used cannot be deleted and should be archived.
+- `Archive` permanently retires a coupon while preserving its code and booking history.
+- Archived coupons cannot be updated, deleted, applied, or reused.
 
 ### Booking
 

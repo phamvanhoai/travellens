@@ -69,7 +69,7 @@ router.use(authenticate, authorize('staff', 'admin'));
  *         name: status
  *         schema:
  *           type: string
- *           enum: [active, inactive, expired, deleted]
+ *           enum: [active, inactive, expired, archived]
  *       - in: query
  *         name: discount_type
  *         schema:
@@ -221,6 +221,27 @@ router.use(authenticate, authorize('staff', 'admin'));
  *         description: Coupon has been used in bookings and cannot be deleted
  *       404:
  *         description: Coupon not found
+ *
+ * /staff/coupons/{id}/archive:
+ *   patch:
+ *     summary: Archive coupon
+ *     description: Permanently retires a coupon while preserving its code and booking history. Archived coupons cannot be updated, deleted, applied, or reused.
+ *     tags: [Staff Coupons]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Coupon archived successfully
+ *       404:
+ *         description: Coupon not found
+ *       409:
+ *         description: Coupon is already archived
  *
  * /staff/bookings:
  *   get:

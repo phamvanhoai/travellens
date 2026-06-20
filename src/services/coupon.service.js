@@ -46,6 +46,10 @@ class CouponService {
     const coupon = await this.get(id);
     const nextPayload = { ...payload };
 
+    if (coupon.status === 'archived') {
+      throw new ApiError(httpStatus.CONFLICT, 'Archived coupon cannot be updated');
+    }
+
     if (nextPayload.usage_limit !== undefined && nextPayload.usage_limit !== null) {
       if (Number(nextPayload.usage_limit) < Number(coupon.used_count)) {
         throw new ApiError(httpStatus.BAD_REQUEST, 'Usage limit cannot be lower than used count');
@@ -66,6 +70,11 @@ class CouponService {
 
   async remove(id) {
     const coupon = await this.get(id);
+
+    if (coupon.status === 'archived') {
+      throw new ApiError(httpStatus.CONFLICT, 'Archived coupon cannot be deleted');
+    }
+
     const usageStats = await couponModel.getUsageStats(id);
     const usedCount = Number(usageStats?.used_count ?? coupon.used_count ?? 0);
     const bookingCount = Number(usageStats?.booking_count ?? 0);
@@ -82,6 +91,19 @@ class CouponService {
       throw new ApiError(httpStatus.NOT_FOUND, 'Coupon not found');
     }
     return deleted;
+  }
+
+  async archive(id) {
+    const coupon = await this.get(id);
+    if (coupon.status === 'archived') {
+      throw new ApiError(httpStatus.CONFLICT, 'Coupon is already archived');
+    }
+
+    const archived = await couponModel.archiveCoupon(id);
+    if (!archived) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Coupon not found');
+    }
+    return archived;
   }
 
   async validateCoupon({ code, booking_amount: bookingAmount }) {
