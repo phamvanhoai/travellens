@@ -151,6 +151,20 @@ module.exports = {
     return result.rows[0] || null;
   },
 
+  async getUsageStats(id) {
+    const result = await db.query(
+      `SELECT
+         c.used_count::int AS used_count,
+         COUNT(b.booking_id)::int AS booking_count
+       FROM coupon c
+       LEFT JOIN booking b ON b.coupon_id = c.coupon_id
+       WHERE c.coupon_id = $1 AND c.deleted_at IS NULL
+       GROUP BY c.coupon_id`,
+      [id]
+    );
+    return result.rows[0] || null;
+  },
+
   async incrementUsedCount(id, executor = db) {
     const result = await executor.query(
       `UPDATE coupon

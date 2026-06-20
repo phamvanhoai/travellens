@@ -161,7 +161,11 @@ class UserModel extends BaseModel {
     const result = await db.query(
       `UPDATE users
        SET role = 'customer', status = 'active'
-       WHERE user_id = $1 AND role = 'guest'
+       WHERE user_id = $1
+         AND (
+           role = 'guest'
+           OR (role = 'customer' AND status = 'pending')
+         )
        RETURNING *`,
       [userId]
     );

@@ -161,7 +161,14 @@ class View360Service extends BaseService {
   }
 
   async ensureLocationExists(locationId) {
-    const result = await db.query('SELECT location_id FROM location WHERE location_id = $1', [locationId]);
+    const result = await db.query(
+      `SELECT location_id
+       FROM location
+       WHERE location_id = $1
+         AND deleted_at IS NULL
+         AND is_deleted = FALSE`,
+      [locationId]
+    );
     if (!result.rows[0]) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Location not found');
     }

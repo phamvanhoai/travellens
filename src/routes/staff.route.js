@@ -217,6 +217,8 @@ router.use(authenticate, authorize('staff', 'admin'));
  *     responses:
  *       200:
  *         description: Coupon deleted successfully
+ *       409:
+ *         description: Coupon has been used in bookings and cannot be deleted
  *       404:
  *         description: Coupon not found
  *
