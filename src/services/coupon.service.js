@@ -65,7 +65,18 @@ class CouponService {
   }
 
   async remove(id) {
-    await this.get(id);
+    const coupon = await this.get(id);
+    const usageStats = await couponModel.getUsageStats(id);
+    const usedCount = Number(usageStats?.used_count ?? coupon.used_count ?? 0);
+    const bookingCount = Number(usageStats?.booking_count ?? 0);
+
+    if (usedCount > 0 || bookingCount > 0) {
+      throw new ApiError(httpStatus.CONFLICT, 'Coupon has been used and cannot be deleted', {
+        used_count: usedCount,
+        booking_count: bookingCount,
+      });
+    }
+
     const deleted = await couponModel.softDeleteCoupon(id);
     if (!deleted) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Coupon not found');

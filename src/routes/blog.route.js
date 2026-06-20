@@ -28,7 +28,7 @@ router.get(
 router.put(
   '/:id',
   authenticate,
-  validate({ params: common.idParam }),
+  validate({ params: common.idParam, body: entity.blogUpdate }),
   controller.update
 );
 

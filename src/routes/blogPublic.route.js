@@ -9,7 +9,13 @@ const router = express.Router();
 router.get('/', validate({ query: common.paginationQuery }), controller.list);
 router.get('/:id', validate({ params: common.idParam }), controller.get);
 router.post('/', authenticate, authorize('customer'), validate({ body: entity.blog }), controller.create);
-router.put('/:id', authenticate, authorize('customer'), validate({ params: common.idParam }), controller.update);
+router.put(
+  '/:id',
+  authenticate,
+  authorize('customer'),
+  validate({ params: common.idParam, body: entity.blogUpdate }),
+  controller.update
+);
 router.delete('/:id', authenticate, authorize('customer'), validate({ params: common.idParam }), controller.remove);
 
 module.exports = router;
