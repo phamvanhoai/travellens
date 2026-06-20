@@ -16,7 +16,9 @@ module.exports = (controller, createSchema) => {
   router
     .route('/:id')
     .get(validate({ params: common.idParam }), controller.get)
-    .put(validate({ params: common.idParam }), controller.update)
+    .put(createSchema
+      ? validate({ params: common.idParam, body: createSchema })
+      : validate({ params: common.idParam }), controller.update)
     .delete(validate({ params: common.idParam }), controller.remove);
 
   return router;
