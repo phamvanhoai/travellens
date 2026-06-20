@@ -332,7 +332,7 @@ CREATE TABLE sepay_webhook_log (
 -- =========================================================
 CREATE TABLE coupon (
     coupon_id SERIAL PRIMARY KEY,
-    code VARCHAR(50) NOT NULL UNIQUE,
+    code VARCHAR(50) NOT NULL,
     name VARCHAR(150) NOT NULL,
     description TEXT,
     discount_type VARCHAR(50) NOT NULL CHECK (discount_type IN ('percentage', 'fixed')),
@@ -343,10 +343,11 @@ CREATE TABLE coupon (
     used_count INT NOT NULL DEFAULT 0 CHECK (used_count >= 0),
     start_date DATE,
     end_date DATE,
-    status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'expired', 'deleted')),
+    status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'expired', 'archived')),
     created_by INT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP,
     deleted_at TIMESTAMP,
     CONSTRAINT fk_coupon_created_by
         FOREIGN KEY (created_by)
@@ -490,6 +491,7 @@ CREATE INDEX idx_review_deleted_at ON review(deleted_at);
 CREATE INDEX idx_review_photo_review_id ON review_photo(review_id);
 CREATE INDEX idx_review_photo_deleted_at ON review_photo(deleted_at);
 CREATE INDEX idx_coupon_code ON coupon(code);
+CREATE UNIQUE INDEX uq_coupon_active_code ON coupon(UPPER(code)) WHERE deleted_at IS NULL;
 CREATE INDEX idx_coupon_status ON coupon(status);
 CREATE INDEX idx_coupon_deleted_at ON coupon(deleted_at);
 CREATE INDEX idx_blog_user_id ON blog(user_id);

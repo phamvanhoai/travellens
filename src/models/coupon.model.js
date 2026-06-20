@@ -151,6 +151,21 @@ module.exports = {
     return result.rows[0] || null;
   },
 
+  async archiveCoupon(id) {
+    const result = await db.query(
+      `UPDATE coupon
+       SET status = 'archived',
+           archived_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE coupon_id = $1
+         AND deleted_at IS NULL
+         AND status <> 'archived'
+       RETURNING *`,
+      [id]
+    );
+    return result.rows[0] || null;
+  },
+
   async getUsageStats(id) {
     const result = await db.query(
       `SELECT

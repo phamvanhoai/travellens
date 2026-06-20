@@ -33,9 +33,13 @@ module.exports = {
     response.success(res, data, 'Coupon deleted successfully');
   }),
 
+  archive: asyncHandler(async (req, res) => {
+    const data = await couponService.archive(req.params.id);
+    response.success(res, data, 'Coupon archived successfully');
+  }),
+
   validateCoupon: asyncHandler(async (req, res) => {
     const data = await couponService.validateCoupon(req.body);
     response.success(res, data);
   }),
 };
-

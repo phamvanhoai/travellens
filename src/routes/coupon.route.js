@@ -9,7 +9,7 @@ router.get('/', validate(coupon.list), controller.list);
 router.post('/', validate(coupon.create), controller.create);
 router.get('/:id', validate(coupon.idParam), controller.get);
 router.put('/:id', validate(coupon.update), controller.update);
+router.patch('/:id/archive', validate(coupon.idParam), controller.archive);
 router.delete('/:id', validate(coupon.idParam), controller.remove);
 
 module.exports = router;
-

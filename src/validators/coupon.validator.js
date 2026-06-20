@@ -10,7 +10,7 @@ module.exports = {
       page: Joi.number().integer().min(1).default(1),
       limit: Joi.number().integer().min(1).max(100).default(10),
       search: Joi.string().trim().allow(''),
-      status: Joi.string().valid('active', 'inactive', 'expired', 'deleted'),
+      status: Joi.string().valid('active', 'inactive', 'expired', 'archived'),
       discount_type: Joi.string().valid('percentage', 'fixed'),
       sortBy: Joi.string().valid('coupon_id', 'code', 'name', 'created_at', 'updated_at', 'start_date', 'end_date').default('created_at'),
       sortOrder: Joi.string().uppercase().valid('ASC', 'DESC').default('DESC'),
