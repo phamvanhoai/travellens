@@ -1902,6 +1902,7 @@ router.use('/travel-destinations', require('./travelDestination.route'));
 router.use('/tours', require('./tour.route'));
 router.use('/locations', require('./location.route'));
 router.use('/blogs', require('./blog.route'));
+router.use('/media', require('./mediaFile.route'));
 router.use('/maps', require('./map.route'));
 router.use('/destination-categories', require('./destinationCategory.route'));
 router.use('/tour-categories', require('./tourCategory.route'));
