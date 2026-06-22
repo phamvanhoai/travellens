@@ -8,6 +8,7 @@ DROP TABLE IF EXISTS revoked_tokens CASCADE;
 DROP TABLE IF EXISTS review_photo CASCADE;
 DROP TABLE IF EXISTS review CASCADE;
 DROP TABLE IF EXISTS blog_location CASCADE;
+DROP TABLE IF EXISTS media_file CASCADE;
 DROP TABLE IF EXISTS blog CASCADE;
 DROP TABLE IF EXISTS payment CASCADE;
 DROP TABLE IF EXISTS coupon CASCADE;
@@ -398,6 +399,27 @@ CREATE TABLE blog_location (
 );
 
 -- =========================================================
+-- Media File (reusable blog image library)
+-- =========================================================
+CREATE TABLE media_file (
+    media_id SERIAL PRIMARY KEY,
+    uploaded_by INT,
+    original_name VARCHAR(255) NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    file_url TEXT NOT NULL UNIQUE,
+    mime_type VARCHAR(100) NOT NULL,
+    file_size BIGINT NOT NULL CHECK (file_size >= 0),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
+    CONSTRAINT fk_media_file_uploaded_by
+        FOREIGN KEY (uploaded_by)
+        REFERENCES users(user_id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL
+);
+
+-- =========================================================
 -- Review
 -- =========================================================
 CREATE TABLE review (
@@ -497,6 +519,9 @@ CREATE INDEX idx_coupon_deleted_at ON coupon(deleted_at);
 CREATE INDEX idx_blog_user_id ON blog(user_id);
 CREATE INDEX idx_blog_location_blog_id ON blog_location(blog_id);
 CREATE INDEX idx_blog_location_location_id ON blog_location(location_id);
+CREATE INDEX idx_media_file_created_at ON media_file(created_at DESC);
+CREATE INDEX idx_media_file_deleted_at ON media_file(deleted_at);
+CREATE INDEX idx_media_file_uploaded_by ON media_file(uploaded_by);
 CREATE INDEX idx_review_user_id ON review(user_id);
 CREATE INDEX idx_review_location_id ON review(location_id);
 CREATE INDEX idx_revoked_tokens_token_hash ON revoked_tokens(token_hash);

@@ -245,6 +245,9 @@ Admin APIs require role `admin` and use prefix `/api/admin`.
 - `/api/admin/locations`
 - `/api/admin/maps`
 - `/api/admin/blogs`
+- `/api/admin/media`
+
+Admin blog content accepts sanitized rich-text HTML. Every `<img>` URL must reference an active image from `/api/admin/media`.
 - `/api/admin/locations/:locationId/view360`
 - `/api/admin/view360/:viewId`
 - `/api/admin/view360/:viewId/images`
