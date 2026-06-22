@@ -232,6 +232,18 @@ class TourModel extends BaseModel {
     return result.rows[0] || null;
   }
 
+  async findForUpdate(id, client) {
+    const result = await client.query(
+      `SELECT *
+       FROM tour
+       WHERE tour_id = $1
+         AND deleted_at IS NULL
+       FOR UPDATE`,
+      [id]
+    );
+    return result.rows[0] || null;
+  }
+
   async findByName(name, excludeTourId, client = db) {
     const values = [name];
     const excludeClause = excludeTourId ? 'AND tour_id <> $2' : '';
@@ -334,6 +346,10 @@ class TourModel extends BaseModel {
     );
 
     return result.rows[0].total;
+  }
+
+  getClient() {
+    return db.getClient();
   }
 }
 

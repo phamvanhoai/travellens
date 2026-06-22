@@ -83,6 +83,19 @@ module.exports = {
     return result.rows[0] || null;
   },
 
+  async findExistingActiveIds(ids, executor = db) {
+    if (!ids.length) return [];
+    const result = await executor.query(
+      `SELECT location_id
+       FROM location
+       WHERE location_id = ANY($1::int[])
+         AND deleted_at IS NULL
+         AND is_deleted = FALSE`,
+      [ids]
+    );
+    return result.rows.map((row) => Number(row.location_id));
+  },
+
   async travelDestinationExists(destinationId, executor = db) {
     const result = await executor.query(
       'SELECT destination_id FROM travel_destination WHERE destination_id = $1 AND deleted_at IS NULL',

@@ -1,88 +1,18 @@
-const db = require('../config/db');
 const BaseService = require('./base.service');
 const bookingModel = require('../models/booking.model');
 const tourModel = require('../models/tour.model');
+const userModel = require('../models/user.model');
 const couponService = require('./coupon.service');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 
-const ACTIVE_BOOKING_STATUSES = ['pending', 'confirmed', 'paid'];
-
 class BookingService extends BaseService {
-  // LIST BOOKING
-  async list(query = {}) {
-
-    let sql = `
-      SELECT *
-      FROM booking
-      WHERE 1=1
-    `;
-
-    const values = [];
-
-    let index = 1;
-
-    // FILTER USER
-    if (query.user_id) {
-
-      sql += ` AND user_id = $${index}`;
-
-      values.push(query.user_id);
-
-      index++;
-    }
-
-    // FILTER TOUR
-    if (query.tour_id) {
-
-      sql += ` AND tour_id = $${index}`;
-
-      values.push(query.tour_id);
-
-      index++;
-    }
-
-    // FILTER STATUS
-    if (query.status) {
-
-      sql += ` AND status = $${index}`;
-
-      values.push(query.status);
-
-      index++;
-    }
-
-    // SORT
-    switch (query.sort) {
-
-      case 'newest':
-        sql += ` ORDER BY booking_id DESC`;
-        break;
-
-      case 'oldest':
-        sql += ` ORDER BY booking_id ASC`;
-        break;
-
-      default:
-        sql += ` ORDER BY booking_id DESC`;
-    }
-
-    // PAGINATION
-    const page = parseInt(query.page) || 1;
-
-    const limit = parseInt(query.limit) || 10;
-
-    const offset = (page - 1) * limit;
-
-    sql += ` LIMIT ${limit} OFFSET ${offset}`;
-
-    const result = await db.query(sql, values);
-
-    return result.rows;
+  list(query = {}) {
+    return bookingModel.findAll(query);
   }
 
   async create(payload) {
-    const client = await db.getClient();
+    const client = await bookingModel.getClient();
     try {
       await client.query('BEGIN');
 
@@ -98,7 +28,8 @@ class BookingService extends BaseService {
       await this.ensureCustomerExists(payload.user_id, client);
       await this.ensureTourHasCapacity(tour, passengers.length, client);
 
-      const originalAmount = passengers.reduce((sum, passenger) => sum + Number(passenger.price || 0), 0);
+      const ticketPrice = Number(tour.price);
+      const originalAmount = ticketPrice * passengers.length;
       let couponSnapshot = {
         coupon_id: null,
         discount_amount: 0,
@@ -114,40 +45,22 @@ class BookingService extends BaseService {
         throw new ApiError(httpStatus.BAD_REQUEST, 'Use coupon_code to apply coupon');
       }
 
-      const bookingResult = await client.query(
-        `INSERT INTO booking
-           (user_id, tour_id, coupon_id, original_amount, discount_amount, final_amount, status, payment_status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-        [
-          payload.user_id,
-          payload.tour_id,
-          couponSnapshot.coupon_id,
-          originalAmount,
-          couponSnapshot.discount_amount,
-          couponSnapshot.final_amount,
-          'pending',
-          'unpaid',
-        ]
+      const booking = await bookingModel.create({
+        user_id: payload.user_id,
+        tour_id: payload.tour_id,
+        coupon_id: couponSnapshot.coupon_id,
+        original_amount: originalAmount,
+        discount_amount: couponSnapshot.discount_amount,
+        final_amount: couponSnapshot.final_amount,
+        status: 'pending',
+        payment_status: 'unpaid',
+      }, client);
+      const details = await bookingModel.createDetails(
+        booking.booking_id,
+        passengers,
+        ticketPrice,
+        client
       );
-      const booking = bookingResult.rows[0];
-
-      const details = [];
-      for (const passenger of passengers) {
-        const detailResult = await client.query(
-          `INSERT INTO booking_detail
-           (booking_id, passenger_name, age_category, price, seat_number, special_request)
-           VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-          [
-            booking.booking_id,
-            passenger.passenger_name,
-            passenger.age_category,
-            passenger.price,
-            passenger.seat_number,
-            passenger.special_request,
-          ]
-        );
-        details.push(detailResult.rows[0]);
-      }
 
       await client.query('COMMIT');
       return { ...booking, details };
@@ -166,9 +79,9 @@ class BookingService extends BaseService {
     return this.list({ ...query, user_id: userId });
   }
 
-  async ensureBookableTourExists(tourId, client = db, options = {}) {
+  async ensureBookableTourExists(tourId, client, options = {}) {
     const tour = options.lock
-      ? await this.findBookableTourForUpdate(tourId, client)
+      ? await tourModel.findForUpdate(tourId, client)
       : await tourModel.findRawById(tourId, client);
     if (!tour) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Tour not found');
@@ -179,45 +92,15 @@ class BookingService extends BaseService {
     return tour;
   }
 
-  async findBookableTourForUpdate(tourId, client) {
-    const result = await client.query(
-      `SELECT *
-       FROM tour
-       WHERE tour_id = $1
-         AND deleted_at IS NULL
-       FOR UPDATE`,
-      [tourId]
-    );
-
-    return result.rows[0] || null;
-  }
-
-  async ensureCustomerExists(userId, client = db) {
-    const result = await client.query(
-      `SELECT user_id
-       FROM users
-       WHERE user_id = $1
-         AND role = 'customer'
-         AND status = 'active'`,
-      [userId]
-    );
-
-    if (!result.rows[0]) {
+  async ensureCustomerExists(userId, client) {
+    const customer = await userModel.findActiveCustomerById(userId, client);
+    if (!customer) {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Customer does not exist or is not active');
     }
   }
 
-  async ensureTourHasCapacity(tour, requestedSlots, client = db) {
-    const result = await client.query(
-      `SELECT COUNT(bd.booking_detail_id)::int AS booked_slots
-       FROM booking b
-       INNER JOIN booking_detail bd ON bd.booking_id = b.booking_id
-       WHERE b.tour_id = $1
-         AND b.status = ANY($2)`,
-      [tour.tour_id, ACTIVE_BOOKING_STATUSES]
-    );
-
-    const bookedSlots = Number(result.rows[0].booked_slots || 0);
+  async ensureTourHasCapacity(tour, requestedSlots, client) {
+    const bookedSlots = await bookingModel.countBookedSlots(tour.tour_id, client);
     const availableSlots = Number(tour.capacity || 0) - bookedSlots;
     if (requestedSlots > availableSlots) {
       throw new ApiError(httpStatus.CONFLICT, 'Not enough available slots for this tour', {
@@ -230,11 +113,7 @@ class BookingService extends BaseService {
   }
 
   async getForUser(id, userId) {
-    const result = await db.query(
-      'SELECT * FROM booking WHERE booking_id = $1 AND user_id = $2',
-      [id, userId]
-    );
-    const booking = result.rows[0];
+    const booking = await bookingModel.findOwnedById(id, userId);
     if (!booking) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Booking not found');
     }
@@ -242,103 +121,45 @@ class BookingService extends BaseService {
   }
 
   createForUser(payload, userId) {
-    return this.create({
-      ...payload,
-      user_id: userId,
-    });
+    return this.create({ ...payload, user_id: userId });
   }
 
   async updateForUser(id, userId, payload) {
     await this.getForUser(id, userId);
-    const booking = await this.model.update(id, {
-      ...payload,
-      user_id: userId,
-    });
-    if (!booking) {
-      throw new ApiError(httpStatus.NOT_FOUND, 'Booking not found');
-    }
+    const booking = await bookingModel.update(id, payload);
+    if (!booking) throw new ApiError(httpStatus.NOT_FOUND, 'Booking not found');
     return booking;
   }
 
   async removeForUser(id, userId) {
     await this.getForUser(id, userId);
-    const booking = await this.model.remove(id);
-    if (!booking) {
-      throw new ApiError(httpStatus.NOT_FOUND, 'Booking not found');
-    }
+    const booking = await bookingModel.remove(id);
+    if (!booking) throw new ApiError(httpStatus.NOT_FOUND, 'Booking not found');
     return booking;
   }
 
   async cancel(id, options = {}) {
-    const client = await db.getClient();
+    const client = await bookingModel.getClient();
     try {
       await client.query('BEGIN');
+      const booking = await bookingModel.findForUpdate(id, options.userId, client);
 
-      const values = [id];
-      let ownerClause = '';
-      if (options.userId) {
-        values.push(options.userId);
-        ownerClause = `AND user_id = $${values.length}`;
-      }
-
-      const bookingResult = await client.query(
-        `SELECT *
-         FROM booking
-         WHERE booking_id = $1
-           ${ownerClause}
-         FOR UPDATE`,
-        values
-      );
-      const booking = bookingResult.rows[0];
-
-      if (!booking) {
-        throw new ApiError(httpStatus.NOT_FOUND, 'Booking not found');
-      }
-
+      if (!booking) throw new ApiError(httpStatus.NOT_FOUND, 'Booking not found');
       if (['canceled', 'expired'].includes(booking.status)) {
         throw new ApiError(httpStatus.BAD_REQUEST, `Booking is already ${booking.status}`);
       }
 
-      const paidPaymentResult = await client.query(
-        `SELECT payment_id
-         FROM payment
-         WHERE booking_id = $1
-           AND status = 'paid'
-           AND deleted_at IS NULL
-         LIMIT 1`,
-        [id]
-      );
-
-      if (booking.payment_status === 'paid' || paidPaymentResult.rows[0]) {
+      const hasPaidPayment = await bookingModel.hasPaidPayment(id, client);
+      if (booking.payment_status === 'paid' || hasPaidPayment) {
         throw new ApiError(httpStatus.CONFLICT, 'Paid booking requires staff refund before cancellation');
       }
 
-      const pendingPaymentResult = await client.query(
-        `UPDATE payment
-         SET status = 'expired',
-             updated_at = CURRENT_TIMESTAMP
-         WHERE booking_id = $1
-           AND status = 'pending'
-           AND deleted_at IS NULL
-         RETURNING payment_id`,
-        [id]
-      );
-
-      const nextPaymentStatus = pendingPaymentResult.rowCount > 0
-        ? 'failed'
-        : booking.payment_status;
-
-      const canceledResult = await client.query(
-        `UPDATE booking
-         SET status = 'canceled',
-             payment_status = $2
-         WHERE booking_id = $1
-         RETURNING *`,
-        [id, nextPaymentStatus]
-      );
+      const expiredPayments = await bookingModel.expirePendingPayments(id, client);
+      const nextPaymentStatus = expiredPayments > 0 ? 'failed' : booking.payment_status;
+      const canceled = await bookingModel.markCanceled(id, nextPaymentStatus, client);
 
       await client.query('COMMIT');
-      return canceledResult.rows[0];
+      return canceled;
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -347,10 +168,9 @@ class BookingService extends BaseService {
     }
   }
 
-  async cancelForUser(id, userId) {
+  cancelForUser(id, userId) {
     return this.cancel(id, { userId });
   }
 }
 
 module.exports = new BookingService(bookingModel);
-

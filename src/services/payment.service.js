@@ -1,6 +1,6 @@
 const crypto = require('crypto');
-const db = require('../config/db');
 const paymentModel = require('../models/payment.model');
+const bookingModel = require('../models/booking.model');
 const couponService = require('./coupon.service');
 const sepayService = require('./sepay.service');
 const ApiError = require('../utils/ApiError');
@@ -35,18 +35,11 @@ class PaymentService {
   }
 
   async createForCustomer(payload, userId) {
-    const client = await db.getClient();
+    const client = await bookingModel.getClient();
     try {
       await client.query('BEGIN');
 
-      const bookingResult = await client.query(
-        `SELECT *
-         FROM booking
-         WHERE booking_id = $1 AND user_id = $2
-         FOR UPDATE`,
-        [payload.booking_id, userId]
-      );
-      const booking = bookingResult.rows[0];
+      const booking = await bookingModel.findOwnedForUpdate(payload.booking_id, userId, client);
 
       if (!booking) {
         throw new ApiError(httpStatus.NOT_FOUND, 'Booking not found');
@@ -58,32 +51,14 @@ class PaymentService {
         throw new ApiError(httpStatus.BAD_REQUEST, 'Booking is not unpaid');
       }
 
-      const activePaymentResult = await client.query(
-        `SELECT *
-         FROM payment
-         WHERE booking_id = $1
-           AND status = 'pending'
-           AND expired_at > CURRENT_TIMESTAMP
-           AND deleted_at IS NULL
-         ORDER BY payment_id DESC
-         LIMIT 1`,
-        [booking.booking_id]
-      );
+      const activePayment = await paymentModel.findActivePendingByBooking(booking.booking_id, client);
 
-      if (activePaymentResult.rows[0]) {
+      if (activePayment) {
         await client.query('COMMIT');
-        return this.withQrData(activePaymentResult.rows[0]);
+        return this.withQrData(activePayment);
       }
 
-      await client.query(
-        `UPDATE payment
-         SET status = 'expired',
-             updated_at = CURRENT_TIMESTAMP
-         WHERE booking_id = $1
-           AND status = 'pending'
-           AND deleted_at IS NULL`,
-        [booking.booking_id]
-      );
+      await paymentModel.expirePendingByBooking(booking.booking_id, client);
 
       const paymentCode = await this.generateUniquePaymentCode(booking.booking_id, client);
       const expiredAt = new Date(Date.now() + EXPIRE_MINUTES * 60 * 1000);
@@ -100,12 +75,7 @@ class PaymentService {
         currency: 'VND',
       }, client);
 
-      await client.query(
-        `UPDATE booking
-         SET payment_status = 'unpaid'
-         WHERE booking_id = $1`,
-        [booking.booking_id]
-      );
+      await bookingModel.updatePaymentState(booking.booking_id, 'unpaid', undefined, client);
 
       await client.query('COMMIT');
       return this.withQrData(payment);
@@ -136,7 +106,7 @@ class PaymentService {
   }
 
   async refund(id, payload = {}) {
-    const client = await db.getClient();
+    const client = await bookingModel.getClient();
     try {
       await client.query('BEGIN');
       const currentPayment = await this.getPaymentForUpdate(id, client);
@@ -148,12 +118,7 @@ class PaymentService {
       }
 
       const payment = await paymentModel.updateStatus(id, 'refunded', payload, client);
-      await client.query(
-        `UPDATE booking
-         SET payment_status = 'refunded'
-         WHERE booking_id = $1`,
-        [payment.booking_id]
-      );
+      await bookingModel.updatePaymentState(payment.booking_id, 'refunded', undefined, client);
       await client.query('COMMIT');
       return payment;
     } catch (error) {
@@ -165,7 +130,7 @@ class PaymentService {
   }
 
   async updateStatus(id, status) {
-    const client = await db.getClient();
+    const client = await bookingModel.getClient();
     try {
       await client.query('BEGIN');
 
@@ -190,43 +155,22 @@ class PaymentService {
           transfer_content: currentPayment.transfer_content,
           paid_at: new Date(),
         }, client);
-        await client.query(
-          `UPDATE booking
-           SET payment_status = 'paid',
-               status = 'confirmed'
-           WHERE booking_id = $1`,
-          [payment.booking_id]
-        );
+        await bookingModel.updatePaymentState(payment.booking_id, 'paid', 'confirmed', client);
         if (currentPayment.coupon_id) {
           await couponService.markUsed(currentPayment.coupon_id, client);
         }
       }
       if (status === 'refunded') {
         payment = await paymentModel.updateStatus(id, status, {}, client);
-        await client.query(
-          `UPDATE booking
-           SET payment_status = 'refunded'
-           WHERE booking_id = $1`,
-          [payment.booking_id]
-        );
+        await bookingModel.updatePaymentState(payment.booking_id, 'refunded', undefined, client);
       }
       if (status === 'failed') {
         payment = await paymentModel.markFailed(id, {}, client);
-        await client.query(
-          `UPDATE booking
-           SET payment_status = 'failed'
-           WHERE booking_id = $1`,
-          [payment.booking_id]
-        );
+        await bookingModel.updatePaymentState(payment.booking_id, 'failed', undefined, client);
       }
       if (status === 'expired') {
         payment = await paymentModel.updateStatus(id, status, {}, client);
-        await client.query(
-          `UPDATE booking
-           SET payment_status = 'failed'
-           WHERE booking_id = $1`,
-          [payment.booking_id]
-        );
+        await bookingModel.updatePaymentState(payment.booking_id, 'failed', undefined, client);
       }
 
       await client.query('COMMIT');
@@ -240,20 +184,7 @@ class PaymentService {
   }
 
   async getPaymentForUpdate(id, client) {
-    const result = await client.query(
-      `SELECT p.*,
-              b.status AS booking_status,
-              b.payment_status AS booking_payment_status,
-              b.coupon_id
-       FROM payment p
-       INNER JOIN booking b ON b.booking_id = p.booking_id
-       WHERE p.payment_id = $1
-         AND p.deleted_at IS NULL
-       FOR UPDATE OF p, b`,
-      [id]
-    );
-
-    return result.rows[0] || null;
+    return paymentModel.findForUpdate(id, client);
   }
 
   validateStatusTransition(payment, nextStatus) {
@@ -294,8 +225,8 @@ class PaymentService {
     for (let attempt = 0; attempt < 10; attempt += 1) {
       const randomPart = crypto.randomBytes(3).toString('hex').toUpperCase();
       const code = `${PAYMENT_CODE_PREFIX}${bookingPart}${randomPart}`;
-      const exists = await client.query('SELECT 1 FROM payment WHERE payment_code = $1', [code]);
-      if (!exists.rowCount) {
+      const exists = await paymentModel.codeExists(code, client);
+      if (!exists) {
         return code;
       }
     }

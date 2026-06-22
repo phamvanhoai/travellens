@@ -1,86 +1,32 @@
-const db = require('../config/db');
 const BaseService = require('./base.service');
+const view360Model = require('../models/view360.model');
 const view360ImageModel = require('../models/view360Image.model');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 const { removeUploadedFile } = require('../utils/uploadedFile');
 
 class View360ImageService extends BaseService {
-  async list(query = {}) {
-    const page = Math.max(Number(query.page || 1), 1);
-    const limit = Math.min(Math.max(Number(query.limit || 20), 1), 100);
-    const offset = (page - 1) * limit;
-    const values = [];
-    const clauses = ['deleted_at IS NULL'];
-
-    if (query.view_id) {
-      values.push(query.view_id);
-      clauses.push(`view_id = $${values.length}`);
-    }
-
-    values.push(limit, offset);
-    const result = await db.query(
-      `SELECT *
-       FROM view360_image
-       WHERE ${clauses.join(' AND ')}
-       ORDER BY order_index ASC NULLS LAST, image_id ASC
-       LIMIT $${values.length - 1} OFFSET $${values.length}`,
-      values
-    );
-
-    return result.rows;
+  list(query = {}) {
+    return view360ImageModel.findAll(query);
   }
 
   async listByView(viewId) {
     await this.ensureViewExists(viewId);
-
-    const result = await db.query(
-      `SELECT *
-       FROM view360_image
-       WHERE view_id = $1 AND deleted_at IS NULL
-       ORDER BY order_index ASC NULLS LAST, image_id ASC`,
-      [viewId]
-    );
-
-    return result.rows;
+    return view360ImageModel.findByView(viewId);
   }
 
   async createForView(viewId, payload) {
     await this.ensureViewExists(viewId);
-
-    const result = await db.query(
-      `INSERT INTO view360_image (view_id, image_file, order_index)
-       VALUES ($1, $2, $3)
-       RETURNING *`,
-      [viewId, payload.image_file, payload.order_index]
-    );
-
-    return result.rows[0];
+    return view360ImageModel.createForView(viewId, payload);
   }
 
   async update(imageId, payload) {
     const currentImage = await this.get(imageId);
+    const image = await view360ImageModel.updateActive(imageId, payload);
 
-    const fields = ['image_file', 'order_index']
-      .filter((field) => payload[field] !== undefined);
-
-    if (!fields.length) {
-      return this.get(imageId);
+    if (!image) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'View360 image not found');
     }
-
-    const values = fields.map((field) => payload[field]);
-    const assignments = fields.map((field, index) => `${field} = $${index + 1}`);
-    values.push(imageId);
-
-    const result = await db.query(
-      `UPDATE view360_image
-       SET ${assignments.join(', ')}, updated_at = CURRENT_TIMESTAMP
-       WHERE image_id = $${values.length} AND deleted_at IS NULL
-       RETURNING *`,
-      values
-    );
-
-    const image = result.rows[0];
 
     if (
       payload.image_file
@@ -95,26 +41,18 @@ class View360ImageService extends BaseService {
 
   async remove(imageId) {
     const currentImage = await this.get(imageId);
+    const image = await view360ImageModel.softDelete(imageId);
 
-    const result = await db.query(
-      `UPDATE view360_image
-       SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-       WHERE image_id = $1 AND deleted_at IS NULL
-       RETURNING *`,
-      [imageId]
-    );
+    if (!image) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'View360 image not found');
+    }
 
     await removeUploadedFile(currentImage.image_file);
-
-    return result.rows[0];
+    return image;
   }
 
   async get(imageId) {
-    const result = await db.query(
-      'SELECT * FROM view360_image WHERE image_id = $1 AND deleted_at IS NULL',
-      [imageId]
-    );
-    const image = result.rows[0];
+    const image = await view360ImageModel.findActiveById(imageId);
     if (!image) {
       throw new ApiError(httpStatus.NOT_FOUND, 'View360 image not found');
     }
@@ -122,11 +60,8 @@ class View360ImageService extends BaseService {
   }
 
   async ensureViewExists(viewId) {
-    const result = await db.query(
-      'SELECT view_id FROM view360 WHERE view_id = $1 AND deleted_at IS NULL',
-      [viewId]
-    );
-    if (!result.rows[0]) {
+    const view = await view360Model.findActiveById(viewId);
+    if (!view) {
       throw new ApiError(httpStatus.NOT_FOUND, 'View360 not found');
     }
   }
@@ -137,4 +72,3 @@ class View360ImageService extends BaseService {
 }
 
 module.exports = new View360ImageService(view360ImageModel);
-

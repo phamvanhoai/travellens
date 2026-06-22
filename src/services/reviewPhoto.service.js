@@ -1,4 +1,4 @@
-const db = require('../config/db');
+const reviewModel = require('../models/review.model');
 const reviewPhotoModel = require('../models/reviewPhoto.model');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
@@ -9,15 +9,7 @@ class ReviewPhotoService {
       throw new ApiError(httpStatus.BAD_REQUEST, 'photos[] is required');
     }
 
-    const reviewResult = await db.query(
-      `SELECT review_id, user_id
-       FROM review
-       WHERE review_id = $1
-         AND deleted_at IS NULL`,
-      [reviewId]
-    );
-
-    const review = reviewResult.rows[0];
+    const review = await reviewModel.findActiveOwner(reviewId);
     if (!review) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Review Not Found');
     }
