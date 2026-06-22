@@ -82,7 +82,7 @@ module.exports = {
     passengers: Joi.array().items(Joi.object({
       passenger_name: Joi.string().max(150).required(),
       age_category: Joi.string().valid('adult', 'child', 'infant').required(),
-      price: money.required(),
+      price: money.optional(),
       seat_number: optionalText,
       special_request: optionalText,
     })).min(1).required(),

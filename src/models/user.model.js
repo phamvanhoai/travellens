@@ -172,6 +172,18 @@ class UserModel extends BaseModel {
     return result.rows[0] || null;
   }
 
+  async findActiveCustomerById(userId, executor = db) {
+    const result = await executor.query(
+      `SELECT user_id
+       FROM users
+       WHERE user_id = $1
+         AND role = 'customer'
+         AND status = 'active'`,
+      [userId]
+    );
+    return result.rows[0] || null;
+  }
+
   async updatePassword(userId, hashedPassword) {
     const result = await db.query(
       `UPDATE users

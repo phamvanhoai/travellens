@@ -53,5 +53,23 @@ module.exports = {
     );
     return result.rows[0] || null;
   },
-};
 
+  async replaceForBlog(blogId, locationIds, executor = db) {
+    await executor.query('DELETE FROM blog_location WHERE blog_id = $1', [blogId]);
+    if (!locationIds.length) return [];
+
+    const values = [];
+    const rows = locationIds.map((locationId, index) => {
+      values.push(blogId, locationId);
+      const base = index * 2;
+      return `($${base + 1}, $${base + 2})`;
+    });
+    const result = await executor.query(
+      `INSERT INTO blog_location (blog_id, location_id)
+       VALUES ${rows.join(', ')}
+       RETURNING *`,
+      values
+    );
+    return result.rows;
+  },
+};

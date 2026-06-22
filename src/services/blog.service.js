@@ -1,6 +1,7 @@
 const BaseService = require('./base.service');
 const blogModel = require('../models/blog.model');
-const db = require('../config/db');
+const blogLocationModel = require('../models/blogLocation.model');
+const locationModel = require('../models/location.model');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 const mediaFileModel = require('../models/mediaFile.model');
@@ -15,21 +16,19 @@ class BlogService extends BaseService {
   async create(payload, userId) {
     const locationIds = this.normalizeLocationIds(payload.location_ids || []);
     const content = await this.prepareContent(payload.content);
-    const client = await db.getClient();
+    const client = await blogModel.getClient();
 
     try {
       await client.query('BEGIN');
       await this.ensureLocationsExist(locationIds, client);
 
-      const blogResult = await client.query(
-        `INSERT INTO blog (user_id, title, content)
-         VALUES ($1, $2, $3)
-         RETURNING *`,
-        [userId, payload.title, content]
-      );
-      const blog = blogResult.rows[0];
+      const blog = await blogModel.createBlog({
+        user_id: userId,
+        title: payload.title,
+        content,
+      }, client);
 
-      await this.replaceLocations(blog.blog_id, locationIds, client);
+      await blogLocationModel.replaceForBlog(blog.blog_id, locationIds, client);
 
       await client.query('COMMIT');
       return {
@@ -51,19 +50,12 @@ class BlogService extends BaseService {
         content: await this.prepareContent(payload.content),
       };
     }
-    const client = await db.getClient();
+    const client = await blogModel.getClient();
 
     try {
       await client.query('BEGIN');
 
-      const blogResult = await client.query(
-        `SELECT *
-         FROM blog
-         WHERE blog_id = $1
-         FOR UPDATE`,
-        [id]
-      );
-      const blog = blogResult.rows[0];
+      const blog = await blogModel.findForUpdate(id, client);
 
       if (!blog) {
         throw new ApiError(
@@ -84,26 +76,14 @@ class BlogService extends BaseService {
 
       let updatedBlog = blog;
       const updatePayload = this.pickBlogFields(payload);
-      const updateFields = Object.keys(updatePayload);
-
-      if (updateFields.length) {
-        const values = updateFields.map((field) => updatePayload[field]);
-        values.push(id);
-        const assignments = updateFields.map((field, index) => `${field} = $${index + 1}`);
-        const updatedResult = await client.query(
-          `UPDATE blog
-           SET ${assignments.join(', ')}
-           WHERE blog_id = $${values.length}
-           RETURNING *`,
-          values
-        );
-        updatedBlog = updatedResult.rows[0];
+      if (Object.keys(updatePayload).length) {
+        updatedBlog = await blogModel.updateBlog(id, updatePayload, client);
       }
 
       if (payload.location_ids !== undefined) {
         const locationIds = this.normalizeLocationIds(payload.location_ids || []);
         await this.ensureLocationsExist(locationIds, client);
-        await this.replaceLocations(id, locationIds, client);
+        await blogLocationModel.replaceForBlog(id, locationIds, client);
         updatedBlog.location_ids = locationIds;
       }
 
@@ -185,28 +165,9 @@ class BlogService extends BaseService {
       return;
     }
 
-    const result = await executor.query(
-      `SELECT location_id
-       FROM location
-       WHERE location_id = ANY($1::int[])
-         AND deleted_at IS NULL
-         AND is_deleted = FALSE`,
-      [locationIds]
-    );
-
-    if (result.rows.length !== locationIds.length) {
+    const existingIds = await locationModel.findExistingActiveIds(locationIds, executor);
+    if (existingIds.length !== locationIds.length) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Location not found');
-    }
-  }
-
-  async replaceLocations(blogId, locationIds, executor) {
-    await executor.query('DELETE FROM blog_location WHERE blog_id = $1', [blogId]);
-
-    for (const locationId of locationIds) {
-      await executor.query(
-        'INSERT INTO blog_location (blog_id, location_id) VALUES ($1, $2)',
-        [blogId, locationId]
-      );
     }
   }
 }

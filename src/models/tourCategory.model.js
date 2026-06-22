@@ -22,6 +22,14 @@ class TourCategoryModel extends BaseModel {
 
     return result.rows[0].total;
   }
+
+  async exists(id, executor = db) {
+    const result = await executor.query(
+      'SELECT tour_category_id FROM tour_category WHERE tour_category_id = $1',
+      [id]
+    );
+    return Boolean(result.rows[0]);
+  }
 }
 
 module.exports = new TourCategoryModel();
