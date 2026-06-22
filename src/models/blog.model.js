@@ -64,6 +64,44 @@ class BlogModel extends BaseModel {
 
     return result.rows[0];
   }
+
+  async findForUpdate(blogId, executor = db) {
+    const result = await executor.query(
+      'SELECT * FROM blog WHERE blog_id = $1 FOR UPDATE',
+      [blogId]
+    );
+    return result.rows[0] || null;
+  }
+
+  async createBlog(payload, executor = db) {
+    const result = await executor.query(
+      `INSERT INTO blog (user_id, title, content)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [payload.user_id, payload.title, payload.content]
+    );
+    return result.rows[0];
+  }
+
+  async updateBlog(id, payload, executor = db) {
+    const fields = ['title', 'content'].filter((field) => payload[field] !== undefined);
+    if (!fields.length) return this.findForUpdate(id, executor);
+    const values = fields.map((field) => payload[field]);
+    const assignments = fields.map((field, index) => `${field} = $${index + 1}`);
+    values.push(id);
+    const result = await executor.query(
+      `UPDATE blog
+       SET ${assignments.join(', ')}
+       WHERE blog_id = $${values.length}
+       RETURNING *`,
+      values
+    );
+    return result.rows[0] || null;
+  }
+
+  getClient() {
+    return db.getClient();
+  }
 }
 
 module.exports = new BlogModel();

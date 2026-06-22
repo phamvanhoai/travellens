@@ -275,5 +275,17 @@ module.exports = {
 
     return result.rows[0];
   },
+
+  async findExistingActiveIds(ids, executor = db) {
+    if (!ids.length) return [];
+    const result = await executor.query(
+      `SELECT destination_id
+       FROM travel_destination
+       WHERE destination_id = ANY($1::int[])
+         AND deleted_at IS NULL`,
+      [ids]
+    );
+    return result.rows.map((row) => Number(row.destination_id));
+  },
 };
 

@@ -88,6 +88,59 @@ module.exports = {
     return result.rows[0] || null;
   },
 
+  async findActivePendingByBooking(bookingId, executor = db) {
+    const result = await executor.query(
+      `SELECT *
+       FROM payment
+       WHERE booking_id = $1
+         AND status = 'pending'
+         AND expired_at > CURRENT_TIMESTAMP
+         AND deleted_at IS NULL
+       ORDER BY payment_id DESC
+       LIMIT 1`,
+      [bookingId]
+    );
+    return result.rows[0] || null;
+  },
+
+  async expirePendingByBooking(bookingId, executor = db) {
+    const result = await executor.query(
+      `UPDATE payment
+       SET status = 'expired',
+           updated_at = CURRENT_TIMESTAMP
+       WHERE booking_id = $1
+         AND status = 'pending'
+         AND deleted_at IS NULL
+       RETURNING payment_id`,
+      [bookingId]
+    );
+    return result.rows;
+  },
+
+  async findForUpdate(id, executor) {
+    const result = await executor.query(
+      `SELECT p.*,
+              b.status AS booking_status,
+              b.payment_status AS booking_payment_status,
+              b.coupon_id
+       FROM payment p
+       INNER JOIN booking b ON b.booking_id = p.booking_id
+       WHERE p.payment_id = $1
+         AND p.deleted_at IS NULL
+       FOR UPDATE OF p, b`,
+      [id]
+    );
+    return result.rows[0] || null;
+  },
+
+  async codeExists(code, executor = db) {
+    const result = await executor.query(
+      'SELECT 1 FROM payment WHERE payment_code = $1',
+      [code]
+    );
+    return result.rowCount > 0;
+  },
+
   async findPendingByCodeForUpdate(paymentCode, client) {
     const result = await client.query(
       `SELECT p.*,

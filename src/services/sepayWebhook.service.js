@@ -1,5 +1,5 @@
-const db = require('../config/db');
 const paymentModel = require('../models/payment.model');
+const bookingModel = require('../models/booking.model');
 const sepayWebhookLogModel = require('../models/sepayWebhookLog.model');
 const couponService = require('./coupon.service');
 const sepayService = require('./sepay.service');
@@ -29,7 +29,7 @@ class SepayWebhookService {
       raw_payload: payload,
     };
 
-    const client = await db.getClient();
+    const client = await bookingModel.getClient();
     try {
       await client.query('BEGIN');
 
@@ -76,12 +76,7 @@ class SepayWebhookService {
           sepay_transaction_id: sepayTransactionId,
           transfer_content: payload.content || paymentCode,
         }, client);
-        await client.query(
-          `UPDATE booking
-           SET payment_status = 'failed'
-           WHERE booking_id = $1`,
-          [payment.booking_id]
-        );
+        await bookingModel.updatePaymentState(payment.booking_id, 'failed', undefined, client);
         await sepayWebhookLogModel.updateStatus(log.sepay_webhook_log_id, 'amount_mismatch', 'Transfer amount does not match payment amount', payment.payment_id, client);
         await client.query('COMMIT');
         return { failed: true, message: 'Transfer amount does not match payment amount' };
@@ -96,13 +91,7 @@ class SepayWebhookService {
         paid_at: paidAt,
       }, client);
 
-      await client.query(
-        `UPDATE booking
-         SET payment_status = 'paid',
-             status = 'confirmed'
-         WHERE booking_id = $1`,
-        [payment.booking_id]
-      );
+      await bookingModel.updatePaymentState(payment.booking_id, 'paid', 'confirmed', client);
 
       if (payment.coupon_id) {
         await couponService.markUsed(payment.coupon_id, client);

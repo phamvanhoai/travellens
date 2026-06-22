@@ -1,7 +1,8 @@
-const db = require('../config/db');
 const BaseService = require('./base.service');
 const tourModel = require('../models/tour.model');
 const tourDestinationModel = require('../models/tourDestination.model');
+const tourCategoryModel = require('../models/tourCategory.model');
+const travelDestinationModel = require('../models/travelDestination.model');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 const { removeUploadedFile } = require('../utils/uploadedFile');
@@ -37,7 +38,7 @@ class TourService extends BaseService {
   async create(payload) {
     this.validateDestinationList(payload.destinations);
 
-    const client = await db.getClient();
+    const client = await this.model.getClient();
     try {
       await client.query('BEGIN');
       await this.ensureTourCategoryExists(payload.tour_category_id, client);
@@ -62,7 +63,7 @@ class TourService extends BaseService {
       this.validateDestinationList(payload.destinations);
     }
 
-    const client = await db.getClient();
+    const client = await this.model.getClient();
     try {
       await client.query('BEGIN');
 
@@ -119,7 +120,7 @@ class TourService extends BaseService {
   }
 
   async remove(id) {
-    const client = await db.getClient();
+    const client = await this.model.getClient();
     try {
       await client.query('BEGIN');
 
@@ -164,32 +165,22 @@ class TourService extends BaseService {
     }
   }
 
-  async ensureTourCategoryExists(tourCategoryId, client = db) {
-    const result = await client.query(
-      'SELECT tour_category_id FROM tour_category WHERE tour_category_id = $1',
-      [tourCategoryId]
-    );
-    if (!result.rows[0]) {
+  async ensureTourCategoryExists(tourCategoryId, client) {
+    const exists = await tourCategoryModel.exists(tourCategoryId, client);
+    if (!exists) {
       throw new ApiError(httpStatus.NOT_FOUND, 'TourCategory Not Found');
     }
   }
 
-  async ensureDestinationsExist(destinations, client = db) {
+  async ensureDestinationsExist(destinations, client) {
     const destinationIds = destinations.map((destination) => destination.destination_id);
-    const result = await client.query(
-      `SELECT destination_id
-       FROM travel_destination
-       WHERE destination_id = ANY($1)
-         AND deleted_at IS NULL`,
-      [destinationIds]
-    );
-
-    if (result.rows.length !== destinationIds.length) {
+    const existingIds = await travelDestinationModel.findExistingActiveIds(destinationIds, client);
+    if (existingIds.length !== destinationIds.length) {
       throw new ApiError(httpStatus.NOT_FOUND, 'TravelDestination Not Found');
     }
   }
 
-  async ensureTourNameIsUnique(name, excludeTourId, client = db) {
+  async ensureTourNameIsUnique(name, excludeTourId, client) {
     const existingTour = await this.model.findByName(name, excludeTourId, client);
     if (existingTour) {
       throw new ApiError(httpStatus.CONFLICT, 'Duplicate Tour');

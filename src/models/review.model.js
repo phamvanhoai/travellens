@@ -50,6 +50,58 @@ class ReviewModel extends BaseModel {
 
     return result.rows[0] || null;
   }
+
+  async findApproved(query = {}) {
+    const page = Math.max(Number(query.page || 1), 1);
+    const limit = Math.min(Math.max(Number(query.limit || 20), 1), 100);
+    const offset = (page - 1) * limit;
+    const values = [];
+    const clauses = ['deleted_at IS NULL', "status = 'approved'"];
+    if (query.location_id) {
+      values.push(query.location_id);
+      clauses.push(`location_id = $${values.length}`);
+    }
+    if (query.rating) {
+      values.push(query.rating);
+      clauses.push(`rating = $${values.length}`);
+    }
+    if (query.search) {
+      values.push(`%${query.search}%`);
+      clauses.push(`comment ILIKE $${values.length}`);
+    }
+    values.push(limit, offset);
+    const result = await db.query(
+      `SELECT *
+       FROM review
+       WHERE ${clauses.join(' AND ')}
+       ORDER BY review_id DESC
+       LIMIT $${values.length - 1} OFFSET $${values.length}`,
+      values
+    );
+    return result.rows;
+  }
+
+  async findApprovedById(id) {
+    const result = await db.query(
+      `SELECT *
+       FROM review
+       WHERE review_id = $1
+         AND deleted_at IS NULL
+         AND status = 'approved'`,
+      [id]
+    );
+    return result.rows[0] || null;
+  }
+
+  async findActiveOwner(id) {
+    const result = await db.query(
+      `SELECT review_id, user_id
+       FROM review
+       WHERE review_id = $1 AND deleted_at IS NULL`,
+      [id]
+    );
+    return result.rows[0] || null;
+  }
 }
 
 module.exports = new ReviewModel();
