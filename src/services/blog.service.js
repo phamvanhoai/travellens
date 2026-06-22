@@ -3,6 +3,8 @@ const blogModel = require('../models/blog.model');
 const db = require('../config/db');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
+const mediaFileModel = require('../models/mediaFile.model');
+const blogContent = require('../utils/blogContent');
 
 class BlogService extends BaseService {
 
@@ -12,6 +14,7 @@ class BlogService extends BaseService {
 
   async create(payload, userId) {
     const locationIds = this.normalizeLocationIds(payload.location_ids || []);
+    const content = await this.prepareContent(payload.content);
     const client = await db.getClient();
 
     try {
@@ -22,7 +25,7 @@ class BlogService extends BaseService {
         `INSERT INTO blog (user_id, title, content)
          VALUES ($1, $2, $3)
          RETURNING *`,
-        [userId, payload.title, payload.content]
+        [userId, payload.title, content]
       );
       const blog = blogResult.rows[0];
 
@@ -42,6 +45,12 @@ class BlogService extends BaseService {
   }
 
   async update(id, payload, user) {
+    if (payload.content !== undefined) {
+      payload = {
+        ...payload,
+        content: await this.prepareContent(payload.content),
+      };
+    }
     const client = await db.getClient();
 
     try {
@@ -140,6 +149,24 @@ class BlogService extends BaseService {
       }
       return nextPayload;
     }, {});
+  }
+
+  async prepareContent(content) {
+    const sanitizedContent = blogContent.sanitize(content);
+    const imageUrls = blogContent.extractImageUrls(sanitizedContent);
+    const activeUrls = await mediaFileModel.findActiveUrls(imageUrls);
+    const activeUrlSet = new Set(activeUrls);
+    const invalidUrls = imageUrls.filter((url) => !activeUrlSet.has(url));
+
+    if (invalidUrls.length) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        'Blog content contains images that are not available in Media Manager',
+        { invalid_image_urls: invalidUrls }
+      );
+    }
+
+    return sanitizedContent;
   }
 
   normalizeLocationIds(locationIds) {

@@ -17,6 +17,7 @@ const uploadDirs = {
   users: path.join(__dirname, '..', '..', 'public', 'users'),
   tours: path.join(__dirname, '..', '..', 'public', 'tours'),
   reviews: path.join(__dirname, '..', '..', 'public', 'reviews'),
+  media: path.join(__dirname, '..', '..', 'public', 'media'),
 };
 
 const allowedMapExtensions = new Set(['.jpg', '.jpeg', '.png', '.webp', '.svg']);
@@ -140,6 +141,13 @@ const uploadReviewPhotos = createUploader({
     fileSize: 5 * 1024 * 1024,
     files: 5,
   },
+});
+
+const uploadMedia = createUploader({
+  uploadDir: uploadDirs.media,
+  fallbackName: 'media-image',
+  fileFilter: imageFileFilter,
+  limits: { fileSize: 10 * 1024 * 1024 },
 });
 
 const uploadUnavailableOnVercel = () => new ApiError(
@@ -276,6 +284,15 @@ const handleTourThumbnailUpload = handleSingleUpload({
   afterUpload: parseTourDestinations,
 });
 
+const handleMediaUpload = handleSingleUpload({
+  uploader: uploadMedia,
+  fieldName: 'file',
+  bodyField: 'file_url',
+  folder: 'media',
+  localPrefix: '/public/media',
+  fallbackName: 'media-image',
+});
+
 const handleUserAvatarUpload = (req, res, next) => {
   if (isVercel && !useObjectStorage) {
     next(uploadUnavailableOnVercel());
@@ -362,4 +379,5 @@ module.exports = {
   handleUserAvatarUpload,
   handleTourThumbnailUpload,
   handleReviewPhotoUpload,
+  handleMediaUpload,
 };

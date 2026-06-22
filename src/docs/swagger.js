@@ -25,6 +25,7 @@ const options = {
       { name: 'Admin Tour Categories', description: 'Admin tour category management' },
       { name: 'Admin Tours', description: 'Admin tour viewing endpoints' },
       { name: 'Admin Blogs', description: 'Admin blog management endpoints' },
+      { name: 'Admin Media', description: 'Admin reusable image library for blog content' },
       { name: 'Staff Coupons', description: 'Staff coupon management endpoints' },
       { name: 'Staff Bookings', description: 'Staff booking management endpoints' },
       { name: 'Staff Reviews', description: 'Staff review moderation endpoints' },

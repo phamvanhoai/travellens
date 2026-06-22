@@ -18,4 +18,5 @@ module.exports = {
   review: require('./review.model'),
   reviewPhoto: require('./reviewPhoto.model'),
   statistics: require('./statistics.model'),
+  mediaFile: require('./mediaFile.model'),
 };
