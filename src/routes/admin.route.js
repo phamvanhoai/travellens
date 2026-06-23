@@ -814,8 +814,10 @@ router
  *                 example: Dinh Doc Lap Half-day Tour
  *               description:
  *                 type: string
+ *                 format: html
  *                 nullable: true
- *                 example: Explore Dinh Doc Lap with 360 preview and tour guide
+ *                 description: Rich-text HTML content from the text editor.
+ *                 example: <p>Explore Dinh Doc Lap with <strong>360 preview</strong> and tour guide.</p>
  *               price:
  *                 type: number
  *                 minimum: 0
@@ -852,8 +854,10 @@ router
  *                 example: Dinh Doc Lap Half-day Tour
  *               description:
  *                 type: string
+ *                 format: html
  *                 nullable: true
- *                 example: Explore Dinh Doc Lap with 360 preview and tour guide
+ *                 description: Rich-text HTML content from the text editor.
+ *                 example: <p>Explore Dinh Doc Lap with <strong>360 preview</strong> and tour guide.</p>
  *               price:
  *                 type: number
  *                 minimum: 0
@@ -960,7 +964,10 @@ router
  *                 example: Saigon Full Day Tour Updated
  *               description:
  *                 type: string
+ *                 format: html
  *                 nullable: true
+ *                 description: Rich-text HTML content from the text editor.
+ *                 example: <p>Updated tour description with <strong>rich text</strong>.</p>
  *               price:
  *                 type: number
  *                 minimum: 0
@@ -993,7 +1000,10 @@ router
  *                 example: Saigon Full Day Tour Updated
  *               description:
  *                 type: string
+ *                 format: html
  *                 nullable: true
+ *                 description: Rich-text HTML content from the text editor.
+ *                 example: <p>Updated tour description with <strong>rich text</strong>.</p>
  *               price:
  *                 type: number
  *                 minimum: 0
