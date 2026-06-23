@@ -3,6 +3,7 @@ const path = require('path');
 const objectStorage = require('../services/objectStorage.service');
 
 const publicDir = path.resolve(__dirname, '..', '..', 'public');
+const isReadOnlyDeployment = Boolean(process.env.VERCEL);
 
 const resolveLocalPublicPath = (fileUrl) => {
   if (!fileUrl || typeof fileUrl !== 'string' || !fileUrl.startsWith('/public/')) {
@@ -33,11 +34,18 @@ const removeUploadedFile = async (fileUrl) => {
     return false;
   }
 
+  // Legacy /public URLs may remain in the database after moving uploads to
+  // Object Storage. Vercel's deployed filesystem is read-only, so those old
+  // files cannot and do not need to be removed from the running function.
+  if (isReadOnlyDeployment) {
+    return false;
+  }
+
   try {
     await fs.unlink(filePath);
     return true;
   } catch (error) {
-    if (error.code === 'ENOENT') {
+    if (error.code === 'ENOENT' || error.code === 'EROFS') {
       return false;
     }
 
