@@ -1465,6 +1465,10 @@ router
  *                       travel_destination_id:
  *                         type: integer
  *                         example: 1
+ *                       map_count:
+ *                         type: integer
+ *                         description: Number of active maps belonging to this location
+ *                         example: 2
  *                       created_at:
  *                         type: string
  *                         format: date-time
