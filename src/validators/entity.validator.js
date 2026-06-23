@@ -43,6 +43,14 @@ module.exports = {
     longitude: Joi.number().min(-180).max(180).allow(null),
     destination_category_id: id.allow(null),
   }),
+  travelDestinationUpdate: Joi.object({
+    name: Joi.string().trim().max(200),
+    description: optionalText,
+    thumbnail: uploadedOrRemoteImage('travel-destinations'),
+    latitude: Joi.number().min(-90).max(90).allow(null),
+    longitude: Joi.number().min(-180).max(180).allow(null),
+    destination_category_id: id.allow(null),
+  }).min(1).unknown(false),
   tour: require('./tour.validator').create.body,
   location: Joi.object({
     travel_destination_id: id,

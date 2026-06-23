@@ -247,7 +247,7 @@ Admin APIs require role `admin` and use prefix `/api/admin`.
 - `/api/admin/blogs`
 - `/api/admin/media`
 
-Admin blog content accepts sanitized rich-text HTML. Every `<img>` URL must reference an active image from `/api/admin/media`.
+Admin Blog content and Travel Destination descriptions accept sanitized rich-text HTML. Every `<img>` URL must reference an active image from `/api/admin/media`.
 - `/api/admin/locations/:locationId/view360`
 - `/api/admin/view360/:viewId`
 - `/api/admin/view360/:viewId/images`
@@ -339,6 +339,8 @@ Admin endpoint:
 ```http
 /api/admin/travel-destinations
 ```
+
+The `description` field supports sanitized rich-text HTML. Images embedded by the editor must first be uploaded through `/api/admin/media`; arbitrary external or deleted Media Manager image URLs are rejected.
 
 ### Locations
 

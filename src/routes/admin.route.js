@@ -1099,7 +1099,7 @@ router
  *         description: Travel destination list with pagination
  *   post:
  *     summary: Admin create travel destination
- *     description: Creates a destination after validating admin role and duplicate name. Supports uploading a thumbnail file or passing an existing thumbnail URL.
+ *     description: Creates a destination after validating admin role and duplicate name. Description accepts sanitized rich-text HTML; every embedded image must reference an active Media Manager file. Supports uploading a thumbnail file or passing an existing thumbnail URL.
  *     tags: [Admin Travel Destinations]
  *     security:
  *       - bearerAuth: []
@@ -1116,7 +1116,8 @@ router
  *                 example: Dinh Doc Lap
  *               description:
  *                 type: string
- *                 example: Historic landmark in Ho Chi Minh City
+ *                 description: Sanitized rich-text HTML. Embedded image URLs must exist in Media Manager.
+ *                 example: "<h2>History</h2><p>Historic landmark in Ho Chi Minh City.</p>"
  *               thumbnail_file:
  *                 type: string
  *                 format: binary
@@ -1142,7 +1143,8 @@ router
  *                 example: Dinh Doc Lap
  *               description:
  *                 type: string
- *                 example: Historic landmark in Ho Chi Minh City
+ *                 description: Sanitized rich-text HTML. Embedded image URLs must exist in Media Manager.
+ *                 example: "<h2>History</h2><p>Historic landmark in Ho Chi Minh City.</p>"
  *               thumbnail:
  *                 type: string
  *                 format: uri
@@ -1183,7 +1185,7 @@ router
  *         description: Travel destination detail
  *   put:
  *     summary: Admin update travel destination
- *     description: Updates one or more travel destination fields. Supports uploading a new thumbnail file or passing an existing thumbnail URL. Fields not provided are kept unchanged.
+ *     description: Updates one or more travel destination fields. Description accepts sanitized rich-text HTML; every embedded image must reference an active Media Manager file. Supports uploading a new thumbnail file or passing an existing thumbnail URL. Fields not provided are kept unchanged.
  *     tags: [Admin Travel Destinations]
  *     security:
  *       - bearerAuth: []
@@ -1206,7 +1208,8 @@ router
  *                 example: Dinh Doc Lap Updated
  *               description:
  *                 type: string
- *                 example: Updated historic landmark description
+ *                 description: Sanitized rich-text HTML. Embedded image URLs must exist in Media Manager.
+ *                 example: "<h2>Updated history</h2><p>Updated landmark description.</p>"
  *               thumbnail_file:
  *                 type: string
  *                 format: binary
@@ -1232,7 +1235,8 @@ router
  *                 example: Dinh Doc Lap Updated
  *               description:
  *                 type: string
- *                 example: Updated historic landmark description
+ *                 description: Sanitized rich-text HTML. Embedded image URLs must exist in Media Manager.
+ *                 example: "<h2>Updated history</h2><p>Updated landmark description.</p>"
  *               thumbnail:
  *                 type: string
  *                 format: uri
