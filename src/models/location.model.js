@@ -54,6 +54,13 @@ module.exports = {
           l.thumbnail,
           l.destination_id AS travel_destination_id,
           td.name AS travel_destination_name,
+          (
+            SELECT COUNT(*)::int
+            FROM map m
+            WHERE m.location_id = l.location_id
+              AND m.deleted_at IS NULL
+              AND m.is_deleted = FALSE
+          ) AS map_count,
           l.created_at,
           l.updated_at
        FROM location l
