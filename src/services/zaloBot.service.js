@@ -169,7 +169,7 @@ class ZaloBotService {
       payload_keys: Object.keys(payload || {}),
     });
 
-    if (chatId && ['/start', 'chatid', '/chatid'].includes(text)) {
+    if (chatId && (text === '/start' || text === 'chatid' || text.includes('/chatid'))) {
       await this.sendMessage(chatId, `chat_id cua cuoc tro chuyen nay la: ${chatId}`);
     }
 
