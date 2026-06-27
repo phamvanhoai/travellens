@@ -23,6 +23,20 @@ const formatMoney = (amount, currency = 'VND') => {
   return `${numberAmount.toLocaleString('vi-VN')} ${currency || 'VND'}`;
 };
 
+const pickMessage = (payload = {}) => {
+  if (payload?.result?.message) return payload.result.message;
+  if (payload?.message) return payload.message;
+  if (payload?.chat || payload?.from || payload?.text) return payload;
+  return null;
+};
+
+const pickEventName = (payload = {}) => {
+  return payload?.result?.event_name
+    || payload?.event_name
+    || payload?.eventName
+    || null;
+};
+
 const requestJsonWithHttps = (url, payload) => new Promise((resolve, reject) => {
   const body = JSON.stringify(payload || {});
   const request = https.request(url, {
@@ -111,11 +125,11 @@ class ZaloBotService {
     }
 
     const message = [
-      'Thanh toán thành công',
-      `Mã thanh toán: ${payment.payment_code}`,
-      `Mã booking: #${payment.booking_id}`,
-      `Số tiền: ${formatMoney(payment.amount, payment.currency)}`,
-      payment.transaction_code ? `Mã giao dịch: ${payment.transaction_code}` : null,
+      'Thanh toan thanh cong',
+      `Ma thanh toan: ${payment.payment_code}`,
+      `Ma booking: #${payment.booking_id}`,
+      `So tien: ${formatMoney(payment.amount, payment.currency)}`,
+      payment.transaction_code ? `Ma giao dich: ${payment.transaction_code}` : null,
     ].filter(Boolean).join('\n');
 
     const results = [];
@@ -142,8 +156,8 @@ class ZaloBotService {
       throw new ApiError(httpStatus.FORBIDDEN, 'Invalid Zalo webhook secret token');
     }
 
-    const message = payload?.result?.message;
-    const eventName = payload?.result?.event_name;
+    const message = pickMessage(payload);
+    const eventName = pickEventName(payload);
     const chatId = message?.chat?.id;
     const text = String(message?.text || '').trim().toLowerCase();
 
@@ -152,10 +166,11 @@ class ZaloBotService {
       chat_id: chatId,
       chat_type: message?.chat?.chat_type,
       from_id: message?.from?.id,
+      payload_keys: Object.keys(payload || {}),
     });
 
     if (chatId && ['/start', 'chatid', '/chatid'].includes(text)) {
-      await this.sendMessage(chatId, `chat_id của cuộc trò chuyện này là: ${chatId}`);
+      await this.sendMessage(chatId, `chat_id cua cuoc tro chuyen nay la: ${chatId}`);
     }
 
     return {
