@@ -1,7 +1,8 @@
 const express = require('express');
-const controller = require('../controllers/sepayWebhook.controller');
+const sepayController = require('../controllers/sepayWebhook.controller');
+const zaloController = require('../controllers/zaloWebhook.controller');
 const validate = require('../middlewares/validate.middleware');
-const { sepayWebhook } = require('../validators');
+const { sepayWebhook, zaloWebhook } = require('../validators');
 
 const router = express.Router();
 
@@ -59,6 +60,7 @@ const router = express.Router();
  *       401:
  *         description: Invalid API key
  */
-router.post('/sepay', validate(sepayWebhook.handle), controller.handle);
+router.post('/sepay', validate(sepayWebhook.handle), sepayController.handle);
+router.post('/zalo', validate(zaloWebhook.handle), zaloController.handle);
 
 module.exports = router;

@@ -15,6 +15,7 @@ module.exports = {
   booking: require('./booking.controller'),
   bookingDetail: require('./bookingDetail.controller'),
   payment: require('./payment.controller'),
+  zaloWebhook: require('./zaloWebhook.controller'),
   coupon: require('./coupon.controller'),
   blog: require('./blog.controller'),
   blogLocation: require('./blogLocation.controller'),

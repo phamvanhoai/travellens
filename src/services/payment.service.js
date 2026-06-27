@@ -3,6 +3,7 @@ const paymentModel = require('../models/payment.model');
 const bookingModel = require('../models/booking.model');
 const couponService = require('./coupon.service');
 const sepayService = require('./sepay.service');
+const zaloBotService = require('./zaloBot.service');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 
@@ -174,6 +175,9 @@ class PaymentService {
       }
 
       await client.query('COMMIT');
+      if (status === 'paid') {
+        await zaloBotService.notifyPaymentPaid(payment);
+      }
       return payment;
     } catch (error) {
       await client.query('ROLLBACK');
