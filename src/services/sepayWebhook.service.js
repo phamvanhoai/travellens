@@ -3,6 +3,7 @@ const bookingModel = require('../models/booking.model');
 const sepayWebhookLogModel = require('../models/sepayWebhookLog.model');
 const couponService = require('./coupon.service');
 const sepayService = require('./sepay.service');
+const zaloBotService = require('./zaloBot.service');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 
@@ -99,6 +100,7 @@ class SepayWebhookService {
 
       await sepayWebhookLogModel.updateStatus(log.sepay_webhook_log_id, 'processed', 'Payment marked as paid', payment.payment_id, client);
       await client.query('COMMIT');
+      await zaloBotService.notifyPaymentPaid(paidPayment);
 
       return {
         payment_id: paidPayment.payment_id,

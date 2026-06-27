@@ -15,6 +15,7 @@ module.exports = {
   booking: require('./booking.service'),
   bookingDetail: require('./bookingDetail.service'),
   payment: require('./payment.service'),
+  zaloBot: require('./zaloBot.service'),
   coupon: require('./coupon.service'),
   blog: require('./blog.service'),
   blogLocation: require('./blogLocation.service'),

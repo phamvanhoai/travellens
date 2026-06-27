@@ -108,6 +108,22 @@ GOOGLE_CLIENT_SECRET=
 OPENAI_API_KEY=
 ```
 
+Zalo Bot config:
+
+```env
+ZALO_BOT_TOKEN=your_zalo_bot_token
+ZALO_BOT_WEBHOOK_SECRET_TOKEN=your_webhook_secret_token
+ZALO_PAYMENT_NOTIFY_CHAT_IDS=chat_id_or_group_id
+```
+
+Webhook URL:
+
+```text
+https://your-domain.com/api/webhooks/zalo
+```
+
+After configuring the webhook in Zalo Bot Creator/API, send `/chatid` to the bot to make it reply with the current chat ID. Put that value into `ZALO_PAYMENT_NOTIFY_CHAT_IDS` so payment-success notifications can be delivered.
+
 ## Database Setup
 
 For a new database:
