@@ -8,6 +8,7 @@ module.exports = {
   coupon: require('./coupon.validator'),
   payment: require('./payment.validator'),
   sepayWebhook: require('./sepayWebhook.validator'),
+  zaloWebhook: require('./zaloWebhook.validator'),
   map: require('./map.validator'),
   nearby: require('./nearby.validator'),
   mapFilter: require('./mapFilter.validator'),
