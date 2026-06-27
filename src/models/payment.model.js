@@ -72,6 +72,32 @@ module.exports = {
     return result.rows[0] || null;
   },
 
+  async findNotificationContext(paymentId) {
+    const result = await db.query(
+      `SELECT
+          p.payment_id,
+          p.booking_id,
+          p.payment_code,
+          p.amount,
+          p.currency,
+          p.transaction_code,
+          p.paid_at,
+          b.user_id,
+          u.name AS customer_name,
+          u.phone AS customer_phone,
+          t.tour_id,
+          t.name AS tour_name
+       FROM payment p
+       INNER JOIN booking b ON b.booking_id = p.booking_id
+       INNER JOIN users u ON u.user_id = b.user_id
+       INNER JOIN tour t ON t.tour_id = b.tour_id
+       WHERE p.payment_id = $1
+         AND p.deleted_at IS NULL`,
+      [paymentId]
+    );
+    return result.rows[0] || null;
+  },
+
   async findOwnedById(id, userId) {
     const result = await db.query(
       `SELECT ${paymentColumns},

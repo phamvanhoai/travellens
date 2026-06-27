@@ -1,5 +1,6 @@
 const https = require('https');
 const logger = require('../config/logger');
+const paymentModel = require('../models/payment.model');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 
@@ -21,6 +22,13 @@ const getNotifyChatIds = () => {
 const formatMoney = (amount, currency = 'VND') => {
   const numberAmount = Number(amount || 0);
   return `${numberAmount.toLocaleString('vi-VN')} ${currency || 'VND'}`;
+};
+
+const formatDateTime = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
 };
 
 const pickMessage = (payload = {}) => {
@@ -124,12 +132,27 @@ class ZaloBotService {
       return { sent: false, reason: 'Zalo payment notification is not configured' };
     }
 
+    let notification = payment;
+    try {
+      notification = await paymentModel.findNotificationContext(payment.payment_id) || payment;
+    } catch (error) {
+      logger.error('Failed to load Zalo payment notification context', {
+        payment_id: payment.payment_id,
+        error: error.message,
+      });
+    }
+
+    const paidAt = formatDateTime(notification.paid_at);
     const message = [
-      'Thanh toan thanh cong',
-      `Ma thanh toan: ${payment.payment_code}`,
-      `Ma booking: #${payment.booking_id}`,
-      `So tien: ${formatMoney(payment.amount, payment.currency)}`,
-      payment.transaction_code ? `Ma giao dich: ${payment.transaction_code}` : null,
+      'Thanh toán thành công',
+      `Mã thanh toán: ${notification.payment_code}`,
+      `Mã booking: #${notification.booking_id}`,
+      notification.tour_name ? `Tên tour: ${notification.tour_name}` : null,
+      notification.customer_name ? `Khách hàng: ${notification.customer_name}` : null,
+      notification.customer_phone ? `SĐT: ${notification.customer_phone}` : null,
+      `Số tiền: ${formatMoney(notification.amount, notification.currency)}`,
+      notification.transaction_code ? `Mã giao dịch: ${notification.transaction_code}` : null,
+      paidAt ? `Thời gian: ${paidAt}` : null,
     ].filter(Boolean).join('\n');
 
     const results = [];
@@ -170,7 +193,7 @@ class ZaloBotService {
     });
 
     if (chatId && (text === '/start' || text === 'chatid' || text.includes('/chatid'))) {
-      await this.sendMessage(chatId, `chat_id cua cuoc tro chuyen nay la: ${chatId}`);
+      await this.sendMessage(chatId, `chat_id của cuộc trò chuyện này là: ${chatId}`);
     }
 
     return {
