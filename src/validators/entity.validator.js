@@ -76,15 +76,23 @@ module.exports = {
     travel_date: Joi.date(),
     coupon_id: id.allow(null),
     coupon_code: Joi.string().trim().uppercase().allow(null, ''),
-    original_amount: money,
-    discount_amount: money,
-    final_amount: money,
+    original_amount: Joi.forbidden().messages({
+      'any.unknown': 'original_amount is calculated by server',
+    }),
+    discount_amount: Joi.forbidden().messages({
+      'any.unknown': 'discount_amount is calculated by server',
+    }),
+    final_amount: Joi.forbidden().messages({
+      'any.unknown': 'final_amount is calculated by server',
+    }),
     status: Joi.string().valid('confirmed', 'canceled', 'pending', 'cancel_pending').default('pending'),
     payment_status: Joi.string().valid('unpaid', 'paid', 'failed', 'refunded', 'pending').default('unpaid'),
     passengers: Joi.array().items(Joi.object({
       passenger_name: Joi.string().max(150).required(),
       age_category: Joi.string().valid('adult', 'child', 'infant').required(),
-      price: money.optional(),
+      price: Joi.forbidden().messages({
+        'any.unknown': 'passenger price is calculated by server from tour price',
+      }),
       seat_number: optionalText,
       special_request: optionalText,
     })).min(1).required(),

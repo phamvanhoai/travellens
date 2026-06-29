@@ -115,6 +115,7 @@ CREATE TABLE tour (
     name VARCHAR(255) NOT NULL,
     description TEXT,
     price NUMERIC(12,2) NOT NULL CHECK (price >= 0),
+    child_price NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (child_price >= 0),
     schedule TEXT,
     start_at TIMESTAMP,
     capacity INT CHECK (capacity >= 0),

@@ -89,11 +89,10 @@ const options = {
               type: 'array',
               items: {
                 type: 'object',
-                required: ['passenger_name', 'age_category', 'price'],
+                required: ['passenger_name', 'age_category'],
                 properties: {
                   passenger_name: { type: 'string', example: 'Nguyen Van A' },
                   age_category: { type: 'string', enum: ['adult', 'child', 'infant'] },
-                  price: { type: 'number', example: 700000 },
                   seat_number: { type: 'string', nullable: true },
                   special_request: { type: 'string', nullable: true },
                 },

@@ -803,7 +803,7 @@ router
  *         multipart/form-data:
  *           schema:
  *             type: object
- *             required: [tour_category_id, name, price, schedule, capacity, destinations]
+ *             required: [tour_category_id, name, price, child_price, schedule, capacity, destinations]
  *             properties:
  *               tour_category_id:
  *                 type: integer
@@ -822,6 +822,10 @@ router
  *                 type: number
  *                 minimum: 0
  *                 example: 250000
+ *               child_price:
+ *                 type: number
+ *                 minimum: 0
+ *                 example: 162500
  *               schedule:
  *                 type: string
  *                 example: 08:00 - 12:00
@@ -843,7 +847,7 @@ router
  *         application/json:
  *           schema:
  *             type: object
- *             required: [tour_category_id, name, price, schedule, capacity, destinations]
+ *             required: [tour_category_id, name, price, child_price, schedule, capacity, destinations]
  *             properties:
  *               tour_category_id:
  *                 type: integer
@@ -862,6 +866,10 @@ router
  *                 type: number
  *                 minimum: 0
  *                 example: 250000
+ *               child_price:
+ *                 type: number
+ *                 minimum: 0
+ *                 example: 162500
  *               schedule:
  *                 type: string
  *                 example: 08:00 - 12:00
