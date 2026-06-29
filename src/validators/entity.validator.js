@@ -43,14 +43,6 @@ module.exports = {
     longitude: Joi.number().min(-180).max(180).allow(null),
     destination_category_id: id.allow(null),
   }),
-  travelDestinationUpdate: Joi.object({
-    name: Joi.string().trim().max(200),
-    description: optionalText,
-    thumbnail: uploadedOrRemoteImage('travel-destinations'),
-    latitude: Joi.number().min(-90).max(90).allow(null),
-    longitude: Joi.number().min(-180).max(180).allow(null),
-    destination_category_id: id.allow(null),
-  }).min(1).unknown(false),
   tour: require('./tour.validator').create.body,
   location: Joi.object({
     travel_destination_id: id,
@@ -80,13 +72,14 @@ module.exports = {
   booking: Joi.object({
     user_id: id,
     tour_id: id.required(),
-    departure_at: Joi.date().required(),
+    departure_at: Joi.date(),
+    travel_date: Joi.date(),
     coupon_id: id.allow(null),
     coupon_code: Joi.string().trim().uppercase().allow(null, ''),
     original_amount: money,
     discount_amount: money,
     final_amount: money,
-    status: Joi.string().valid('confirmed', 'canceled', 'pending').default('pending'),
+    status: Joi.string().valid('confirmed', 'canceled', 'pending', 'cancel_pending').default('pending'),
     payment_status: Joi.string().valid('unpaid', 'paid', 'failed', 'refunded', 'pending').default('unpaid'),
     passengers: Joi.array().items(Joi.object({
       passenger_name: Joi.string().max(150).required(),
@@ -97,7 +90,7 @@ module.exports = {
     })).min(1).required(),
   }),
   bookingCancel: Joi.object({
-    reason: Joi.string().trim().max(1000).allow(null, ''),
+    reason: Joi.string().trim().min(1).max(1000).required(),
   }),
   bookingDetail: Joi.object({
     booking_id: id.required(),

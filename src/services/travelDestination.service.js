@@ -2,7 +2,6 @@ const travelDestinationModel = require('../models/travelDestination.model');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 const { removeUploadedFile } = require('../utils/uploadedFile');
-const richTextService = require('./richText.service');
 
 class TravelDestinationService {
   async list(query = {}) {
@@ -32,19 +31,11 @@ class TravelDestinationService {
   }
 
   async create(payload) {
-    const nextPayload = {
-      ...payload,
-      description: await richTextService.prepare(
-        payload.description,
-        'Travel destination description'
-      ),
-    };
-
-    await this.ensureUniqueName(nextPayload.name);
-    await this.ensureDestinationCategoryExists(nextPayload.destination_category_id);
+    await this.ensureUniqueName(payload.name);
+    await this.ensureDestinationCategoryExists(payload.destination_category_id);
 
     try {
-      return await travelDestinationModel.createDestination(nextPayload);
+      return await travelDestinationModel.createDestination(payload);
     } catch (error) {
       if (error.code === '23505') {
         throw new ApiError(httpStatus.CONFLICT, 'Travel destination name already exists');
@@ -58,29 +49,21 @@ class TravelDestinationService {
 
   async update(id, payload) {
     const current = await this.ensureExists(id);
-    const nextPayload = { ...payload };
 
-    if (nextPayload.description !== undefined) {
-      nextPayload.description = await richTextService.prepare(
-        nextPayload.description,
-        'Travel destination description'
-      );
+    if (payload.name) {
+      await this.ensureUniqueName(payload.name, id);
     }
 
-    if (nextPayload.name) {
-      await this.ensureUniqueName(nextPayload.name, id);
-    }
-
-    await this.ensureDestinationCategoryExists(nextPayload.destination_category_id);
+    await this.ensureDestinationCategoryExists(payload.destination_category_id);
 
     try {
-      const destination = await travelDestinationModel.updateDestination(id, nextPayload);
+      const destination = await travelDestinationModel.updateDestination(id, payload);
       if (!destination) {
         throw new ApiError(httpStatus.NOT_FOUND, 'Travel destination not found');
       }
 
       if (
-        nextPayload.thumbnail
+        payload.thumbnail
         && current.thumbnail
         && current.thumbnail !== destination.thumbnail
       ) {

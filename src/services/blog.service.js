@@ -4,7 +4,8 @@ const blogLocationModel = require('../models/blogLocation.model');
 const locationModel = require('../models/location.model');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
-const richTextService = require('./richText.service');
+const mediaFileModel = require('../models/mediaFile.model');
+const blogContent = require('../utils/blogContent');
 
 class BlogService extends BaseService {
 
@@ -131,7 +132,21 @@ class BlogService extends BaseService {
   }
 
   async prepareContent(content) {
-    return richTextService.prepare(content, 'Blog content');
+    const sanitizedContent = blogContent.sanitize(content);
+    const imageUrls = blogContent.extractImageUrls(sanitizedContent);
+    const activeUrls = await mediaFileModel.findActiveUrls(imageUrls);
+    const activeUrlSet = new Set(activeUrls);
+    const invalidUrls = imageUrls.filter((url) => !activeUrlSet.has(url));
+
+    if (invalidUrls.length) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        'Blog content contains images that are not available in Media Manager',
+        { invalid_image_urls: invalidUrls }
+      );
+    }
+
+    return sanitizedContent;
   }
 
   normalizeLocationIds(locationIds) {
