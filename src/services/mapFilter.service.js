@@ -127,7 +127,7 @@ class MapFilterService {
             FROM tour_destination tour_dest
             INNER JOIN booking b ON b.tour_id = tour_dest.tour_id
             WHERE tour_dest.destination_id = td.destination_id
-              AND b.status IN ('pending', 'confirmed', 'cancel_pending', 'paid')
+              AND b.status IN ('pending', 'confirmed', 'paid')
          ) popularity ON TRUE
          WHERE ${destinationClauses.join(' AND ')}`,
         destinationValues
@@ -176,7 +176,7 @@ class MapFilterService {
             FROM tour_destination tour_dest
             INNER JOIN booking b ON b.tour_id = tour_dest.tour_id
             WHERE tour_dest.destination_id = td.destination_id
-              AND b.status IN ('pending', 'confirmed', 'cancel_pending', 'paid')
+              AND b.status IN ('pending', 'confirmed', 'paid')
          ) popularity ON TRUE
          WHERE ${locationClauses.join(' AND ')}`,
         locationValues

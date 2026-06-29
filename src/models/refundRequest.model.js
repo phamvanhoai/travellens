@@ -9,8 +9,6 @@ const refundRequestColumns = `
   rr.refund_amount,
   rr.status,
   rr.staff_note,
-  rr.reviewed_by,
-  rr.reviewed_at,
   rr.completed_by,
   rr.completed_at,
   rr.created_at,
@@ -108,36 +106,6 @@ module.exports = {
       ]
     );
     return result.rows[0];
-  },
-
-  async markApproved(id, payload = {}, executor = db) {
-    const result = await executor.query(
-      `UPDATE refund_request
-       SET status = 'approved',
-           staff_note = COALESCE($2, staff_note),
-           reviewed_by = $3,
-           reviewed_at = CURRENT_TIMESTAMP,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE refund_request_id = $1
-       RETURNING *`,
-      [id, payload.staff_note || null, payload.reviewed_by || null]
-    );
-    return result.rows[0] || null;
-  },
-
-  async markRejected(id, payload = {}, executor = db) {
-    const result = await executor.query(
-      `UPDATE refund_request
-       SET status = 'rejected',
-           staff_note = COALESCE($2, staff_note),
-           reviewed_by = $3,
-           reviewed_at = CURRENT_TIMESTAMP,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE refund_request_id = $1
-       RETURNING *`,
-      [id, payload.staff_note || null, payload.reviewed_by || null]
-    );
-    return result.rows[0] || null;
   },
 
   async markCompleted(id, payload = {}, executor = db) {
