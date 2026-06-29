@@ -354,37 +354,6 @@ class EmailService {
         return this.sendMail({ to, subject, html, text });
     }
 
-    async sendRefundRejected({ to, name, booking, refundRequest }) {
-        const subject = `Cancellation request rejected for booking #${booking.booking_id}`;
-        const safeName = escapeHtml(name || 'Customer');
-        const staffNote = refundRequest.staff_note
-            ? `<p style="margin:16px 0 0; color:#334155; font-size:15px; line-height:1.7;">
-        Staff note: <strong>${escapeHtml(refundRequest.staff_note)}</strong>
-      </p>`
-            : '';
-
-        const content = `
-      <p style="margin:0 0 16px; color:#0f172a; font-size:16px; line-height:1.7;">
-        Hi <strong>${safeName}</strong>,
-      </p>
-      <p style="margin:0; color:#334155; font-size:15px; line-height:1.7;">
-        Your cancellation/refund request for booking <strong>#${booking.booking_id}</strong> has been rejected.
-        Your booking remains confirmed.
-      </p>
-      ${staffNote}
-    `;
-
-        const html = this.getBaseTemplate({
-            title: 'Cancellation request rejected',
-            subtitle: `Booking #${booking.booking_id}`,
-            content,
-        });
-
-        const text = `Hi ${name || 'Customer'}, your cancellation/refund request for booking #${booking.booking_id} has been rejected. Your booking remains confirmed.${refundRequest.staff_note ? ` Staff note: ${refundRequest.staff_note}` : ''}`;
-
-        return this.sendMail({ to, subject, html, text });
-    }
-
     async verifyConnection() {
         return this.transporter.verify();
     }

@@ -9,17 +9,8 @@ module.exports = {
       limit: Joi.number().integer().min(1).max(100).default(20),
       booking_id: id,
       payment_id: id,
-      status: Joi.string().valid('pending', 'approved', 'rejected', 'completed'),
+      status: Joi.string().valid('pending', 'completed'),
     }),
-  },
-
-  review: {
-    params: Joi.object({
-      id: id.required(),
-    }),
-    body: Joi.object({
-      staff_note: Joi.string().trim().max(1000).allow(null, ''),
-    }).default({}),
   },
 
   complete: {

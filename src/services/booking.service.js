@@ -17,11 +17,6 @@ class BookingService extends BaseService {
     return bookingModel.findAll(query);
   }
 
-  async listWithPassengers(query = {}) {
-    const bookings = await bookingModel.findAll(query);
-    return this.attachPassengers(bookings);
-  }
-
   async create(payload) {
     const client = await bookingModel.getClient();
     try {
@@ -37,10 +32,8 @@ class BookingService extends BaseService {
       this.ensureDepartureAtIsValid(payload.departure_at);
 
       const tour = await this.ensureBookableTourExists(payload.tour_id, client, { lock: true });
-      const departureAt = this.resolveDepartureAt(payload, tour);
-      this.ensureDepartureAtIsValid(departureAt);
       await this.ensureCustomerExists(payload.user_id, client);
-      await this.ensureTourHasCapacity(tour, passengers.length, client, departureAt);
+      await this.ensureTourHasCapacity(tour, passengers.length, client, payload.departure_at);
 
       const ticketPrice = Number(tour.price);
       const originalAmount = ticketPrice * passengers.length;
@@ -63,7 +56,7 @@ class BookingService extends BaseService {
         user_id: payload.user_id,
         tour_id: payload.tour_id,
         coupon_id: couponSnapshot.coupon_id,
-        departure_at: departureAt,
+        departure_at: payload.departure_at,
         original_amount: originalAmount,
         discount_amount: couponSnapshot.discount_amount,
         final_amount: couponSnapshot.final_amount,
@@ -92,7 +85,7 @@ class BookingService extends BaseService {
       }, client);
 
       await client.query('COMMIT');
-      return { ...booking, details, passengers: details };
+      return { ...booking, details };
     } catch (error) {
       await client.query('ROLLBACK');
       if (error.code === '23503' && error.constraint === 'fk_booking_tour') {
@@ -105,7 +98,7 @@ class BookingService extends BaseService {
   }
 
   listForUser(userId, query = {}) {
-    return this.listWithPassengers({ ...query, user_id: userId });
+    return this.list({ ...query, user_id: userId });
   }
 
   async ensureBookableTourExists(tourId, client, options = {}) {
@@ -126,48 +119,6 @@ class BookingService extends BaseService {
     if (!customer) {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Customer does not exist or is not active');
     }
-  }
-
-  resolveDepartureAt(payload, tour) {
-    if (payload.departure_at) {
-      return payload.departure_at;
-    }
-
-    const travelDate = payload.travel_date || this.extractTravelDateFromPassengers(payload.passengers || payload.details || []);
-    if (!travelDate) {
-      throw new ApiError(httpStatus.BAD_REQUEST, 'Travel date is required');
-    }
-
-    const startTime = this.extractStartTimeFromSchedule(tour.schedule);
-    if (!startTime) {
-      throw new ApiError(httpStatus.BAD_REQUEST, 'Tour schedule must include a start time like 09:00');
-    }
-
-    return `${this.formatDateOnly(travelDate)}T${startTime}:00+07:00`;
-  }
-
-  extractTravelDateFromPassengers(passengers) {
-    for (const passenger of passengers) {
-      const match = String(passenger.special_request || '').match(/Travel date:\s*(\d{4}-\d{2}-\d{2})/i);
-      if (match) return match[1];
-    }
-    return null;
-  }
-
-  extractStartTimeFromSchedule(schedule) {
-    const match = String(schedule || '').match(/(?:^|\D)([01]?\d|2[0-3]):([0-5]\d)/);
-    if (!match) return null;
-    return `${match[1].padStart(2, '0')}:${match[2]}`;
-  }
-
-  formatDateOnly(value) {
-    if (value instanceof Date) {
-      const year = value.getFullYear();
-      const month = String(value.getMonth() + 1).padStart(2, '0');
-      const day = String(value.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    }
-    return String(value).slice(0, 10);
   }
 
   ensureDepartureAtIsValid(departureAt) {
@@ -203,34 +154,11 @@ class BookingService extends BaseService {
     if (!booking) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Booking not found');
     }
-    return this.attachPassengersToBooking(booking);
+    return booking;
   }
 
   createForUser(payload, userId) {
     return this.create({ ...payload, user_id: userId });
-  }
-
-  async attachPassengers(bookings = []) {
-    const details = await bookingModel.findDetailsByBookingIds(
-      bookings.map((booking) => booking.booking_id)
-    );
-    const detailsByBookingId = new Map();
-
-    for (const detail of details) {
-      const items = detailsByBookingId.get(detail.booking_id) || [];
-      items.push(detail);
-      detailsByBookingId.set(detail.booking_id, items);
-    }
-
-    return bookings.map((booking) => ({
-      ...booking,
-      passengers: detailsByBookingId.get(booking.booking_id) || [],
-    }));
-  }
-
-  async attachPassengersToBooking(booking) {
-    const [bookingWithPassengers] = await this.attachPassengers([booking]);
-    return bookingWithPassengers;
   }
 
   async updateForUser(id, userId, payload) {
@@ -283,12 +211,15 @@ class BookingService extends BaseService {
           refund_amount: paidPayment.amount,
         }, client);
 
-        const pendingCancel = await bookingModel.update(id, { status: 'cancel_pending' }, client);
+        const canceled = await bookingModel.markCanceled(id, 'paid', {
+          canceledBy: options.canceledBy || options.userId || null,
+          reason: options.reason,
+        }, client);
         await this.logHistory({
           booking,
-          action: 'booking_cancel_requested',
-          toStatus: pendingCancel.status,
-          toPaymentStatus: pendingCancel.payment_status,
+          action: 'booking_canceled_refund_pending',
+          toStatus: canceled.status,
+          toPaymentStatus: canceled.payment_status,
           changedBy: options.canceledBy || options.userId || null,
           reason: options.reason,
           metadata: {
@@ -300,16 +231,12 @@ class BookingService extends BaseService {
         }, client);
 
         await client.query('COMMIT');
-        await emailService.sendBestEffort(async () => {
-          const bookingContext = await bookingModel.findNotificationContext(id);
-          if (!bookingContext) return null;
-          return emailService.sendRefundRequestCreated({
-            booking: bookingContext,
-            refundRequest,
-          });
-        });
+        await emailService.sendBestEffort(() => this.sendCancelNotifications({
+          bookingId: id,
+          refundRequest,
+        }));
         return {
-          ...pendingCancel,
+          ...canceled,
           refund_amount: Number(paidPayment.amount || 0),
           refund_percent: 100,
           refund_status: refundRequest.status,
