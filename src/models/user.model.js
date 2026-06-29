@@ -184,6 +184,18 @@ class UserModel extends BaseModel {
     return result.rows[0] || null;
   }
 
+  async findActiveStaffAndAdmins(executor = db) {
+    const result = await executor.query(
+      `SELECT user_id, name, email, role
+       FROM users
+       WHERE role IN ('staff', 'admin')
+         AND status = 'active'
+         AND email IS NOT NULL
+       ORDER BY role, user_id`
+    );
+    return result.rows;
+  }
+
   async updatePassword(userId, hashedPassword) {
     const result = await db.query(
       `UPDATE users

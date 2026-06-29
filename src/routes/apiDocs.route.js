@@ -239,11 +239,88 @@ const router = express.Router();
  *         name: id
  *         required: true
  *         schema: { type: integer }
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 maxLength: 1000
+ *                 nullable: true
+ *                 example: Customer requested cancellation
  *     responses:
  *       200: { description: Booking canceled }
  *       400: { description: Booking is already canceled or expired }
  *       404: { description: Booking not found }
  *       409: { description: Paid booking requires staff refund before cancellation }
+ *
+ * /staff/bookings/{id}/history:
+ *   get:
+ *     summary: Staff get booking status history
+ *     tags: [Staff Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200: { description: Booking status history }
+ *       404: { description: Booking not found }
+ *
+ * /staff/refund-requests:
+ *   get:
+ *     summary: Staff list manual refund requests
+ *     tags: [Staff Refund Requests]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [pending, completed] }
+ *       - in: query
+ *         name: booking_id
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: payment_id
+ *         schema: { type: integer }
+ *     responses:
+ *       200: { description: Refund request list }
+ *
+ * /staff/refund-requests/{id}/complete:
+ *   patch:
+ *     summary: Staff mark manual refund as completed
+ *     description: Staff calls this after transferring money manually. The payment is then marked refunded and booking payment_status becomes refunded.
+ *     tags: [Staff Refund Requests]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               transaction_code:
+ *                 type: string
+ *                 nullable: true
+ *               staff_note:
+ *                 type: string
+ *                 maxLength: 1000
+ *                 nullable: true
+ *     responses:
+ *       200: { description: Refund completed }
+ *       400: { description: Refund request is not pending or payment is not paid }
+ *       404: { description: Refund request not found }
  *
  * /staff/reviews:
  *   post:
@@ -502,7 +579,7 @@ const router = express.Router();
  * /bookings/{id}/cancel:
  *   patch:
  *     summary: Cancel booking
- *     description: Customer can cancel only their own unpaid booking. Pending payment records are expired. Paid bookings must be handled by staff refund.
+ *     description: Customer can cancel their own booking at least 24 hours before the booking departure time. Pending payment records are expired. Paid bookings create a pending 100% manual refund request and then cancel the booking.
  *     tags: [Bookings]
  *     security:
  *       - bearerAuth: []
@@ -511,11 +588,23 @@ const router = express.Router();
  *         name: id
  *         required: true
  *         schema: { type: integer }
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 maxLength: 1000
+ *                 nullable: true
+ *                 example: I changed my travel plan
  *     responses:
  *       200: { description: Booking canceled }
  *       400: { description: Booking is already canceled or expired }
  *       404: { description: Booking not found }
- *       409: { description: Paid booking requires staff refund before cancellation }
+ *       409: { description: Paid payment record could not create a manual refund request }
  */
 
 /**

@@ -10,9 +10,11 @@ DROP TABLE IF EXISTS review CASCADE;
 DROP TABLE IF EXISTS blog_location CASCADE;
 DROP TABLE IF EXISTS media_file CASCADE;
 DROP TABLE IF EXISTS blog CASCADE;
+DROP TABLE IF EXISTS refund_request CASCADE;
 DROP TABLE IF EXISTS payment CASCADE;
 DROP TABLE IF EXISTS coupon CASCADE;
 DROP TABLE IF EXISTS booking_detail CASCADE;
+DROP TABLE IF EXISTS booking_status_history CASCADE;
 DROP TABLE IF EXISTS booking CASCADE;
 DROP TABLE IF EXISTS view360_image CASCADE;
 DROP TABLE IF EXISTS view360 CASCADE;
@@ -114,6 +116,7 @@ CREATE TABLE tour (
     description TEXT,
     price NUMERIC(12,2) NOT NULL CHECK (price >= 0),
     schedule TEXT,
+    start_at TIMESTAMP,
     capacity INT CHECK (capacity >= 0),
     thumbnail TEXT,
     status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'draft', 'deleted')),
@@ -246,11 +249,15 @@ CREATE TABLE booking (
     user_id INT NOT NULL,
     tour_id INT NOT NULL,
     coupon_id INT,
+    departure_at TIMESTAMP,
     original_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (original_amount >= 0),
     discount_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (discount_amount >= 0),
     final_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (final_amount >= 0),
     status VARCHAR(50) NOT NULL CHECK (status IN ('pending', 'confirmed', 'canceled', 'expired')),
     payment_status VARCHAR(50) NOT NULL CHECK (payment_status IN ('unpaid', 'paid', 'failed', 'refunded', 'pending')),
+    canceled_at TIMESTAMP,
+    canceled_by INT,
+    cancel_reason TEXT,
     date_created DATE NOT NULL DEFAULT CURRENT_DATE,
     CONSTRAINT fk_booking_user
         FOREIGN KEY (user_id)
@@ -261,7 +268,39 @@ CREATE TABLE booking (
         FOREIGN KEY (tour_id)
         REFERENCES tour(tour_id)
         ON UPDATE CASCADE
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_booking_canceled_by
+        FOREIGN KEY (canceled_by)
+        REFERENCES users(user_id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL
+);
+
+-- =========================================================
+-- BookingStatusHistory
+-- =========================================================
+CREATE TABLE booking_status_history (
+    booking_status_history_id SERIAL PRIMARY KEY,
+    booking_id INT NOT NULL,
+    action VARCHAR(100) NOT NULL,
+    from_status VARCHAR(50),
+    to_status VARCHAR(50),
+    from_payment_status VARCHAR(50),
+    to_payment_status VARCHAR(50),
+    reason TEXT,
+    changed_by INT,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_booking_status_history_booking
+        FOREIGN KEY (booking_id)
+        REFERENCES booking(booking_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_booking_status_history_changed_by
+        FOREIGN KEY (changed_by)
+        REFERENCES users(user_id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL
 );
 
 -- =========================================================
@@ -309,6 +348,44 @@ CREATE TABLE payment (
         REFERENCES booking(booking_id)
         ON UPDATE CASCADE
         ON DELETE CASCADE
+);
+
+-- =========================================================
+-- RefundRequest
+-- =========================================================
+CREATE TABLE refund_request (
+    refund_request_id SERIAL PRIMARY KEY,
+    booking_id INT NOT NULL,
+    payment_id INT NOT NULL,
+    requested_by INT,
+    reason TEXT,
+    refund_amount NUMERIC(12,2) NOT NULL CHECK (refund_amount >= 0),
+    status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed')),
+    staff_note TEXT,
+    completed_by INT,
+    completed_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_refund_request_booking
+        FOREIGN KEY (booking_id)
+        REFERENCES booking(booking_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_refund_request_payment
+        FOREIGN KEY (payment_id)
+        REFERENCES payment(payment_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_refund_request_requested_by
+        FOREIGN KEY (requested_by)
+        REFERENCES users(user_id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL,
+    CONSTRAINT fk_refund_request_completed_by
+        FOREIGN KEY (completed_by)
+        REFERENCES users(user_id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL
 );
 
 CREATE TABLE sepay_webhook_log (
@@ -485,6 +562,7 @@ CREATE UNIQUE INDEX idx_travel_destination_name_unique ON travel_destination(nam
 CREATE INDEX idx_travel_destination_deleted_at ON travel_destination(deleted_at);
 CREATE INDEX idx_tour_tour_category_id ON tour(tour_category_id);
 CREATE INDEX idx_tour_status ON tour(status);
+CREATE INDEX idx_tour_start_at ON tour(start_at);
 CREATE INDEX idx_tour_created_at ON tour(created_at);
 CREATE INDEX idx_tour_deleted_at ON tour(deleted_at);
 CREATE INDEX idx_tour_destination_tour_id ON tour_destination(tour_id);
@@ -502,8 +580,21 @@ CREATE INDEX idx_view360_image_deleted_at ON view360_image(deleted_at);
 CREATE INDEX idx_booking_user_id ON booking(user_id);
 CREATE INDEX idx_booking_tour_id ON booking(tour_id);
 CREATE INDEX idx_booking_coupon_id ON booking(coupon_id);
+CREATE INDEX idx_booking_departure_at ON booking(departure_at);
+CREATE INDEX idx_booking_tour_departure_at ON booking(tour_id, departure_at);
+CREATE INDEX idx_booking_canceled_at ON booking(canceled_at);
+CREATE INDEX idx_booking_canceled_by ON booking(canceled_by);
+CREATE INDEX idx_booking_status_history_booking_id ON booking_status_history(booking_id);
+CREATE INDEX idx_booking_status_history_created_at ON booking_status_history(created_at);
+CREATE INDEX idx_booking_status_history_action ON booking_status_history(action);
 CREATE INDEX idx_booking_detail_booking_id ON booking_detail(booking_id);
 CREATE INDEX idx_payment_booking_id ON payment(booking_id);
+CREATE UNIQUE INDEX idx_refund_request_pending_booking
+    ON refund_request(booking_id)
+    WHERE status = 'pending';
+CREATE INDEX idx_refund_request_status ON refund_request(status);
+CREATE INDEX idx_refund_request_payment_id ON refund_request(payment_id);
+CREATE INDEX idx_refund_request_requested_by ON refund_request(requested_by);
 CREATE INDEX idx_review_location_id ON review(location_id);
 CREATE INDEX idx_review_user_id ON review(user_id);
 CREATE UNIQUE INDEX idx_review_user_location_unique

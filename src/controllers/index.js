@@ -24,4 +24,5 @@ module.exports = {
   statistics: require('./statistics.controller'),
   chat: require('./chat.controller'),
   suggestion: require('./suggestion.controller'),
+  refundRequest: require('./refundRequest.controller'),
 };
