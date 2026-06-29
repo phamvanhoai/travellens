@@ -459,7 +459,7 @@ Example:
 ```json
 {
   "tour_id": 1,
-  "departure_at": "2026-07-15T08:00:00+07:00",
+  "travel_date": "2026-07-15",
   "coupon_code": "SUMMER20",
   "passengers": [
     {
@@ -474,7 +474,7 @@ Example:
 Server rules:
 
 - `user_id` is resolved from JWT, not from request body.
-- `departure_at` is the customer-selected tour departure date/time.
+- `travel_date` is the customer-selected travel date. The backend combines it with the start time from `tour.schedule` to store `departure_at`.
 - `status` starts as `pending`.
 - `payment_status` starts as `unpaid`.
 - `original_amount`, `discount_amount`, and `final_amount` are calculated by server.
@@ -502,7 +502,15 @@ Rules:
 - Paid bookings create a pending 100% manual refund request and then cancel the booking.
 - Cancellation stores `canceled_at`, `canceled_by`, and `cancel_reason`.
 
-Staff completes manual refund after transferring money:
+Staff reviews manual refund requests:
+
+```http
+GET /api/staff/refund-requests
+PATCH /api/staff/refund-requests/:id/approve
+PATCH /api/staff/refund-requests/:id/reject
+```
+
+After approval and manual money transfer, staff completes the refund:
 
 ```http
 PATCH /api/staff/refund-requests/:id/complete
