@@ -106,7 +106,7 @@ module.exports = {
     return result.rows[0];
   },
 
-  async createDetails(bookingId, passengers, ticketPrice, executor = db) {
+  async createDetails(bookingId, passengers, executor = db) {
     const details = [];
     for (const passenger of passengers) {
       const result = await executor.query(
@@ -118,7 +118,7 @@ module.exports = {
           bookingId,
           passenger.passenger_name,
           passenger.age_category,
-          ticketPrice,
+          passenger.price,
           passenger.seat_number,
           passenger.special_request,
         ]
