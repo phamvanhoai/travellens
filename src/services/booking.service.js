@@ -41,8 +41,8 @@ class BookingService extends BaseService {
       await this.ensureCustomerExists(payload.user_id, client);
       await this.ensureTourHasCapacity(tour, passengers.length, client, departureAt);
 
-      const ticketPrice = Number(tour.price);
-      const originalAmount = ticketPrice * passengers.length;
+      const pricedPassengers = this.applyPassengerPrices(passengers, tour);
+      const originalAmount = this.calculateOriginalAmount(pricedPassengers);
       let couponSnapshot = {
         coupon_id: null,
         discount_amount: 0,
@@ -71,8 +71,7 @@ class BookingService extends BaseService {
       }, client);
       const details = await bookingModel.createDetails(
         booking.booking_id,
-        passengers,
-        ticketPrice,
+        pricedPassengers,
         client
       );
       await this.logHistory({
@@ -101,6 +100,32 @@ class BookingService extends BaseService {
     } finally {
       client.release();
     }
+  }
+
+  applyPassengerPrices(passengers, tour) {
+    return passengers.map((passenger) => ({
+      ...passenger,
+      price: this.resolvePassengerPrice(tour, passenger.age_category),
+    }));
+  }
+
+  resolvePassengerPrice(tour, ageCategory) {
+    const prices = {
+      adult: tour.price,
+      child: tour.child_price,
+      infant: 0,
+    };
+    const price = prices[ageCategory];
+
+    if (price === undefined || price === null || Number.isNaN(Number(price))) {
+      throw new ApiError(httpStatus.BAD_REQUEST, `Ticket price is not configured for ${ageCategory}`);
+    }
+
+    return Number(price);
+  }
+
+  calculateOriginalAmount(passengers) {
+    return passengers.reduce((total, passenger) => total + Number(passenger.price || 0), 0);
   }
 
   listForUser(userId, query = {}) {
