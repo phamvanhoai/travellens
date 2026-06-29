@@ -11,6 +11,7 @@ const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 
 const CUSTOMER_CANCEL_DEADLINE_HOURS = 24;
+const BANK_TRANSFER_MIN_AMOUNT = Number(process.env.BANK_TRANSFER_MIN_AMOUNT || 2000);
 
 class BookingService extends BaseService {
   list(query = {}) {
@@ -58,6 +59,10 @@ class BookingService extends BaseService {
         throw new ApiError(httpStatus.BAD_REQUEST, 'Use coupon_code to apply coupon');
       }
 
+      const finalAmount = Number(couponSnapshot.final_amount);
+      const isFreeBooking = finalAmount === 0;
+      const requiresManualPayment = finalAmount > 0 && finalAmount < BANK_TRANSFER_MIN_AMOUNT;
+
       const booking = await bookingModel.create({
         user_id: payload.user_id,
         tour_id: payload.tour_id,
@@ -66,8 +71,10 @@ class BookingService extends BaseService {
         original_amount: originalAmount,
         discount_amount: couponSnapshot.discount_amount,
         final_amount: couponSnapshot.final_amount,
-        status: 'pending',
-        payment_status: 'unpaid',
+        status: isFreeBooking
+          ? 'confirmed'
+          : (requiresManualPayment ? 'waiting_manual_confirmation' : 'pending'),
+        payment_status: isFreeBooking ? 'paid' : 'unpaid',
       }, client);
       const details = await bookingModel.createDetails(
         booking.booking_id,
@@ -85,9 +92,15 @@ class BookingService extends BaseService {
         metadata: {
           passenger_count: passengers.length,
           final_amount: booking.final_amount,
+          payment_required: !isFreeBooking,
+          payment_method: requiresManualPayment ? 'manual' : (isFreeBooking ? 'free' : 'bank_transfer'),
           departure_at: booking.departure_at,
         },
       }, client);
+
+      if (isFreeBooking && couponSnapshot.coupon_id) {
+        await couponService.markUsed(couponSnapshot.coupon_id, client);
+      }
 
       await client.query('COMMIT');
       return { ...booking, details, passengers: details };
@@ -287,7 +300,8 @@ class BookingService extends BaseService {
       }
 
       const hasPaidPayment = await bookingModel.hasPaidPayment(id, client);
-      const isPaidBooking = booking.payment_status === 'paid' || hasPaidPayment;
+      const isPaidBooking = Number(booking.final_amount) > 0
+        && (booking.payment_status === 'paid' || hasPaidPayment);
       if (isPaidBooking && !options.refundPaidBooking) {
         throw new ApiError(httpStatus.CONFLICT, 'Paid booking requires staff refund before cancellation');
       }

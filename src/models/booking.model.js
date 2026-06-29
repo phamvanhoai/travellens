@@ -1,6 +1,12 @@
 const db = require('../config/db');
 
-const ACTIVE_BOOKING_STATUSES = ['pending', 'confirmed', 'cancel_pending', 'paid'];
+const ACTIVE_BOOKING_STATUSES = [
+  'pending',
+  'waiting_manual_confirmation',
+  'confirmed',
+  'cancel_pending',
+  'paid',
+];
 
 module.exports = {
   async findAll(query = {}) {

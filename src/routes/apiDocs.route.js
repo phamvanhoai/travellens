@@ -227,6 +227,31 @@ const router = express.Router();
  *     responses:
  *       200: { description: Booking deleted }
  *
+ * /staff/bookings/{id}/confirm-manual-payment:
+ *   patch:
+ *     summary: Confirm a small manual payment
+ *     description: Staff confirms payment for a booking below the bank transfer minimum amount.
+ *     tags: [Staff Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               transaction_code: { type: string }
+ *               note: { type: string }
+ *     responses:
+ *       200: { description: Manual payment confirmed and booking confirmed }
+ *       400: { description: Booking is not waiting for manual confirmation }
+ *
  * /staff/bookings/{id}/cancel:
  *   patch:
  *     summary: Staff cancel booking
