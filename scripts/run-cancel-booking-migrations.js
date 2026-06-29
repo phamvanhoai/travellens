@@ -10,6 +10,8 @@ const migrations = [
   '025_create_refund_request.sql',
   '026_create_booking_status_history.sql',
   '027_add_booking_departure_at.sql',
+  '028_update_refund_request_review_flow.sql',
+  '029_add_booking_cancel_pending_status.sql',
 ];
 
 const shouldUseSsl = process.env.DB_SSL === 'true' || process.env.NODE_ENV === 'production';

@@ -1,7 +1,7 @@
 const db = require('../config/db');
 const BaseModel = require('./base.model');
 
-const ACTIVE_BOOKING_STATUSES = ['pending', 'confirmed', 'paid'];
+const ACTIVE_BOOKING_STATUSES = ['pending', 'confirmed', 'cancel_pending', 'paid'];
 
 class TourModel extends BaseModel {
   constructor() {

@@ -14,11 +14,7 @@ router
 router
   .route('/:id')
   .get(validate({ params: common.idParam }), controller.get)
-  .put(
-    handleTravelDestinationThumbnailUpload,
-    validate({ params: common.idParam, body: entity.travelDestinationUpdate }),
-    controller.update
-  )
+  .put(handleTravelDestinationThumbnailUpload, validate({ params: common.idParam }), controller.update)
   .delete(validate({ params: common.idParam }), controller.remove);
 
 module.exports = router;
