@@ -34,6 +34,7 @@ class BookingService extends BaseService {
       if (!passengers.length) {
         throw new ApiError(httpStatus.BAD_REQUEST, 'At least one passenger is required');
       }
+      this.ensureDepartureAtIsValid(payload.departure_at);
 
       const tour = await this.ensureBookableTourExists(payload.tour_id, client, { lock: true });
       const departureAt = this.resolveDepartureAt(payload, tour);
