@@ -1,7 +1,7 @@
 const db = require('../config/db');
 const BaseModel = require('./base.model');
 
-const ACTIVE_BOOKING_STATUSES = ['pending', 'confirmed', 'paid'];
+const ACTIVE_BOOKING_STATUSES = ['pending', 'confirmed', 'cancel_pending', 'paid'];
 
 class TourModel extends BaseModel {
   constructor() {
@@ -80,6 +80,7 @@ class TourModel extends BaseModel {
           t.description,
           t.price::float AS price,
           t.schedule,
+          t.start_at,
           t.capacity,
           t.thumbnail,
           COALESCE(slot_stats.booked_slots, 0)::int AS booked_slots,
@@ -147,6 +148,7 @@ class TourModel extends BaseModel {
           t.description,
           t.price::float AS price,
           t.schedule,
+          t.start_at,
           t.capacity,
           t.thumbnail,
           COALESCE(slot_stats.booked_slots, 0)::int AS booked_slots,

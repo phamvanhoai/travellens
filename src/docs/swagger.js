@@ -30,6 +30,7 @@ const options = {
       { name: 'Staff Bookings', description: 'Staff booking management endpoints' },
       { name: 'Staff Reviews', description: 'Staff review moderation endpoints' },
       { name: 'Staff Payments', description: 'Staff payment management endpoints' },
+      { name: 'Staff Refund Requests', description: 'Staff manual refund request endpoints' },
       { name: 'Payments', description: 'Customer payment endpoints' },
       { name: 'Webhooks', description: 'External provider webhook endpoints' },
       { name: 'Health', description: 'API health check' },
@@ -77,10 +78,12 @@ const options = {
         },
         BookingInput: {
           type: 'object',
-          required: ['tour_id'],
+          required: ['tour_id', 'travel_date'],
           properties: {
             user_id: { type: 'integer', readOnly: true, description: 'Resolved from the authenticated customer token.' },
             tour_id: { type: 'integer', example: 1 },
+            travel_date: { type: 'string', format: 'date', example: '2026-07-15' },
+            departure_at: { type: 'string', format: 'date-time', nullable: true, description: 'Optional override. If omitted, backend combines travel_date with the start time from tour.schedule.', example: '2026-07-15T08:00:00+07:00' },
             coupon_code: { type: 'string', nullable: true, example: 'SUMMER20' },
             passengers: {
               type: 'array',

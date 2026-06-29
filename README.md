@@ -108,6 +108,19 @@ GOOGLE_CLIENT_SECRET=
 OPENAI_API_KEY=
 ```
 
+Email notification config:
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=
+SMTP_PASS=
+REFUND_NOTIFY_EMAILS=refunds@example.com,staff@example.com
+```
+
+`REFUND_NOTIFY_EMAILS` is optional. If it is empty, refund request notifications are sent to active staff/admin emails from the database using BCC.
+
 Zalo Bot config:
 
 ```env
@@ -147,6 +160,11 @@ psql -U postgres -d travel360 -f migrations/008_create_revoked_tokens.sql
 psql -U postgres -d travel360 -f migrations/009_staff_coupon_management.sql
 psql -U postgres -d travel360 -f migrations/019_customer_sepay_payment.sql
 psql -U postgres -d travel360 -f migrations/020_rename_user_role_to_customer.sql
+psql -U postgres -d travel360 -f migrations/023_add_booking_cancel_metadata.sql
+psql -U postgres -d travel360 -f migrations/024_add_tour_start_at.sql
+psql -U postgres -d travel360 -f migrations/025_create_refund_request.sql
+psql -U postgres -d travel360 -f migrations/026_create_booking_status_history.sql
+psql -U postgres -d travel360 -f migrations/027_add_booking_departure_at.sql
 ```
 
 Some migration numbers are shared by older branch work. Run every file in `migrations/` that has not already been applied to your database.
@@ -439,6 +457,7 @@ Example:
 ```json
 {
   "tour_id": 1,
+  "travel_date": "2026-07-15",
   "coupon_code": "SUMMER20",
   "passengers": [
     {
@@ -453,6 +472,7 @@ Example:
 Server rules:
 
 - `user_id` is resolved from JWT, not from request body.
+- `travel_date` is the customer-selected travel date. The backend combines it with the start time from `tour.schedule` to store `departure_at`.
 - `status` starts as `pending`.
 - `payment_status` starts as `unpaid`.
 - `original_amount`, `discount_amount`, and `final_amount` are calculated by server.
@@ -464,11 +484,47 @@ Cancel booking:
 PATCH /api/bookings/:id/cancel
 ```
 
+Optional body:
+
+```json
+{
+  "reason": "I changed my travel plan"
+}
+```
+
 Rules:
 
-- Customer can cancel only their own unpaid booking.
+- Customer can cancel only their own booking.
+- Customer can cancel only at least 24 hours before the booking `departure_at`.
 - Pending payments are expired.
-- Paid booking requires staff refund before cancellation.
+- Paid bookings create a pending 100% manual refund request and then cancel the booking.
+- Cancellation stores `canceled_at`, `canceled_by`, and `cancel_reason`.
+
+Staff reviews manual refund requests:
+
+```http
+GET /api/staff/refund-requests
+PATCH /api/staff/refund-requests/:id/approve
+PATCH /api/staff/refund-requests/:id/reject
+```
+
+After approval and manual money transfer, staff completes the refund:
+
+```http
+PATCH /api/staff/refund-requests/:id/complete
+```
+
+Email notifications:
+
+- Customer receives booking cancellation email.
+- Paid cancellation sends a manual refund request email to `REFUND_NOTIFY_EMAILS`; if empty, active staff/admin emails are used.
+- Customer receives refund completed email after staff marks the refund completed.
+
+Staff can inspect booking status history:
+
+```http
+GET /api/staff/bookings/:id/history
+```
 
 ### Payment with SePay
 

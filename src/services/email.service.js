@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const userModel = require('../models/user.model');
 
 const escapeHtml = (value) => String(value)
     .replace(/&/g, '&amp;')
@@ -20,7 +21,7 @@ class EmailService {
         });
     }
 
-    async sendMail({ to, subject, html, text }) {
+    async sendMail({ to, bcc, subject, html, text }) {
         if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
             throw new Error('SMTP_USER and SMTP_PASS must be configured before sending email');
         }
@@ -28,10 +29,37 @@ class EmailService {
         return this.transporter.sendMail({
             from: `"${process.env.APP_NAME || 'TravelLens'}" <${process.env.SMTP_USER}>`,
             to,
+            bcc,
             subject,
             html,
             text,
         });
+    }
+
+    parseEmailList(value) {
+        return String(value || '')
+            .split(',')
+            .map((email) => email.trim())
+            .filter(Boolean);
+    }
+
+    async getRefundNotificationRecipients() {
+        const configured = this.parseEmailList(process.env.REFUND_NOTIFY_EMAILS);
+        if (configured.length) {
+            return configured;
+        }
+
+        const users = await userModel.findActiveStaffAndAdmins();
+        return users.map((user) => user.email).filter(Boolean);
+    }
+
+    async sendBestEffort(task, logger = console) {
+        try {
+            return await task();
+        } catch (error) {
+            logger.error('Failed to send email notification:', error);
+            return null;
+        }
     }
 
     getBaseTemplate({ title, subtitle, content, footerText }) {
@@ -235,6 +263,126 @@ class EmailService {
             html,
             text,
         });
+    }
+
+    async sendBookingCanceled({ to, name, booking, refundRequest }) {
+        const subject = `Booking #${booking.booking_id} has been canceled`;
+        const safeName = escapeHtml(name || 'Customer');
+        const refundText = refundRequest
+            ? `A manual refund request for ${Number(refundRequest.refund_amount || 0).toLocaleString('vi-VN')} VND has been created and is waiting for staff processing.`
+            : 'No manual refund is required for this cancellation.';
+
+        const content = `
+      <p style="margin:0 0 16px; color:#0f172a; font-size:16px; line-height:1.7;">
+        Hi <strong>${safeName}</strong>,
+      </p>
+      <p style="margin:0 0 16px; color:#334155; font-size:15px; line-height:1.7;">
+        Your booking <strong>#${booking.booking_id}</strong> has been canceled.
+      </p>
+      <p style="margin:0; color:#334155; font-size:15px; line-height:1.7;">
+        ${escapeHtml(refundText)}
+      </p>
+    `;
+
+        const html = this.getBaseTemplate({
+            title: 'Booking canceled',
+            subtitle: `Booking #${booking.booking_id}`,
+            content,
+        });
+
+        const text = `Hi ${name || 'Customer'}, booking #${booking.booking_id} has been canceled. ${refundText}`;
+
+        return this.sendMail({ to, subject, html, text });
+    }
+
+    async sendRefundRequestCreated({ recipients, booking, refundRequest }) {
+        const emails = recipients || await this.getRefundNotificationRecipients();
+        if (!emails.length) return null;
+
+        const subject = `New manual refund request for booking #${booking.booking_id}`;
+        const content = `
+      <p style="margin:0 0 16px; color:#334155; font-size:15px; line-height:1.7;">
+        A paid booking was canceled and needs manual refund processing.
+      </p>
+      <ul style="margin:0; padding-left:18px; color:#334155; font-size:15px; line-height:1.8;">
+        <li>Booking ID: <strong>#${booking.booking_id}</strong></li>
+        <li>Refund request ID: <strong>#${refundRequest.refund_request_id}</strong></li>
+        <li>Refund amount: <strong>${Number(refundRequest.refund_amount || 0).toLocaleString('vi-VN')} VND</strong></li>
+      </ul>
+    `;
+
+        const html = this.getBaseTemplate({
+            title: 'Manual refund needed',
+            subtitle: 'A paid booking cancellation is waiting for staff action.',
+            content,
+        });
+
+        const text = `Manual refund needed for booking #${booking.booking_id}. Refund request #${refundRequest.refund_request_id}, amount ${refundRequest.refund_amount} VND.`;
+
+        return this.sendMail({
+            to: process.env.SMTP_USER,
+            bcc: emails,
+            subject,
+            html,
+            text,
+        });
+    }
+
+    async sendRefundCompleted({ to, name, booking, refundRequest }) {
+        const subject = `Refund completed for booking #${booking.booking_id}`;
+        const safeName = escapeHtml(name || 'Customer');
+        const amount = Number(refundRequest.refund_amount || 0).toLocaleString('vi-VN');
+
+        const content = `
+      <p style="margin:0 0 16px; color:#0f172a; font-size:16px; line-height:1.7;">
+        Hi <strong>${safeName}</strong>,
+      </p>
+      <p style="margin:0; color:#334155; font-size:15px; line-height:1.7;">
+        Your manual refund for booking <strong>#${booking.booking_id}</strong> has been completed.
+        Refund amount: <strong>${amount} VND</strong>.
+      </p>
+    `;
+
+        const html = this.getBaseTemplate({
+            title: 'Refund completed',
+            subtitle: `Booking #${booking.booking_id}`,
+            content,
+        });
+
+        const text = `Hi ${name || 'Customer'}, your refund for booking #${booking.booking_id} has been completed. Refund amount: ${amount} VND.`;
+
+        return this.sendMail({ to, subject, html, text });
+    }
+
+    async sendRefundRejected({ to, name, booking, refundRequest }) {
+        const subject = `Cancellation request rejected for booking #${booking.booking_id}`;
+        const safeName = escapeHtml(name || 'Customer');
+        const staffNote = refundRequest.staff_note
+            ? `<p style="margin:16px 0 0; color:#334155; font-size:15px; line-height:1.7;">
+        Staff note: <strong>${escapeHtml(refundRequest.staff_note)}</strong>
+      </p>`
+            : '';
+
+        const content = `
+      <p style="margin:0 0 16px; color:#0f172a; font-size:16px; line-height:1.7;">
+        Hi <strong>${safeName}</strong>,
+      </p>
+      <p style="margin:0; color:#334155; font-size:15px; line-height:1.7;">
+        Your cancellation/refund request for booking <strong>#${booking.booking_id}</strong> has been rejected.
+        Your booking remains confirmed.
+      </p>
+      ${staffNote}
+    `;
+
+        const html = this.getBaseTemplate({
+            title: 'Cancellation request rejected',
+            subtitle: `Booking #${booking.booking_id}`,
+            content,
+        });
+
+        const text = `Hi ${name || 'Customer'}, your cancellation/refund request for booking #${booking.booking_id} has been rejected. Your booking remains confirmed.${refundRequest.staff_note ? ` Staff note: ${refundRequest.staff_note}` : ''}`;
+
+        return this.sendMail({ to, subject, html, text });
     }
 
     async verifyConnection() {

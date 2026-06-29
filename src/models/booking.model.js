@@ -1,6 +1,6 @@
 const db = require('../config/db');
 
-const ACTIVE_BOOKING_STATUSES = ['pending', 'confirmed', 'paid'];
+const ACTIVE_BOOKING_STATUSES = ['pending', 'confirmed', 'cancel_pending', 'paid'];
 
 module.exports = {
   async findAll(query = {}) {
@@ -48,6 +48,19 @@ module.exports = {
     return result.rows[0] || null;
   },
 
+  async findDetailsByBookingIds(bookingIds = [], executor = db) {
+    if (!bookingIds.length) return [];
+
+    const result = await executor.query(
+      `SELECT *
+       FROM booking_detail
+       WHERE booking_id = ANY($1::int[])
+       ORDER BY booking_detail_id ASC`,
+      [bookingIds]
+    );
+    return result.rows;
+  },
+
   async findForUpdate(id, userId, executor) {
     const values = [id];
     let ownerClause = '';
@@ -74,14 +87,15 @@ module.exports = {
   async create(payload, executor = db) {
     const result = await executor.query(
       `INSERT INTO booking
-         (user_id, tour_id, coupon_id, original_amount, discount_amount,
+         (user_id, tour_id, coupon_id, departure_at, original_amount, discount_amount,
           final_amount, status, payment_status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
       [
         payload.user_id,
         payload.tour_id,
         payload.coupon_id,
+        payload.departure_at,
         payload.original_amount,
         payload.discount_amount,
         payload.final_amount,
@@ -114,14 +128,19 @@ module.exports = {
     return details;
   },
 
-  async countBookedSlots(tourId, executor = db) {
+  async countBookedSlots(tourId, departureAt, executor = db) {
+    const values = [tourId, ACTIVE_BOOKING_STATUSES];
+    const departureClause = departureAt ? 'AND b.departure_at = $3' : '';
+    if (departureAt) values.push(departureAt);
+
     const result = await executor.query(
       `SELECT COUNT(bd.booking_detail_id)::int AS booked_slots
        FROM booking b
        INNER JOIN booking_detail bd ON bd.booking_id = b.booking_id
        WHERE b.tour_id = $1
-         AND b.status = ANY($2)`,
-      [tourId, ACTIVE_BOOKING_STATUSES]
+         AND b.status = ANY($2)
+         ${departureClause}`,
+      values
     );
     return Number(result.rows[0].booked_slots || 0);
   },
@@ -153,14 +172,37 @@ module.exports = {
     return result.rowCount;
   },
 
-  async markCanceled(bookingId, paymentStatus, executor = db) {
+  async markCanceled(bookingId, paymentStatus, cancel = {}, executor = db) {
     const result = await executor.query(
       `UPDATE booking
        SET status = 'canceled',
-           payment_status = $2
+           payment_status = $2,
+           canceled_at = CURRENT_TIMESTAMP,
+           canceled_by = $3,
+           cancel_reason = $4
        WHERE booking_id = $1
        RETURNING *`,
-      [bookingId, paymentStatus]
+      [
+        bookingId,
+        paymentStatus,
+        cancel.canceledBy || null,
+        cancel.reason || null,
+      ]
+    );
+    return result.rows[0] || null;
+  },
+
+  async findNotificationContext(id, executor = db) {
+    const result = await executor.query(
+      `SELECT b.*,
+              u.name AS customer_name,
+              u.email AS customer_email,
+              t.name AS tour_name
+       FROM booking b
+       INNER JOIN users u ON u.user_id = b.user_id
+       INNER JOIN tour t ON t.tour_id = b.tour_id
+       WHERE b.booking_id = $1`,
+      [id]
     );
     return result.rows[0] || null;
   },

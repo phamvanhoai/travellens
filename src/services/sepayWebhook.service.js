@@ -1,5 +1,6 @@
 const paymentModel = require('../models/payment.model');
 const bookingModel = require('../models/booking.model');
+const bookingStatusHistoryModel = require('../models/bookingStatusHistory.model');
 const sepayWebhookLogModel = require('../models/sepayWebhookLog.model');
 const couponService = require('./coupon.service');
 const sepayService = require('./sepay.service');
@@ -78,6 +79,21 @@ class SepayWebhookService {
           transfer_content: payload.content || paymentCode,
         }, client);
         await bookingModel.updatePaymentState(payment.booking_id, 'failed', undefined, client);
+        await bookingStatusHistoryModel.create({
+          booking_id: payment.booking_id,
+          action: 'payment_failed',
+          from_status: payment.booking_status,
+          to_status: payment.booking_status,
+          from_payment_status: payment.booking_payment_status,
+          to_payment_status: 'failed',
+          reason: 'Transfer amount does not match payment amount',
+          metadata: {
+            payment_id: payment.payment_id,
+            source: 'sepay_webhook',
+            transfer_amount: transferAmount,
+            expected_amount: Number(payment.amount),
+          },
+        }, client);
         await sepayWebhookLogModel.updateStatus(log.sepay_webhook_log_id, 'amount_mismatch', 'Transfer amount does not match payment amount', payment.payment_id, client);
         await client.query('COMMIT');
         return { failed: true, message: 'Transfer amount does not match payment amount' };
@@ -93,6 +109,19 @@ class SepayWebhookService {
       }, client);
 
       await bookingModel.updatePaymentState(payment.booking_id, 'paid', 'confirmed', client);
+      await bookingStatusHistoryModel.create({
+        booking_id: payment.booking_id,
+        action: 'payment_paid',
+        from_status: payment.booking_status,
+        to_status: 'confirmed',
+        from_payment_status: payment.booking_payment_status,
+        to_payment_status: 'paid',
+        metadata: {
+          payment_id: paidPayment.payment_id,
+          source: 'sepay_webhook',
+          sepay_transaction_id: sepayTransactionId,
+        },
+      }, client);
 
       if (payment.coupon_id) {
         await couponService.markUsed(payment.coupon_id, client);
