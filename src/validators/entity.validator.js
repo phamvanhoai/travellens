@@ -85,7 +85,7 @@ module.exports = {
     final_amount: Joi.forbidden().messages({
       'any.unknown': 'final_amount is calculated by server',
     }),
-    status: Joi.string().valid('confirmed', 'canceled', 'pending', 'cancel_pending').default('pending'),
+    status: Joi.string().valid('confirmed', 'canceled', 'pending', 'waiting_manual_confirmation', 'cancel_pending').default('pending'),
     payment_status: Joi.string().valid('unpaid', 'paid', 'failed', 'refunded', 'pending').default('unpaid'),
     passengers: Joi.array().items(Joi.object({
       passenger_name: Joi.string().max(150).required(),
@@ -99,6 +99,10 @@ module.exports = {
   }),
   bookingCancel: Joi.object({
     reason: Joi.string().trim().min(1).max(1000).required(),
+  }),
+  manualBookingConfirmation: Joi.object({
+    transaction_code: Joi.string().trim().max(255),
+    note: Joi.string().trim().max(1000),
   }),
   bookingDetail: Joi.object({
     booking_id: id.required(),
