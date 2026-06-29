@@ -266,5 +266,6 @@ router.use('/coupons', require('./coupon.route'));
 router.use('/bookings', require('./bookingStaff.route'));
 router.use('/booking-details', require('./bookingDetail.route'));
 router.use('/payments', require('./paymentStaff.route'));
+router.use('/refund-requests', require('./refundRequestStaff.route'));
 
 module.exports = router;

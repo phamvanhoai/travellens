@@ -24,4 +24,5 @@ module.exports = {
   statistics: require('./statistics.service'),
   chat: require('./chat.service'),
   suggestion: require('./suggestion.service'),
+  refundRequest: require('./refundRequest.service'),
 };

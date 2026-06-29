@@ -129,6 +129,21 @@ module.exports = {
     return result.rows[0] || null;
   },
 
+  async findPaidByBookingForUpdate(bookingId, executor) {
+    const result = await executor.query(
+      `SELECT *
+       FROM payment
+       WHERE booking_id = $1
+         AND status = 'paid'
+         AND deleted_at IS NULL
+       ORDER BY payment_id DESC
+       LIMIT 1
+       FOR UPDATE`,
+      [bookingId]
+    );
+    return result.rows[0] || null;
+  },
+
   async expirePendingByBooking(bookingId, executor = db) {
     const result = await executor.query(
       `UPDATE payment
@@ -189,7 +204,7 @@ module.exports = {
       `INSERT INTO payment
          (booking_id, payment_code, amount, payment_method, payment_provider, status,
           bank_account, transfer_content, expired_at, currency)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP + ($9::int * INTERVAL '1 minute'), $10)
        RETURNING *`,
       [
         payload.booking_id,
@@ -200,7 +215,7 @@ module.exports = {
         payload.status,
         payload.bank_account,
         payload.transfer_content,
-        payload.expired_at,
+        Number(payload.expire_minutes || 15),
         payload.currency,
       ]
     );

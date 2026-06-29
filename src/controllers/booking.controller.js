@@ -37,14 +37,22 @@ module.exports = {
     response.success(res, data);
   }),
 
+  history: asyncHandler(async (req, res) => {
+    const data = await bookingService.getHistory(req.params.id);
+    response.success(res, data);
+  }),
+
   // CANCEL BOOKING
   cancel: asyncHandler(async (req, res) => {
-    const data = await bookingService.cancel(req.params.id);
+    const data = await bookingService.cancel(req.params.id, {
+      canceledBy: req.user?.sub,
+      reason: req.body?.reason,
+    });
     response.success(res, data, 'Booking canceled');
   }),
 
   customerCancel: asyncHandler(async (req, res) => {
-    const data = await bookingService.cancelForUser(req.params.id, req.user.sub);
+    const data = await bookingService.cancelForUser(req.params.id, req.user.sub, req.body);
     response.success(res, data, 'Booking canceled');
   }),
 };
