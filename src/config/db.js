@@ -1,4 +1,13 @@
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
+
+// PostgreSQL TIMESTAMP has no timezone metadata. The database stores these
+// values as Vietnam wall-clock time, so parse them consistently on Vercel (UTC)
+// and local machines alike. OID 1114 is PostgreSQL's timestamp type.
+const databaseUtcOffset = process.env.DB_TIMEZONE_OFFSET || '+07:00';
+types.setTypeParser(1114, (value) => {
+  if (!value || value === 'infinity' || value === '-infinity') return value;
+  return new Date(`${value.replace(' ', 'T')}${databaseUtcOffset}`);
+});
 
 const shouldUseSsl = process.env.DB_SSL === 'true' || process.env.NODE_ENV === 'production';
 
