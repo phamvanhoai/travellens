@@ -253,7 +253,7 @@ CREATE TABLE booking (
     original_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (original_amount >= 0),
     discount_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (discount_amount >= 0),
     final_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (final_amount >= 0),
-    status VARCHAR(50) NOT NULL CHECK (status IN ('pending', 'confirmed', 'canceled', 'expired')),
+    status VARCHAR(50) NOT NULL CHECK (status IN ('pending', 'confirmed', 'cancel_pending', 'canceled', 'expired')),
     payment_status VARCHAR(50) NOT NULL CHECK (payment_status IN ('unpaid', 'paid', 'failed', 'refunded', 'pending')),
     canceled_at TIMESTAMP,
     canceled_by INT,
@@ -360,8 +360,10 @@ CREATE TABLE refund_request (
     requested_by INT,
     reason TEXT,
     refund_amount NUMERIC(12,2) NOT NULL CHECK (refund_amount >= 0),
-    status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed')),
+    status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'completed')),
     staff_note TEXT,
+    reviewed_by INT,
+    reviewed_at TIMESTAMP,
     completed_by INT,
     completed_at TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -378,6 +380,11 @@ CREATE TABLE refund_request (
         ON DELETE CASCADE,
     CONSTRAINT fk_refund_request_requested_by
         FOREIGN KEY (requested_by)
+        REFERENCES users(user_id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL,
+    CONSTRAINT fk_refund_request_reviewed_by
+        FOREIGN KEY (reviewed_by)
         REFERENCES users(user_id)
         ON UPDATE CASCADE
         ON DELETE SET NULL,
@@ -589,12 +596,13 @@ CREATE INDEX idx_booking_status_history_created_at ON booking_status_history(cre
 CREATE INDEX idx_booking_status_history_action ON booking_status_history(action);
 CREATE INDEX idx_booking_detail_booking_id ON booking_detail(booking_id);
 CREATE INDEX idx_payment_booking_id ON payment(booking_id);
-CREATE UNIQUE INDEX idx_refund_request_pending_booking
+CREATE UNIQUE INDEX idx_refund_request_active_booking
     ON refund_request(booking_id)
-    WHERE status = 'pending';
+    WHERE status IN ('pending', 'approved');
 CREATE INDEX idx_refund_request_status ON refund_request(status);
 CREATE INDEX idx_refund_request_payment_id ON refund_request(payment_id);
 CREATE INDEX idx_refund_request_requested_by ON refund_request(requested_by);
+CREATE INDEX idx_refund_request_reviewed_by ON refund_request(reviewed_by);
 CREATE INDEX idx_review_location_id ON review(location_id);
 CREATE INDEX idx_review_user_id ON review(user_id);
 CREATE UNIQUE INDEX idx_review_user_location_unique
