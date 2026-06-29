@@ -291,60 +291,10 @@ const router = express.Router();
  *     responses:
  *       200: { description: Refund request list }
  *
- * /staff/refund-requests/{id}/approve:
- *   patch:
- *     summary: Staff approve manual refund request
- *     tags: [Staff Refund Requests]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     requestBody:
- *       required: false
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               staff_note:
- *                 type: string
- *                 maxLength: 1000
- *                 nullable: true
- *     responses:
- *       200: { description: Refund request approved }
- *
- * /staff/refund-requests/{id}/reject:
- *   patch:
- *     summary: Staff reject manual refund request
- *     tags: [Staff Refund Requests]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     requestBody:
- *       required: false
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               staff_note:
- *                 type: string
- *                 maxLength: 1000
- *                 nullable: true
- *     responses:
- *       200: { description: Refund request rejected }
- *
  * /staff/refund-requests/{id}/complete:
  *   patch:
  *     summary: Staff mark manual refund as completed
- *     description: Staff calls this after approving the request and transferring money manually. The payment is then marked refunded and booking payment_status becomes refunded.
+ *     description: Staff calls this after transferring money manually. The payment is then marked refunded and booking payment_status becomes refunded.
  *     tags: [Staff Refund Requests]
  *     security:
  *       - bearerAuth: []
@@ -369,7 +319,7 @@ const router = express.Router();
  *                 nullable: true
  *     responses:
  *       200: { description: Refund completed }
- *       400: { description: Refund request is not approved or payment is not paid }
+ *       400: { description: Refund request is not pending or payment is not paid }
  *       404: { description: Refund request not found }
  *
  * /staff/reviews:

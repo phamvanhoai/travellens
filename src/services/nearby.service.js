@@ -65,7 +65,7 @@ class NearbyService {
               MIN(tour_dest.tour_id) AS tour_id
             FROM tour_destination tour_dest
             LEFT JOIN booking b ON b.tour_id = tour_dest.tour_id
-              AND b.status IN ('pending', 'confirmed', 'cancel_pending', 'paid')
+              AND b.status IN ('pending', 'confirmed', 'paid')
             WHERE tour_dest.destination_id = td.destination_id
           ) popularity ON TRUE
           WHERE td.deleted_at IS NULL
@@ -127,7 +127,7 @@ class NearbyService {
               MIN(tour_dest.tour_id) AS tour_id
             FROM tour_destination tour_dest
             LEFT JOIN booking b ON b.tour_id = tour_dest.tour_id
-              AND b.status IN ('pending', 'confirmed', 'cancel_pending', 'paid')
+              AND b.status IN ('pending', 'confirmed', 'paid')
             WHERE tour_dest.destination_id = td.destination_id
           ) popularity ON TRUE
           WHERE l.deleted_at IS NULL

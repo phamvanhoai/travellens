@@ -1,6 +1,6 @@
 const db = require('../config/db');
 
-const ACTIVE_BOOKING_STATUSES = ['pending', 'confirmed', 'cancel_pending', 'paid'];
+const ACTIVE_BOOKING_STATUSES = ['pending', 'confirmed', 'paid'];
 
 module.exports = {
   async findAll(query = {}) {
@@ -46,19 +46,6 @@ module.exports = {
       [id, userId]
     );
     return result.rows[0] || null;
-  },
-
-  async findDetailsByBookingIds(bookingIds = [], executor = db) {
-    if (!bookingIds.length) return [];
-
-    const result = await executor.query(
-      `SELECT *
-       FROM booking_detail
-       WHERE booking_id = ANY($1::int[])
-       ORDER BY booking_detail_id ASC`,
-      [bookingIds]
-    );
-    return result.rows;
   },
 
   async findForUpdate(id, userId, executor) {
