@@ -254,7 +254,7 @@ CREATE TABLE booking (
     original_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (original_amount >= 0),
     discount_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (discount_amount >= 0),
     final_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (final_amount >= 0),
-    status VARCHAR(50) NOT NULL CHECK (status IN ('pending', 'confirmed', 'cancel_pending', 'canceled', 'expired')),
+    status VARCHAR(50) NOT NULL CHECK (status IN ('pending', 'waiting_manual_confirmation', 'confirmed', 'cancel_pending', 'canceled', 'expired')),
     payment_status VARCHAR(50) NOT NULL CHECK (payment_status IN ('unpaid', 'paid', 'failed', 'refunded', 'pending')),
     canceled_at TIMESTAMP,
     canceled_by INT,
