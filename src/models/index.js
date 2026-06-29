@@ -10,6 +10,7 @@ module.exports = {
   view360Image: require('./view360Image.model'),
   map: require('./map.model'),
   booking: require('./booking.model'),
+  bookingStatusHistory: require('./bookingStatusHistory.model'),
   bookingDetail: require('./bookingDetail.model'),
   payment: require('./payment.model'),
   coupon: require('./coupon.model'),
@@ -19,4 +20,5 @@ module.exports = {
   reviewPhoto: require('./reviewPhoto.model'),
   statistics: require('./statistics.model'),
   mediaFile: require('./mediaFile.model'),
+  refundRequest: require('./refundRequest.model'),
 };

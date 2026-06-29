@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const paymentModel = require('../models/payment.model');
 const bookingModel = require('../models/booking.model');
+const bookingStatusHistoryModel = require('../models/bookingStatusHistory.model');
 const couponService = require('./coupon.service');
 const sepayService = require('./sepay.service');
 const zaloBotService = require('./zaloBot.service');
@@ -62,7 +63,6 @@ class PaymentService {
       await paymentModel.expirePendingByBooking(booking.booking_id, client);
 
       const paymentCode = await this.generateUniquePaymentCode(booking.booking_id, client);
-      const expiredAt = new Date(Date.now() + EXPIRE_MINUTES * 60 * 1000);
       const payment = await paymentModel.create({
         booking_id: booking.booking_id,
         payment_code: paymentCode,
@@ -72,7 +72,7 @@ class PaymentService {
         status: 'pending',
         bank_account: process.env.SEPAY_BANK_ACCOUNT || null,
         transfer_content: paymentCode,
-        expired_at: expiredAt,
+        expire_minutes: EXPIRE_MINUTES,
         currency: 'VND',
       }, client);
 
@@ -120,6 +120,15 @@ class PaymentService {
 
       const payment = await paymentModel.updateStatus(id, 'refunded', payload, client);
       await bookingModel.updatePaymentState(payment.booking_id, 'refunded', undefined, client);
+      await this.logBookingHistory(currentPayment, {
+        action: 'payment_refunded',
+        toPaymentStatus: 'refunded',
+        reason: payload.reason,
+        metadata: {
+          payment_id: payment.payment_id,
+          transaction_code: payload.transaction_code || null,
+        },
+      }, client);
       await client.query('COMMIT');
       return payment;
     } catch (error) {
@@ -157,6 +166,15 @@ class PaymentService {
           paid_at: new Date(),
         }, client);
         await bookingModel.updatePaymentState(payment.booking_id, 'paid', 'confirmed', client);
+        await this.logBookingHistory(currentPayment, {
+          action: 'payment_paid',
+          toStatus: 'confirmed',
+          toPaymentStatus: 'paid',
+          metadata: {
+            payment_id: payment.payment_id,
+            source: 'staff',
+          },
+        }, client);
         if (currentPayment.coupon_id) {
           await couponService.markUsed(currentPayment.coupon_id, client);
         }
@@ -164,14 +182,38 @@ class PaymentService {
       if (status === 'refunded') {
         payment = await paymentModel.updateStatus(id, status, {}, client);
         await bookingModel.updatePaymentState(payment.booking_id, 'refunded', undefined, client);
+        await this.logBookingHistory(currentPayment, {
+          action: 'payment_refunded',
+          toPaymentStatus: 'refunded',
+          metadata: {
+            payment_id: payment.payment_id,
+            source: 'staff',
+          },
+        }, client);
       }
       if (status === 'failed') {
         payment = await paymentModel.markFailed(id, {}, client);
         await bookingModel.updatePaymentState(payment.booking_id, 'failed', undefined, client);
+        await this.logBookingHistory(currentPayment, {
+          action: 'payment_failed',
+          toPaymentStatus: 'failed',
+          metadata: {
+            payment_id: payment.payment_id,
+            source: 'staff',
+          },
+        }, client);
       }
       if (status === 'expired') {
         payment = await paymentModel.updateStatus(id, status, {}, client);
         await bookingModel.updatePaymentState(payment.booking_id, 'failed', undefined, client);
+        await this.logBookingHistory(currentPayment, {
+          action: 'payment_expired',
+          toPaymentStatus: 'failed',
+          metadata: {
+            payment_id: payment.payment_id,
+            source: 'staff',
+          },
+        }, client);
       }
 
       await client.query('COMMIT');
@@ -236,6 +278,20 @@ class PaymentService {
     }
 
     throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Could not generate unique payment code');
+  }
+
+  logBookingHistory(payment, payload, client) {
+    return bookingStatusHistoryModel.create({
+      booking_id: payment.booking_id,
+      action: payload.action,
+      from_status: payment.booking_status,
+      to_status: payload.toStatus === undefined ? payment.booking_status : payload.toStatus,
+      from_payment_status: payment.booking_payment_status,
+      to_payment_status: payload.toPaymentStatus,
+      reason: payload.reason,
+      changed_by: payload.changedBy,
+      metadata: payload.metadata,
+    }, client);
   }
 }
 

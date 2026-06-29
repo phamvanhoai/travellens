@@ -80,6 +80,7 @@ module.exports = {
   booking: Joi.object({
     user_id: id,
     tour_id: id.required(),
+    departure_at: Joi.date().required(),
     coupon_id: id.allow(null),
     coupon_code: Joi.string().trim().uppercase().allow(null, ''),
     original_amount: money,
@@ -94,6 +95,9 @@ module.exports = {
       seat_number: optionalText,
       special_request: optionalText,
     })).min(1).required(),
+  }),
+  bookingCancel: Joi.object({
+    reason: Joi.string().trim().max(1000).allow(null, ''),
   }),
   bookingDetail: Joi.object({
     booking_id: id.required(),

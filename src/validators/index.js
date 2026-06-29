@@ -18,4 +18,5 @@ module.exports = {
   review: require('./review.validator'),
   reviewPhoto: require('./reviewPhoto.validator'),
   media: require('./media.validator'),
+  refundRequest: require('./refundRequest.validator'),
 };

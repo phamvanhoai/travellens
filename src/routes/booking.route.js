@@ -17,6 +17,10 @@ router
   .route('/:id')
   .get(validate({ params: common.idParam }), controller.customerGet);
 
-router.patch('/:id/cancel', validate({ params: common.idParam }), controller.customerCancel);
+router.patch(
+  '/:id/cancel',
+  validate({ params: common.idParam, body: entity.bookingCancel }),
+  controller.customerCancel
+);
 
 module.exports = router;
