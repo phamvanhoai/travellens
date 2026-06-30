@@ -18,6 +18,10 @@ class BookingService extends BaseService {
     return bookingModel.findAll(query);
   }
 
+  listForStaff(query = {}) {
+    return bookingModel.findAllForStaffView(query);
+  }
+
   async listWithPassengers(query = {}) {
     const bookings = await bookingModel.findAll(query);
     return this.attachPassengers(bookings);
@@ -237,6 +241,14 @@ class BookingService extends BaseService {
 
   async getForUser(id, userId) {
     const booking = await bookingModel.findOwnedById(id, userId);
+    if (!booking) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Booking not found');
+    }
+    return this.attachPassengersToBooking(booking);
+  }
+
+  async getForStaff(id) {
+    const booking = await bookingModel.findStaffViewById(id);
     if (!booking) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Booking not found');
     }
