@@ -126,6 +126,8 @@ class PaymentService {
 
   async confirmManualBooking(bookingId, payload = {}, staffId) {
     const client = await bookingModel.getClient();
+    let clientReleased = false;
+    let transactionCommitted = false;
     try {
       await client.query('BEGIN');
       const booking = await bookingModel.findForUpdate(bookingId, undefined, client);
@@ -188,13 +190,20 @@ class PaymentService {
       }
 
       await client.query('COMMIT');
+      transactionCommitted = true;
+      client.release();
+      clientReleased = true;
       await zaloBotService.notifyPaymentPaid(payment);
       return { booking: confirmedBooking, payment };
     } catch (error) {
-      await client.query('ROLLBACK');
+      if (!transactionCommitted) {
+        await client.query('ROLLBACK');
+      }
       throw error;
     } finally {
-      client.release();
+      if (!clientReleased) {
+        client.release();
+      }
     }
   }
 
@@ -233,6 +242,8 @@ class PaymentService {
 
   async updateStatus(id, status) {
     const client = await bookingModel.getClient();
+    let clientReleased = false;
+    let transactionCommitted = false;
     try {
       await client.query('BEGIN');
 
@@ -309,15 +320,22 @@ class PaymentService {
       }
 
       await client.query('COMMIT');
+      transactionCommitted = true;
+      client.release();
+      clientReleased = true;
       if (status === 'paid') {
         await zaloBotService.notifyPaymentPaid(payment);
       }
       return payment;
     } catch (error) {
-      await client.query('ROLLBACK');
+      if (!transactionCommitted) {
+        await client.query('ROLLBACK');
+      }
       throw error;
     } finally {
-      client.release();
+      if (!clientReleased) {
+        client.release();
+      }
     }
   }
 

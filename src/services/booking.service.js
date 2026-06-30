@@ -54,7 +54,7 @@ class BookingService extends BaseService {
         couponSnapshot = await couponService.validateCoupon({
           code: payload.coupon_code,
           booking_amount: originalAmount,
-        });
+        }, client);
       } else if (payload.coupon_id) {
         throw new ApiError(httpStatus.BAD_REQUEST, 'Use coupon_code to apply coupon');
       }
@@ -286,6 +286,8 @@ class BookingService extends BaseService {
 
   async cancel(id, options = {}) {
     const client = await bookingModel.getClient();
+    let clientReleased = false;
+    let transactionCommitted = false;
     try {
       await client.query('BEGIN');
       const booking = await bookingModel.findForUpdate(id, options.userId, client);
@@ -338,6 +340,9 @@ class BookingService extends BaseService {
         }, client);
 
         await client.query('COMMIT');
+        transactionCommitted = true;
+        client.release();
+        clientReleased = true;
         await emailService.sendBestEffort(async () => {
           const bookingContext = await bookingModel.findNotificationContext(id);
           if (!bookingContext) return null;
@@ -375,13 +380,20 @@ class BookingService extends BaseService {
       }, client);
 
       await client.query('COMMIT');
+      transactionCommitted = true;
+      client.release();
+      clientReleased = true;
       await emailService.sendBestEffort(() => this.sendCancelNotifications({ bookingId: id }));
       return canceled;
     } catch (error) {
-      await client.query('ROLLBACK');
+      if (!transactionCommitted) {
+        await client.query('ROLLBACK');
+      }
       throw error;
     } finally {
-      client.release();
+      if (!clientReleased) {
+        client.release();
+      }
     }
   }
 
