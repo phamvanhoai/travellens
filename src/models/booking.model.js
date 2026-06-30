@@ -38,6 +38,204 @@ module.exports = {
     return result.rows;
   },
 
+  async findAllForStaffView(query = {}) {
+    const page = Math.max(Number(query.page || 1), 1);
+    const limit = Math.min(Math.max(Number(query.limit || 20), 1), 100);
+    const offset = (page - 1) * limit;
+    const values = [];
+    const clauses = [];
+
+    if (query.user_id !== undefined) {
+      values.push(query.user_id);
+      clauses.push(`b.user_id = $${values.length}`);
+    }
+
+    if (query.tour_id !== undefined) {
+      values.push(query.tour_id);
+      clauses.push(`b.tour_id = $${values.length}`);
+    }
+
+    if (query.status !== undefined) {
+      values.push(query.status);
+      clauses.push(`b.status = $${values.length}`);
+    }
+
+    if (query.payment_status !== undefined) {
+      values.push(query.payment_status);
+      clauses.push(`b.payment_status = $${values.length}`);
+    }
+
+    if (query.search) {
+      values.push(`%${query.search}%`);
+      clauses.push(`(
+        u.name ILIKE $${values.length}
+        OR u.email ILIKE $${values.length}
+        OR u.phone ILIKE $${values.length}
+        OR t.name ILIKE $${values.length}
+        OR CAST(b.booking_id AS TEXT) ILIKE $${values.length}
+      )`);
+    }
+
+    const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
+    const sortColumns = {
+      booking_id: 'b.booking_id',
+      departure_at: 'b.departure_at',
+      date_created: 'b.date_created',
+      final_amount: 'b.final_amount',
+      status: 'b.status',
+      payment_status: 'b.payment_status',
+    };
+    const sortBy = sortColumns[query.sortBy] || sortColumns.booking_id;
+    const sortOrder = String(query.sortOrder || query.sort || 'DESC').toUpperCase() === 'ASC'
+      || query.sort === 'oldest'
+      ? 'ASC'
+      : 'DESC';
+
+    const countResult = await db.query(
+      `SELECT COUNT(*)::int AS total
+       FROM booking b
+       INNER JOIN users u ON u.user_id = b.user_id
+       INNER JOIN tour t ON t.tour_id = b.tour_id
+       ${where}`,
+      values
+    );
+
+    const listValues = [...values, limit, offset];
+    const result = await db.query(
+      `SELECT
+          b.*,
+          b.original_amount::float AS original_amount,
+          b.discount_amount::float AS discount_amount,
+          b.final_amount::float AS final_amount,
+          COUNT(bd.booking_detail_id)::int AS passenger_count,
+          json_build_object(
+            'user_id', u.user_id,
+            'name', u.name,
+            'email', u.email,
+            'phone', u.phone,
+            'avatar_url', u.avatar_url
+          ) AS customer,
+          json_build_object(
+            'tour_id', t.tour_id,
+            'name', t.name,
+            'schedule', t.schedule,
+            'start_at', t.start_at,
+            'thumbnail', t.thumbnail,
+            'price', t.price::float,
+            'child_price', t.child_price::float,
+            'capacity', t.capacity,
+            'status', t.status
+          ) AS tour,
+          CASE
+            WHEN latest_payment.payment_id IS NULL THEN NULL
+            ELSE json_build_object(
+              'payment_id', latest_payment.payment_id,
+              'payment_code', latest_payment.payment_code,
+              'amount', latest_payment.amount::float,
+              'payment_method', latest_payment.payment_method,
+              'payment_provider', latest_payment.payment_provider,
+              'status', latest_payment.status,
+              'transaction_code', latest_payment.transaction_code,
+              'paid_at', latest_payment.paid_at,
+              'expired_at', latest_payment.expired_at,
+              'currency', latest_payment.currency
+            )
+          END AS latest_payment
+       FROM booking b
+       INNER JOIN users u ON u.user_id = b.user_id
+       INNER JOIN tour t ON t.tour_id = b.tour_id
+       LEFT JOIN booking_detail bd ON bd.booking_id = b.booking_id
+       LEFT JOIN LATERAL (
+          SELECT *
+          FROM payment p
+          WHERE p.booking_id = b.booking_id
+            AND p.deleted_at IS NULL
+          ORDER BY p.payment_id DESC
+          LIMIT 1
+       ) latest_payment ON TRUE
+       ${where}
+       GROUP BY b.booking_id, u.user_id, t.tour_id, latest_payment.payment_id,
+         latest_payment.payment_code, latest_payment.amount, latest_payment.payment_method,
+         latest_payment.payment_provider, latest_payment.status, latest_payment.transaction_code,
+         latest_payment.paid_at, latest_payment.expired_at, latest_payment.currency
+       ORDER BY ${sortBy} ${sortOrder}, b.booking_id DESC
+       LIMIT $${listValues.length - 1} OFFSET $${listValues.length}`,
+      listValues
+    );
+
+    const total = countResult.rows[0].total;
+    return {
+      items: result.rows,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  },
+
+  async findStaffViewById(id, executor = db) {
+    const result = await executor.query(
+      `SELECT
+          b.*,
+          b.original_amount::float AS original_amount,
+          b.discount_amount::float AS discount_amount,
+          b.final_amount::float AS final_amount,
+          json_build_object(
+            'user_id', u.user_id,
+            'name', u.name,
+            'email', u.email,
+            'phone', u.phone,
+            'avatar_url', u.avatar_url,
+            'address', u.address
+          ) AS customer,
+          json_build_object(
+            'tour_id', t.tour_id,
+            'name', t.name,
+            'description', t.description,
+            'schedule', t.schedule,
+            'start_at', t.start_at,
+            'thumbnail', t.thumbnail,
+            'price', t.price::float,
+            'child_price', t.child_price::float,
+            'capacity', t.capacity,
+            'status', t.status
+          ) AS tour,
+          CASE
+            WHEN latest_payment.payment_id IS NULL THEN NULL
+            ELSE json_build_object(
+              'payment_id', latest_payment.payment_id,
+              'payment_code', latest_payment.payment_code,
+              'amount', latest_payment.amount::float,
+              'payment_method', latest_payment.payment_method,
+              'payment_provider', latest_payment.payment_provider,
+              'status', latest_payment.status,
+              'transaction_code', latest_payment.transaction_code,
+              'bank_account', latest_payment.bank_account,
+              'transfer_content', latest_payment.transfer_content,
+              'paid_at', latest_payment.paid_at,
+              'expired_at', latest_payment.expired_at,
+              'currency', latest_payment.currency
+            )
+          END AS latest_payment
+       FROM booking b
+       INNER JOIN users u ON u.user_id = b.user_id
+       INNER JOIN tour t ON t.tour_id = b.tour_id
+       LEFT JOIN LATERAL (
+          SELECT *
+          FROM payment p
+          WHERE p.booking_id = b.booking_id
+            AND p.deleted_at IS NULL
+          ORDER BY p.payment_id DESC
+          LIMIT 1
+       ) latest_payment ON TRUE
+       WHERE b.booking_id = $1`,
+      [id]
+    );
+    return result.rows[0] || null;
+  },
+
   async findById(id, executor = db) {
     const result = await executor.query(
       'SELECT * FROM booking WHERE booking_id = $1',
@@ -58,7 +256,14 @@ module.exports = {
     if (!bookingIds.length) return [];
 
     const result = await executor.query(
-      `SELECT *
+      `SELECT
+          booking_detail_id,
+          booking_id,
+          passenger_name,
+          age_category,
+          price::float AS price,
+          seat_number,
+          special_request
        FROM booking_detail
        WHERE booking_id = ANY($1::int[])
        ORDER BY booking_detail_id ASC`,
