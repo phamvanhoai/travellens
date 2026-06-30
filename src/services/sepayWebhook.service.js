@@ -32,6 +32,8 @@ class SepayWebhookService {
     };
 
     const client = await bookingModel.getClient();
+    let clientReleased = false;
+    let transactionCommitted = false;
     try {
       await client.query('BEGIN');
 
@@ -129,6 +131,9 @@ class SepayWebhookService {
 
       await sepayWebhookLogModel.updateStatus(log.sepay_webhook_log_id, 'processed', 'Payment marked as paid', payment.payment_id, client);
       await client.query('COMMIT');
+      transactionCommitted = true;
+      client.release();
+      clientReleased = true;
       await zaloBotService.notifyPaymentPaid(paidPayment);
 
       return {
@@ -137,10 +142,14 @@ class SepayWebhookService {
         status: paidPayment.status,
       };
     } catch (error) {
-      await client.query('ROLLBACK');
+      if (!transactionCommitted) {
+        await client.query('ROLLBACK');
+      }
       throw error;
     } finally {
-      client.release();
+      if (!clientReleased) {
+        client.release();
+      }
     }
   }
 }

@@ -13,6 +13,8 @@ class RefundRequestService {
 
   async approve(id, payload = {}, staffId) {
     const client = await bookingModel.getClient();
+    let clientReleased = false;
+    let transactionCommitted = false;
     try {
       await client.query('BEGIN');
 
@@ -42,6 +44,9 @@ class RefundRequestService {
       }, client);
 
       await client.query('COMMIT');
+      transactionCommitted = true;
+      client.release();
+      clientReleased = true;
       await emailService.sendBestEffort(async () => {
         const booking = await bookingModel.findNotificationContext(refundRequest.booking_id);
         if (!booking?.customer_email) return null;
@@ -54,15 +59,21 @@ class RefundRequestService {
       });
       return approved;
     } catch (error) {
-      await client.query('ROLLBACK');
+      if (!transactionCommitted) {
+        await client.query('ROLLBACK');
+      }
       throw error;
     } finally {
-      client.release();
+      if (!clientReleased) {
+        client.release();
+      }
     }
   }
 
   async reject(id, payload = {}, staffId) {
     const client = await bookingModel.getClient();
+    let clientReleased = false;
+    let transactionCommitted = false;
     try {
       await client.query('BEGIN');
 
@@ -89,6 +100,9 @@ class RefundRequestService {
       }, client);
 
       await client.query('COMMIT');
+      transactionCommitted = true;
+      client.release();
+      clientReleased = true;
       await emailService.sendBestEffort(async () => {
         const booking = await bookingModel.findNotificationContext(refundRequest.booking_id);
         if (!booking?.customer_email) return null;
@@ -101,15 +115,21 @@ class RefundRequestService {
       });
       return rejected;
     } catch (error) {
-      await client.query('ROLLBACK');
+      if (!transactionCommitted) {
+        await client.query('ROLLBACK');
+      }
       throw error;
     } finally {
-      client.release();
+      if (!clientReleased) {
+        client.release();
+      }
     }
   }
 
   async complete(id, payload = {}, staffId) {
     const client = await bookingModel.getClient();
+    let clientReleased = false;
+    let transactionCommitted = false;
     try {
       await client.query('BEGIN');
 
@@ -150,6 +170,9 @@ class RefundRequestService {
       }, client);
 
       await client.query('COMMIT');
+      transactionCommitted = true;
+      client.release();
+      clientReleased = true;
       await emailService.sendBestEffort(async () => {
         const booking = await bookingModel.findNotificationContext(refundRequest.booking_id);
         if (!booking?.customer_email) return null;
@@ -162,10 +185,14 @@ class RefundRequestService {
       });
       return completed;
     } catch (error) {
-      await client.query('ROLLBACK');
+      if (!transactionCommitted) {
+        await client.query('ROLLBACK');
+      }
       throw error;
     } finally {
-      client.release();
+      if (!clientReleased) {
+        client.release();
+      }
     }
   }
 
