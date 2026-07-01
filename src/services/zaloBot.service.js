@@ -258,7 +258,7 @@ class ZaloBotService {
     return { sent: results.some((result) => result.success), results };
   }
 
-  async notifyBookingPaymentStatus(bookingId, status) {
+  async notifyBookingPaymentStatus(bookingId, status, options = {}) {
     const chatIds = getBookingNotifyChatIds();
     logger.info('Preparing Zalo booking payment status notification', {
       booking_id: bookingId,
@@ -277,9 +277,9 @@ class ZaloBotService {
       return { sent: false, reason: 'Zalo booking notification is not configured' };
     }
 
-    let booking;
+    let booking = options.booking || null;
     try {
-      booking = await bookingModel.findNotificationContext(bookingId);
+      booking = booking || await bookingModel.findNotificationContext(bookingId);
     } catch (error) {
       logger.error('Failed to load Zalo booking payment status context', {
         booking_id: bookingId,
