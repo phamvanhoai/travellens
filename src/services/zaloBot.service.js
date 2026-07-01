@@ -9,27 +9,28 @@ const API_BASE_URL = 'https://bot-api.zaloplatforms.com';
 
 const getToken = () => process.env.ZALO_BOT_TOKEN || process.env.BOT_TOKEN || '';
 
+const parseChatIds = (value) => String(value || '')
+  .replace(/^["']|["']$/g, '')
+  .split(/[,\n;]/)
+  .map((chatId) => chatId.trim().replace(/^["']|["']$/g, ''))
+  .filter(Boolean);
+
 const getNotifyChatIds = () => {
   const rawChatIds = process.env.ZALO_PAYMENT_NOTIFY_CHAT_IDS
     || process.env.ZALO_PAYMENT_NOTIFY_CHAT_ID
     || '';
 
-  return rawChatIds
-    .split(',')
-    .map((chatId) => chatId.trim())
-    .filter(Boolean);
+  return parseChatIds(rawChatIds);
 };
 
 const getBookingNotifyChatIds = () => {
   const rawChatIds = process.env.ZALO_BOOKING_NOTIFY_CHAT_IDS
     || process.env.ZALO_BOOKING_NOTIFY_CHAT_ID;
+  const bookingChatIds = parseChatIds(rawChatIds);
 
-  if (!rawChatIds) return getNotifyChatIds();
+  if (bookingChatIds.length) return bookingChatIds;
 
-  return rawChatIds
-    .split(',')
-    .map((chatId) => chatId.trim())
-    .filter(Boolean);
+  return getNotifyChatIds();
 };
 
 const formatMoney = (amount, currency = 'VND') => {
@@ -259,6 +260,13 @@ class ZaloBotService {
 
   async notifyBookingPaymentStatus(bookingId, status) {
     const chatIds = getBookingNotifyChatIds();
+    logger.info('Preparing Zalo booking payment status notification', {
+      booking_id: bookingId,
+      status,
+      has_token: this.isEnabled(),
+      chat_id_count: chatIds.length,
+    });
+
     if (!this.isEnabled() || !chatIds.length || !bookingId) {
       logger.warn('Skipped Zalo booking payment status notification because configuration is missing', {
         booking_id: bookingId,
@@ -311,7 +319,16 @@ class ZaloBotService {
       }
     }
 
-    return { sent: results.some((result) => result.success), results };
+    const sent = results.some((result) => result.success);
+    logger.info('Zalo booking payment status notification finished', {
+      booking_id: bookingId,
+      status,
+      sent,
+      success_count: results.filter((result) => result.success).length,
+      failed_count: results.filter((result) => !result.success).length,
+    });
+
+    return { sent, results };
   }
 
   async handleWebhook(payload, headers = {}) {
