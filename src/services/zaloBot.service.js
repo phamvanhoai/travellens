@@ -249,6 +249,12 @@ class ZaloBotService {
   async notifyBookingPaymentStatus(bookingId, status) {
     const chatIds = getBookingNotifyChatIds();
     if (!this.isEnabled() || !chatIds.length || !bookingId) {
+      logger.warn('Skipped Zalo booking payment status notification because configuration is missing', {
+        booking_id: bookingId,
+        status,
+        has_token: this.isEnabled(),
+        chat_id_count: chatIds.length,
+      });
       return { sent: false, reason: 'Zalo booking notification is not configured' };
     }
 
