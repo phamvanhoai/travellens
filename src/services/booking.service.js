@@ -7,6 +7,7 @@ const tourModel = require('../models/tour.model');
 const userModel = require('../models/user.model');
 const couponService = require('./coupon.service');
 const emailService = require('./email.service');
+const zaloBotService = require('./zaloBot.service');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 
@@ -363,6 +364,12 @@ class BookingService extends BaseService {
             refundRequest,
           });
         });
+        await zaloBotService.notifyBookingCanceled(id, {
+          status: 'cancel_pending',
+          reason: options.reason,
+          refundAmount: paidPayment.amount,
+          currency: paidPayment.currency,
+        });
         return {
           ...pendingCancel,
           refund_amount: Number(paidPayment.amount || 0),
@@ -396,6 +403,10 @@ class BookingService extends BaseService {
       client.release();
       clientReleased = true;
       await emailService.sendBestEffort(() => this.sendCancelNotifications({ bookingId: id }));
+      await zaloBotService.notifyBookingCanceled(id, {
+        status: 'canceled',
+        reason: options.reason,
+      });
       return canceled;
     } catch (error) {
       if (!transactionCommitted) {

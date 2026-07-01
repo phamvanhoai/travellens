@@ -1,6 +1,7 @@
 const https = require('https');
 const logger = require('../config/logger');
 const paymentModel = require('../models/payment.model');
+const bookingModel = require('../models/booking.model');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 
@@ -12,6 +13,18 @@ const getNotifyChatIds = () => {
   const rawChatIds = process.env.ZALO_PAYMENT_NOTIFY_CHAT_IDS
     || process.env.ZALO_PAYMENT_NOTIFY_CHAT_ID
     || '';
+
+  return rawChatIds
+    .split(',')
+    .map((chatId) => chatId.trim())
+    .filter(Boolean);
+};
+
+const getBookingNotifyChatIds = () => {
+  const rawChatIds = process.env.ZALO_BOOKING_NOTIFY_CHAT_IDS
+    || process.env.ZALO_BOOKING_NOTIFY_CHAT_ID;
+
+  if (!rawChatIds) return getNotifyChatIds();
 
   return rawChatIds
     .split(',')
@@ -164,6 +177,59 @@ class ZaloBotService {
         logger.error('Failed to send Zalo payment notification', {
           chat_id: chatId,
           payment_id: payment.payment_id,
+          error: error.message,
+          details: error.details,
+        });
+        results.push({ chat_id: chatId, success: false, message: error.message });
+      }
+    }
+
+    return { sent: results.some((result) => result.success), results };
+  }
+
+  async notifyBookingCanceled(bookingId, options = {}) {
+    const chatIds = getBookingNotifyChatIds();
+    if (!this.isEnabled() || !chatIds.length || !bookingId) {
+      return { sent: false, reason: 'Zalo booking notification is not configured' };
+    }
+
+    let booking;
+    try {
+      booking = await bookingModel.findNotificationContext(bookingId);
+    } catch (error) {
+      logger.error('Failed to load Zalo booking notification context', {
+        booking_id: bookingId,
+        error: error.message,
+      });
+      return { sent: false, reason: 'Booking notification context is unavailable' };
+    }
+
+    if (!booking) {
+      return { sent: false, reason: 'Booking not found' };
+    }
+
+    const isPending = options.status === 'cancel_pending';
+    const message = [
+      isPending ? 'Yeu cau huy booking' : 'Booking da huy',
+      `Ma booking: #${booking.booking_id}`,
+      booking.tour_name ? `Ten tour: ${booking.tour_name}` : null,
+      booking.customer_name ? `Khach hang: ${booking.customer_name}` : null,
+      `Trang thai thanh toan: ${booking.payment_status}`,
+      options.refundAmount !== undefined
+        ? `So tien hoan du kien: ${formatMoney(options.refundAmount, options.currency)}`
+        : null,
+      options.reason ? `Ly do: ${options.reason}` : null,
+    ].filter(Boolean).join('\n');
+
+    const results = [];
+    for (const chatId of chatIds) {
+      try {
+        const result = await this.sendMessage(chatId, message);
+        results.push({ chat_id: chatId, success: true, result });
+      } catch (error) {
+        logger.error('Failed to send Zalo booking notification', {
+          chat_id: chatId,
+          booking_id: bookingId,
           error: error.message,
           details: error.details,
         });

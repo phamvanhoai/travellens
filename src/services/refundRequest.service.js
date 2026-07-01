@@ -3,6 +3,7 @@ const bookingStatusHistoryModel = require('../models/bookingStatusHistory.model'
 const paymentModel = require('../models/payment.model');
 const refundRequestModel = require('../models/refundRequest.model');
 const emailService = require('./email.service');
+const zaloBotService = require('./zaloBot.service');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 
@@ -56,6 +57,11 @@ class RefundRequestService {
           booking,
           refundRequest: approved,
         });
+      });
+      await zaloBotService.notifyBookingCanceled(refundRequest.booking_id, {
+        status: 'canceled',
+        reason: refundRequest.reason || payload.staff_note,
+        refundAmount: refundRequest.refund_amount,
       });
       return approved;
     } catch (error) {
