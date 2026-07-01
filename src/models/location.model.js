@@ -154,7 +154,7 @@ module.exports = {
   },
 
   async updateLocation(id, payload, executor = db) {
-    const fields = ['name', 'description', 'latitude', 'longitude', 'thumbnail']
+    const fields = ['destination_id', 'name', 'description', 'latitude', 'longitude', 'thumbnail']
       .filter((field) => payload[field] !== undefined);
 
     if (!fields.length) {

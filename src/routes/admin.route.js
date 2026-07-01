@@ -1600,7 +1600,7 @@ router
  * /admin/locations/{id}:
  *   put:
  *     summary: Admin update location
- *     description: Updates location information. Supports uploading a new thumbnail file or passing an existing thumbnail URL. Deleted locations cannot be updated and updated_at is changed automatically.
+ *     description: Updates location information, including moving it to another existing travel destination. Supports uploading a new thumbnail file or passing an existing thumbnail URL. Deleted locations cannot be updated and updated_at is changed automatically.
  *     tags: [Admin Locations]
  *     security:
  *       - bearerAuth: []
@@ -1618,6 +1618,10 @@ router
  *             type: object
  *             minProperties: 1
  *             properties:
+ *               travel_destination_id:
+ *                 type: integer
+ *                 minimum: 1
+ *                 example: 8
  *               name:
  *                 type: string
  *                 maxLength: 255
@@ -1642,6 +1646,10 @@ router
  *             type: object
  *             minProperties: 1
  *             properties:
+ *               travel_destination_id:
+ *                 type: integer
+ *                 minimum: 1
+ *                 example: 8
  *               name:
  *                 type: string
  *                 maxLength: 255
@@ -1669,7 +1677,9 @@ router
  *       400:
  *         description: Bad request or unsupported file format
  *       404:
- *         description: Location not found
+ *         description: Location or travel destination not found
+ *       409:
+ *         description: Duplicate location name inside the destination
  *   delete:
  *     summary: Admin delete location
  *     description: Soft deletes a location only when it has no related View360, View360Image, Map, Review, or Blog_Location data.

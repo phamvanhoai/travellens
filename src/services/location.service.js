@@ -56,14 +56,22 @@ class LocationService {
     try {
       await client.query('BEGIN');
       const current = await this.ensureExists(id, client);
+      const destinationId = payload.travel_destination_id ?? current.destination_id;
+      const name = payload.name ? payload.name.trim() : current.name;
 
-      if (payload.name) {
-        await this.ensureUniqueName(current.destination_id, payload.name, id, client);
+      if (payload.travel_destination_id !== undefined) {
+        await this.ensureTravelDestinationExists(destinationId, client);
+      }
+
+      if (payload.name || payload.travel_destination_id !== undefined) {
+        await this.ensureUniqueName(destinationId, name, id, client);
       }
 
       const location = await locationModel.updateLocation(id, {
         ...payload,
-        name: payload.name ? payload.name.trim() : undefined,
+        destination_id: payload.travel_destination_id !== undefined ? destinationId : undefined,
+        travel_destination_id: undefined,
+        name: payload.name ? name : undefined,
       }, client);
 
       await client.query('COMMIT');
@@ -81,6 +89,9 @@ class LocationService {
       await client.query('ROLLBACK');
       if (error.code === '23505') {
         throw new ApiError(httpStatus.CONFLICT, 'Duplicate location name inside same destination');
+      }
+      if (error.code === '23503') {
+        throw new ApiError(httpStatus.NOT_FOUND, 'Travel destination not found');
       }
       throw error;
     } finally {
