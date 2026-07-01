@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const userModel = require('../models/user.model');
+const paymentModel = require('../models/payment.model');
 
 const escapeHtml = (value) => String(value)
     .replace(/&/g, '&amp;')
@@ -259,6 +260,64 @@ class EmailService {
 
         return this.sendMail({
             to,
+            subject,
+            html,
+            text,
+        });
+    }
+
+    async sendPaymentPaid(payment) {
+        if (!payment?.payment_id) return null;
+
+        const notification = await paymentModel.findNotificationContext(payment.payment_id);
+        if (!notification?.customer_email) return null;
+
+        const amount = Number(notification.amount || 0).toLocaleString('vi-VN');
+        const currency = notification.currency || 'VND';
+        const paidAt = notification.paid_at
+            ? new Date(notification.paid_at).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })
+            : null;
+        const subject = `Payment confirmed for booking #${notification.booking_id}`;
+        const safeName = escapeHtml(notification.customer_name || 'Customer');
+
+        const details = [
+            ['Booking', `#${notification.booking_id}`],
+            ['Tour', notification.tour_name],
+            ['Payment code', notification.payment_code],
+            ['Amount', `${amount} ${currency}`],
+            ['Transaction code', notification.transaction_code],
+            ['Paid at', paidAt],
+        ].filter(([, value]) => value);
+
+        const detailRows = details.map(([label, value]) => `
+          <tr>
+            <td style="padding:8px 12px; color:#64748b; border-bottom:1px solid #e5e7eb;">${escapeHtml(label)}</td>
+            <td style="padding:8px 12px; color:#0f172a; font-weight:600; border-bottom:1px solid #e5e7eb;">${escapeHtml(value)}</td>
+          </tr>
+        `).join('');
+
+        const content = `
+      <p style="margin:0 0 16px; color:#0f172a; font-size:16px; line-height:1.7;">
+        Hi <strong>${safeName}</strong>,
+      </p>
+      <p style="margin:0 0 20px; color:#334155; font-size:15px; line-height:1.7;">
+        Your payment was successful and your booking has been confirmed.
+      </p>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e5e7eb; border-radius:8px; border-collapse:separate; overflow:hidden;">
+        ${detailRows}
+      </table>
+    `;
+
+        const html = this.getBaseTemplate({
+            title: 'Payment successful',
+            subtitle: `Booking #${notification.booking_id} is confirmed.`,
+            content,
+            footerText: 'Please keep this email as your payment confirmation.',
+        });
+        const text = `Hi ${notification.customer_name || 'Customer'}, payment for booking #${notification.booking_id} was successful. Payment code: ${notification.payment_code}. Amount: ${amount} ${currency}.${notification.tour_name ? ` Tour: ${notification.tour_name}.` : ''}`;
+
+        return this.sendMail({
+            to: notification.customer_email,
             subject,
             html,
             text,
