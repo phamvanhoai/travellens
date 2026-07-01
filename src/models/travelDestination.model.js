@@ -311,6 +311,7 @@ module.exports = {
        INNER JOIN tour_destination td ON td.tour_id = t.tour_id
        WHERE td.destination_id = $1
          AND t.deleted_at IS NULL
+         AND t.status = 'active'
        ORDER BY td.order_index ASC, t.tour_id DESC`,
       [id]
     );

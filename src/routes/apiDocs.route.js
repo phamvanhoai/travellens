@@ -1050,6 +1050,7 @@ const router = express.Router();
  * /travel-destinations/{id}:
  *   get:
  *     summary: Get travel destination detail
+ *     description: "Detail includes related data for FE sections: Overview uses description, Things to Do uses locations, Tours uses tours, 360 Experience uses view360, Map uses maps, Reviews uses reviews, and Travel Guide uses blogs."
  *     tags: [Travel Destinations]
  *     parameters:
  *       - in: path
@@ -1057,7 +1058,33 @@ const router = express.Router();
  *         required: true
  *         schema: { type: integer }
  *     responses:
- *       200: { description: Travel destination detail }
+ *       200:
+ *         description: Travel destination detail
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     destination_id: { type: integer, example: 8 }
+ *                     name: { type: string, example: Dinh Doc Lap }
+ *                     description: { type: string, nullable: true }
+ *                     thumbnail: { type: string, nullable: true }
+ *                     latitude: { type: number, nullable: true, example: 10.777035 }
+ *                     longitude: { type: number, nullable: true, example: 106.695523 }
+ *                     destination_category_id: { type: integer, nullable: true, example: 1 }
+ *                     destination_category: { type: string, nullable: true, example: Lich Su }
+ *                     locations: { type: array, items: { type: object } }
+ *                     tours: { type: array, items: { type: object } }
+ *                     view360: { type: array, items: { type: object } }
+ *                     maps: { type: array, items: { type: object } }
+ *                     reviews: { type: array, items: { type: object } }
+ *                     blogs: { type: array, items: { type: object } }
+ *                     created_at: { type: string, format: date-time }
+ *                     updated_at: { type: string, format: date-time }
  *   put:
  *     summary: Update travel destination
  *     tags: [Travel Destinations]
