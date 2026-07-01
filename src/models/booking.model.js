@@ -408,7 +408,13 @@ module.exports = {
       `SELECT b.*,
               u.name AS customer_name,
               u.email AS customer_email,
-              t.name AS tour_name
+              u.phone AS customer_phone,
+              t.name AS tour_name,
+              (
+                SELECT COUNT(*)::int
+                FROM booking_detail bd
+                WHERE bd.booking_id = b.booking_id
+              ) AS passenger_count
        FROM booking b
        INNER JOIN users u ON u.user_id = b.user_id
        INNER JOIN tour t ON t.tour_id = b.tour_id

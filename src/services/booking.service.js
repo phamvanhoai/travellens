@@ -108,6 +108,17 @@ class BookingService extends BaseService {
       }
 
       await client.query('COMMIT');
+      if (isFreeBooking || requiresManualPayment) {
+        const notificationStatus = isFreeBooking ? 'free_confirmed' : 'manual_pending';
+        await emailService.sendBestEffort(() => emailService.sendBookingPaymentStatus({
+          bookingId: booking.booking_id,
+          status: notificationStatus,
+        }));
+        await zaloBotService.notifyBookingPaymentStatus(
+          booking.booking_id,
+          notificationStatus
+        );
+      }
       return { ...booking, details, passengers: details };
     } catch (error) {
       await client.query('ROLLBACK');
@@ -359,6 +370,10 @@ class BookingService extends BaseService {
         await emailService.sendBestEffort(async () => {
           const bookingContext = await bookingModel.findNotificationContext(id);
           if (!bookingContext) return null;
+          await emailService.sendBestEffort(() => emailService.sendCancellationRequested({
+            booking: bookingContext,
+            refundRequest,
+          }));
           return emailService.sendRefundRequestCreated({
             booking: bookingContext,
             refundRequest,
