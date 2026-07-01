@@ -1,6 +1,7 @@
 const nodemailer = require('nodemailer');
 const userModel = require('../models/user.model');
 const paymentModel = require('../models/payment.model');
+const bookingModel = require('../models/booking.model');
 
 const escapeHtml = (value) => String(value)
     .replace(/&/g, '&amp;')
@@ -8,6 +9,13 @@ const escapeHtml = (value) => String(value)
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+
+const formatDateTime = (value) => {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+};
 
 class EmailService {
     constructor() {
@@ -274,15 +282,16 @@ class EmailService {
 
         const amount = Number(notification.amount || 0).toLocaleString('vi-VN');
         const currency = notification.currency || 'VND';
-        const paidAt = notification.paid_at
-            ? new Date(notification.paid_at).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })
-            : null;
+        const paidAt = formatDateTime(notification.paid_at);
+        const departureAt = formatDateTime(notification.departure_at);
         const subject = `Payment confirmed for booking #${notification.booking_id}`;
         const safeName = escapeHtml(notification.customer_name || 'Customer');
 
         const details = [
             ['Booking', `#${notification.booking_id}`],
             ['Tour', notification.tour_name],
+            ['Departure', departureAt],
+            ['Passengers', notification.passenger_count],
             ['Payment code', notification.payment_code],
             ['Amount', `${amount} ${currency}`],
             ['Transaction code', notification.transaction_code],
@@ -324,12 +333,107 @@ class EmailService {
         });
     }
 
+    async sendBookingPaymentStatus({ bookingId, status }) {
+        const booking = await bookingModel.findNotificationContext(bookingId);
+        if (!booking?.customer_email) return null;
+
+        const isFree = status === 'free_confirmed';
+        const safeName = escapeHtml(booking.customer_name || 'Customer');
+        const departureAt = formatDateTime(booking.departure_at);
+        const amount = `${Number(booking.final_amount || 0).toLocaleString('vi-VN')} VND`;
+        const title = isFree ? 'Booking confirmed' : 'Waiting for payment confirmation';
+        const subject = isFree
+            ? `Booking #${booking.booking_id} confirmed`
+            : `Booking #${booking.booking_id} is waiting for confirmation`;
+        const message = isFree
+            ? 'Your booking costs 0 VND, so it has been confirmed automatically. No payment is required.'
+            : 'Your booking amount requires manual confirmation. Our staff will review it and notify you when it is confirmed.';
+
+        const details = [
+            ['Booking', `#${booking.booking_id}`],
+            ['Tour', booking.tour_name || 'Tour'],
+            ['Departure', departureAt],
+            ['Passengers', booking.passenger_count],
+            ['Amount', amount],
+        ].filter(([, value]) => value !== null && value !== undefined);
+        const detailRows = details.map(([label, value]) => `
+          <tr>
+            <td style="padding:8px 12px; color:#64748b; border-bottom:1px solid #e5e7eb;">${escapeHtml(label)}</td>
+            <td style="padding:8px 12px; color:#0f172a; font-weight:600; border-bottom:1px solid #e5e7eb;">${escapeHtml(value)}</td>
+          </tr>
+        `).join('');
+
+        const content = `
+      <p style="margin:0 0 16px; color:#0f172a; font-size:16px; line-height:1.7;">
+        Hi <strong>${safeName}</strong>,
+      </p>
+      <p style="margin:0 0 18px; color:#334155; font-size:15px; line-height:1.7;">
+        ${message}
+      </p>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e5e7eb; border-radius:8px; border-collapse:separate; overflow:hidden;">
+        ${detailRows}
+      </table>
+    `;
+
+        const html = this.getBaseTemplate({
+            title,
+            subtitle: `Booking #${booking.booking_id}`,
+            content,
+        });
+        const text = `Hi ${booking.customer_name || 'Customer'}, ${message} Booking #${booking.booking_id}, tour: ${booking.tour_name || 'Tour'}, departure: ${departureAt || 'not specified'}, passengers: ${booking.passenger_count || 0}, amount: ${amount}.`;
+
+        return this.sendMail({
+            to: booking.customer_email,
+            subject,
+            html,
+            text,
+        });
+    }
+
+    async sendCancellationRequested({ booking, refundRequest }) {
+        if (!booking?.customer_email) return null;
+
+        const amount = Number(refundRequest.refund_amount || 0).toLocaleString('vi-VN');
+        const departureAt = formatDateTime(booking.departure_at);
+        const subject = `Cancellation request received for booking #${booking.booking_id}`;
+        const content = `
+      <p style="margin:0 0 16px; color:#0f172a; font-size:16px; line-height:1.7;">
+        Hi <strong>${escapeHtml(booking.customer_name || 'Customer')}</strong>,
+      </p>
+      <p style="margin:0 0 16px; color:#334155; font-size:15px; line-height:1.7;">
+        We received your cancellation request. Your booking is waiting for staff review and is not canceled yet.
+      </p>
+      <ul style="margin:0; padding-left:18px; color:#334155; font-size:15px; line-height:1.8;">
+        <li>Booking: <strong>#${booking.booking_id}</strong></li>
+        ${booking.tour_name ? `<li>Tour: <strong>${escapeHtml(booking.tour_name)}</strong></li>` : ''}
+        ${departureAt ? `<li>Departure: <strong>${escapeHtml(departureAt)}</strong></li>` : ''}
+        <li>Expected refund: <strong>${amount} VND</strong></li>
+        ${refundRequest.reason ? `<li>Reason: <strong>${escapeHtml(refundRequest.reason)}</strong></li>` : ''}
+      </ul>
+    `;
+        const html = this.getBaseTemplate({
+            title: 'Cancellation request received',
+            subtitle: `Booking #${booking.booking_id} is waiting for review.`,
+            content,
+        });
+        const text = `Hi ${booking.customer_name || 'Customer'}, we received your cancellation request for booking #${booking.booking_id}. It is waiting for staff review and is not canceled yet. Expected refund: ${amount} VND.`;
+
+        return this.sendMail({
+            to: booking.customer_email,
+            subject,
+            html,
+            text,
+        });
+    }
+
     async sendBookingCanceled({ to, name, booking, refundRequest }) {
         const subject = `Booking #${booking.booking_id} has been canceled`;
         const safeName = escapeHtml(name || 'Customer');
         const refundText = refundRequest
             ? `A manual refund request for ${Number(refundRequest.refund_amount || 0).toLocaleString('vi-VN')} VND has been created and is waiting for staff processing.`
             : 'No manual refund is required for this cancellation.';
+        const departureAt = formatDateTime(booking.departure_at);
+        const reason = booking.cancel_reason || refundRequest?.reason;
 
         const content = `
       <p style="margin:0 0 16px; color:#0f172a; font-size:16px; line-height:1.7;">
@@ -341,6 +445,11 @@ class EmailService {
       <p style="margin:0; color:#334155; font-size:15px; line-height:1.7;">
         ${escapeHtml(refundText)}
       </p>
+      <ul style="margin:16px 0 0; padding-left:18px; color:#334155; font-size:15px; line-height:1.8;">
+        ${booking.tour_name ? `<li>Tour: <strong>${escapeHtml(booking.tour_name)}</strong></li>` : ''}
+        ${departureAt ? `<li>Departure: <strong>${escapeHtml(departureAt)}</strong></li>` : ''}
+        ${reason ? `<li>Reason: <strong>${escapeHtml(reason)}</strong></li>` : ''}
+      </ul>
     `;
 
         const html = this.getBaseTemplate({
@@ -349,7 +458,7 @@ class EmailService {
             content,
         });
 
-        const text = `Hi ${name || 'Customer'}, booking #${booking.booking_id} has been canceled. ${refundText}`;
+        const text = `Hi ${name || 'Customer'}, booking #${booking.booking_id} has been canceled. ${refundText}${booking.tour_name ? ` Tour: ${booking.tour_name}.` : ''}${departureAt ? ` Departure: ${departureAt}.` : ''}${reason ? ` Reason: ${reason}.` : ''}`;
 
         return this.sendMail({ to, subject, html, text });
     }
@@ -359,6 +468,7 @@ class EmailService {
         if (!emails.length) return null;
 
         const subject = `New manual refund request for booking #${booking.booking_id}`;
+        const departureAt = formatDateTime(booking.departure_at);
         const content = `
       <p style="margin:0 0 16px; color:#334155; font-size:15px; line-height:1.7;">
         A paid booking was canceled and needs manual refund processing.
@@ -366,7 +476,12 @@ class EmailService {
       <ul style="margin:0; padding-left:18px; color:#334155; font-size:15px; line-height:1.8;">
         <li>Booking ID: <strong>#${booking.booking_id}</strong></li>
         <li>Refund request ID: <strong>#${refundRequest.refund_request_id}</strong></li>
+        ${booking.tour_name ? `<li>Tour: <strong>${escapeHtml(booking.tour_name)}</strong></li>` : ''}
+        ${departureAt ? `<li>Departure: <strong>${escapeHtml(departureAt)}</strong></li>` : ''}
+        ${booking.customer_name ? `<li>Customer: <strong>${escapeHtml(booking.customer_name)}</strong></li>` : ''}
+        ${booking.customer_phone ? `<li>Phone: <strong>${escapeHtml(booking.customer_phone)}</strong></li>` : ''}
         <li>Refund amount: <strong>${Number(refundRequest.refund_amount || 0).toLocaleString('vi-VN')} VND</strong></li>
+        ${refundRequest.reason ? `<li>Reason: <strong>${escapeHtml(refundRequest.reason)}</strong></li>` : ''}
       </ul>
     `;
 

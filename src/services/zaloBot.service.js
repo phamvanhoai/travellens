@@ -156,16 +156,19 @@ class ZaloBotService {
     }
 
     const paidAt = formatDateTime(notification.paid_at);
+    const departureAt = formatDateTime(notification.departure_at);
     const message = [
       'Thanh toán thành công',
-      `Mã thanh toán: ${notification.payment_code}`,
       `Mã booking: #${notification.booking_id}`,
-      notification.tour_name ? `Tên tour: ${notification.tour_name}` : null,
+      notification.tour_name ? `Tour: ${notification.tour_name}` : null,
+      departureAt ? `Khởi hành: ${departureAt}` : null,
+      notification.passenger_count !== undefined ? `Số khách: ${notification.passenger_count}` : null,
       notification.customer_name ? `Khách hàng: ${notification.customer_name}` : null,
       notification.customer_phone ? `SĐT: ${notification.customer_phone}` : null,
       `Số tiền: ${formatMoney(notification.amount, notification.currency)}`,
+      `Mã thanh toán: ${notification.payment_code}`,
       notification.transaction_code ? `Mã giao dịch: ${notification.transaction_code}` : null,
-      paidAt ? `Thời gian: ${paidAt}` : null,
+      paidAt ? `Thanh toán lúc: ${paidAt}` : null,
     ].filter(Boolean).join('\n');
 
     const results = [];
@@ -209,16 +212,19 @@ class ZaloBotService {
     }
 
     const isPending = options.status === 'cancel_pending';
+    const departureAt = formatDateTime(booking.departure_at);
     const message = [
-      isPending ? 'Yeu cau huy booking' : 'Booking da huy',
-      `Ma booking: #${booking.booking_id}`,
-      booking.tour_name ? `Ten tour: ${booking.tour_name}` : null,
-      booking.customer_name ? `Khach hang: ${booking.customer_name}` : null,
-      `Trang thai thanh toan: ${booking.payment_status}`,
+      isPending ? 'Yêu cầu hủy booking' : 'Booking đã hủy',
+      `Mã booking: #${booking.booking_id}`,
+      booking.tour_name ? `Tour: ${booking.tour_name}` : null,
+      departureAt ? `Khởi hành: ${departureAt}` : null,
+      booking.passenger_count !== undefined ? `Số khách: ${booking.passenger_count}` : null,
+      booking.customer_name ? `Khách hàng: ${booking.customer_name}` : null,
+      booking.customer_phone ? `SĐT: ${booking.customer_phone}` : null,
       options.refundAmount !== undefined
-        ? `So tien hoan du kien: ${formatMoney(options.refundAmount, options.currency)}`
+        ? `Số tiền hoàn dự kiến: ${formatMoney(options.refundAmount, options.currency)}`
         : null,
-      options.reason ? `Ly do: ${options.reason}` : null,
+      options.reason ? `Lý do: ${options.reason}` : null,
     ].filter(Boolean).join('\n');
 
     const results = [];
@@ -228,6 +234,57 @@ class ZaloBotService {
         results.push({ chat_id: chatId, success: true, result });
       } catch (error) {
         logger.error('Failed to send Zalo booking notification', {
+          chat_id: chatId,
+          booking_id: bookingId,
+          error: error.message,
+          details: error.details,
+        });
+        results.push({ chat_id: chatId, success: false, message: error.message });
+      }
+    }
+
+    return { sent: results.some((result) => result.success), results };
+  }
+
+  async notifyBookingPaymentStatus(bookingId, status) {
+    const chatIds = getBookingNotifyChatIds();
+    if (!this.isEnabled() || !chatIds.length || !bookingId) {
+      return { sent: false, reason: 'Zalo booking notification is not configured' };
+    }
+
+    let booking;
+    try {
+      booking = await bookingModel.findNotificationContext(bookingId);
+    } catch (error) {
+      logger.error('Failed to load Zalo booking payment status context', {
+        booking_id: bookingId,
+        error: error.message,
+      });
+      return { sent: false, reason: 'Booking notification context is unavailable' };
+    }
+
+    if (!booking) return { sent: false, reason: 'Booking not found' };
+
+    const isFree = status === 'free_confirmed';
+    const departureAt = formatDateTime(booking.departure_at);
+    const message = [
+      isFree ? 'Booking 0 VND đã xác nhận' : 'Booking chờ duyệt thanh toán thủ công',
+      `Mã booking: #${booking.booking_id}`,
+      booking.tour_name ? `Tour: ${booking.tour_name}` : null,
+      departureAt ? `Khởi hành: ${departureAt}` : null,
+      booking.passenger_count !== undefined ? `Số khách: ${booking.passenger_count}` : null,
+      booking.customer_name ? `Khách hàng: ${booking.customer_name}` : null,
+      booking.customer_phone ? `SĐT: ${booking.customer_phone}` : null,
+      `Số tiền: ${formatMoney(booking.final_amount)}`,
+    ].filter(Boolean).join('\n');
+
+    const results = [];
+    for (const chatId of chatIds) {
+      try {
+        const result = await this.sendMessage(chatId, message);
+        results.push({ chat_id: chatId, success: true, result });
+      } catch (error) {
+        logger.error('Failed to send Zalo booking payment status notification', {
           chat_id: chatId,
           booking_id: bookingId,
           error: error.message,
