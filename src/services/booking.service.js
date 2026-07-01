@@ -116,10 +116,20 @@ class BookingService extends BaseService {
           bookingId: booking.booking_id,
           status: notificationStatus,
         }));
-        const zaloResult = await zaloBotService.notifyBookingPaymentStatus(
-          booking.booking_id,
-          notificationStatus
-        );
+        let zaloResult = null;
+        try {
+          zaloResult = await zaloBotService.notifyBookingPaymentStatus(
+            booking.booking_id,
+            notificationStatus
+          );
+        } catch (notificationError) {
+          logger.error('Unexpected Zalo booking payment status notification error', {
+            booking_id: booking.booking_id,
+            status: notificationStatus,
+            error: notificationError.message,
+            details: notificationError.details,
+          });
+        }
         logger.info('Booking payment status notification completed', {
           booking_id: booking.booking_id,
           status: notificationStatus,
