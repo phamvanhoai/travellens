@@ -109,18 +109,24 @@ class BookingService extends BaseService {
         await couponService.markUsed(couponSnapshot.coupon_id, client);
       }
 
+      const notificationBooking = (isFreeBooking || requiresManualPayment)
+        ? await bookingModel.findNotificationContext(booking.booking_id, client)
+        : null;
+
       await client.query('COMMIT');
       if (isFreeBooking || requiresManualPayment) {
         const notificationStatus = isFreeBooking ? 'free_confirmed' : 'manual_pending';
         const emailResult = await emailService.sendBestEffort(() => emailService.sendBookingPaymentStatus({
           bookingId: booking.booking_id,
           status: notificationStatus,
+          booking: notificationBooking,
         }));
         let zaloResult = null;
         try {
           zaloResult = await zaloBotService.notifyBookingPaymentStatus(
             booking.booking_id,
-            notificationStatus
+            notificationStatus,
+            { booking: notificationBooking }
           );
         } catch (notificationError) {
           logger.error('Unexpected Zalo booking payment status notification error', {
@@ -138,7 +144,13 @@ class BookingService extends BaseService {
           zalo_reason: zaloResult?.reason,
         });
       }
-      return { ...booking, details, passengers: details };
+      return {
+        ...booking,
+        payment_required: !isFreeBooking,
+        payment_method: requiresManualPayment ? 'manual' : (isFreeBooking ? 'free' : 'bank_transfer'),
+        details,
+        passengers: details,
+      };
     } catch (error) {
       await client.query('ROLLBACK');
       if (error.code === '23503' && error.constraint === 'fk_booking_tour') {

@@ -48,6 +48,10 @@ class PaymentService {
       if (!booking) {
         throw new ApiError(httpStatus.NOT_FOUND, 'Booking not found');
       }
+      const amount = Number(booking.final_amount);
+      if (amount === 0) {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'Free bookings do not require bank payment');
+      }
       if (booking.status === 'waiting_manual_confirmation') {
         throw new ApiError(
           httpStatus.BAD_REQUEST,
@@ -61,10 +65,6 @@ class PaymentService {
         throw new ApiError(httpStatus.BAD_REQUEST, 'Booking is not unpaid');
       }
 
-      const amount = Number(booking.final_amount);
-      if (amount === 0) {
-        throw new ApiError(httpStatus.BAD_REQUEST, 'Free bookings do not require bank payment');
-      }
       if (amount < BANK_TRANSFER_MIN_AMOUNT) {
         throw new ApiError(
           httpStatus.BAD_REQUEST,
