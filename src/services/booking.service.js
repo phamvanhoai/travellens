@@ -8,6 +8,7 @@ const userModel = require('../models/user.model');
 const couponService = require('./coupon.service');
 const emailService = require('./email.service');
 const zaloBotService = require('./zaloBot.service');
+const logger = require('../config/logger');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 
@@ -64,7 +65,8 @@ class BookingService extends BaseService {
         throw new ApiError(httpStatus.BAD_REQUEST, 'Use coupon_code to apply coupon');
       }
 
-      const finalAmount = Number(couponSnapshot.final_amount);
+      const finalAmount = Math.max(0, Math.round(Number(couponSnapshot.final_amount || 0)));
+      couponSnapshot.final_amount = finalAmount;
       const isFreeBooking = finalAmount === 0;
       const requiresManualPayment = finalAmount > 0 && finalAmount < BANK_TRANSFER_MIN_AMOUNT;
 
@@ -110,14 +112,21 @@ class BookingService extends BaseService {
       await client.query('COMMIT');
       if (isFreeBooking || requiresManualPayment) {
         const notificationStatus = isFreeBooking ? 'free_confirmed' : 'manual_pending';
-        await emailService.sendBestEffort(() => emailService.sendBookingPaymentStatus({
+        const emailResult = await emailService.sendBestEffort(() => emailService.sendBookingPaymentStatus({
           bookingId: booking.booking_id,
           status: notificationStatus,
         }));
-        await zaloBotService.notifyBookingPaymentStatus(
+        const zaloResult = await zaloBotService.notifyBookingPaymentStatus(
           booking.booking_id,
           notificationStatus
         );
+        logger.info('Booking payment status notification completed', {
+          booking_id: booking.booking_id,
+          status: notificationStatus,
+          email_sent: Boolean(emailResult),
+          zalo_sent: Boolean(zaloResult?.sent),
+          zalo_reason: zaloResult?.reason,
+        });
       }
       return { ...booking, details, passengers: details };
     } catch (error) {
