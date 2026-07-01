@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const logger = require('../config/logger');
 const userModel = require('../models/user.model');
 const paymentModel = require('../models/payment.model');
 const bookingModel = require('../models/booking.model');
@@ -335,7 +336,13 @@ class EmailService {
 
     async sendBookingPaymentStatus({ bookingId, status }) {
         const booking = await bookingModel.findNotificationContext(bookingId);
-        if (!booking?.customer_email) return null;
+        if (!booking?.customer_email) {
+            logger.warn('Skipped booking payment status email because customer email is missing', {
+                booking_id: bookingId,
+                status,
+            });
+            return null;
+        }
 
         const isFree = status === 'free_confirmed';
         const safeName = escapeHtml(booking.customer_name || 'Customer');
