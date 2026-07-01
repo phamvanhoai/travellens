@@ -1010,6 +1010,31 @@ const router = express.Router();
  *   get:
  *     summary: List travel destinations
  *     tags: [Travel Destinations]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, minimum: 1, default: 1 }
+ *         description: Current page.
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, minimum: 1, maximum: 100, default: 8 }
+ *         description: Number of destinations per page.
+ *       - in: query
+ *         name: search
+ *         schema: { type: string }
+ *         description: Search by destination name or description.
+ *       - in: query
+ *         name: destination_category_id
+ *         schema: { type: integer }
+ *         description: Filter by destination category.
+ *       - in: query
+ *         name: sortBy
+ *         schema: { type: string, enum: [created_at, updated_at, name], default: created_at }
+ *         description: Field used for sorting.
+ *       - in: query
+ *         name: sortOrder
+ *         schema: { type: string, enum: [ASC, DESC], default: DESC }
+ *         description: Sort direction.
  *     responses:
  *       200: { description: Travel destination list }
  *   post:

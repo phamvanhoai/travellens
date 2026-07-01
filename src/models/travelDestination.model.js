@@ -20,12 +20,20 @@ const buildListWhere = (query = {}) => {
   };
 };
 
+const listSortColumns = {
+  created_at: 'td.created_at',
+  updated_at: 'td.updated_at',
+  name: 'td.name',
+};
+
 module.exports = {
   async findAllWithPagination(query = {}) {
     const page = Math.max(Number(query.page || 1), 1);
-    const limit = Math.min(Math.max(Number(query.limit || 10), 1), 100);
+    const limit = Math.min(Math.max(Number(query.limit || 8), 1), 100);
     const offset = (page - 1) * limit;
     const where = buildListWhere(query);
+    const sortBy = listSortColumns[query.sortBy] || listSortColumns.created_at;
+    const sortOrder = String(query.sortOrder || 'DESC').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
     const countResult = await db.query(
       `SELECT COUNT(*)::int AS total
@@ -50,17 +58,19 @@ module.exports = {
        FROM travel_destination td
        LEFT JOIN destination_category dc ON dc.destination_category_id = td.destination_category_id
        ${where.text}
-       ORDER BY td.created_at DESC, td.destination_id DESC
+       ORDER BY ${sortBy} ${sortOrder}, td.destination_id DESC
        LIMIT $${values.length - 1} OFFSET $${values.length}`,
       values
     );
 
+    const total = countResult.rows[0].total;
     return {
       items: result.rows,
       pagination: {
         page,
         limit,
-        total: countResult.rows[0].total,
+        total,
+        totalPages: Math.ceil(total / limit),
       },
     };
   },
@@ -68,8 +78,16 @@ module.exports = {
   async findDetailById(id) {
     const result = await db.query(
       `SELECT
-          td.*,
-          dc.name AS destination_category
+          td.destination_id,
+          td.name,
+          td.description,
+          td.thumbnail,
+          td.latitude,
+          td.longitude,
+          td.destination_category_id,
+          dc.name AS destination_category,
+          td.created_at,
+          td.updated_at
        FROM travel_destination td
        LEFT JOIN destination_category dc ON dc.destination_category_id = td.destination_category_id
        WHERE td.destination_id = $1 AND td.deleted_at IS NULL`,
@@ -197,6 +215,85 @@ module.exports = {
        FROM location
        WHERE destination_id = $1 AND deleted_at IS NULL AND is_deleted = FALSE
        ORDER BY location_id DESC`,
+      [id]
+    );
+
+    return result.rows;
+  },
+
+  async getMaps(id) {
+    const result = await db.query(
+      `SELECT
+          m.map_id,
+          m.location_id,
+          l.name AS location_name,
+          m.title,
+          m.map_file,
+          m.description,
+          m.display_order,
+          m.created_at,
+          m.updated_at
+       FROM map m
+       INNER JOIN location l ON l.location_id = m.location_id
+       WHERE l.destination_id = $1
+         AND l.deleted_at IS NULL
+         AND l.is_deleted = FALSE
+         AND m.deleted_at IS NULL
+         AND m.is_deleted = FALSE
+       ORDER BY m.display_order ASC NULLS LAST, m.map_id DESC`,
+      [id]
+    );
+
+    return result.rows;
+  },
+
+  async getBlogs(id) {
+    const result = await db.query(
+      `SELECT DISTINCT
+          b.blog_id,
+          b.user_id,
+          u.name AS author_name,
+          b.title,
+          b.content,
+          b.date_created
+       FROM blog b
+       INNER JOIN blog_location bl ON bl.blog_id = b.blog_id
+       INNER JOIN location l ON l.location_id = bl.location_id
+       LEFT JOIN users u ON u.user_id = b.user_id
+       WHERE l.destination_id = $1
+         AND l.deleted_at IS NULL
+         AND l.is_deleted = FALSE
+       ORDER BY b.date_created DESC, b.blog_id DESC`,
+      [id]
+    );
+
+    return result.rows;
+  },
+
+  async getReviews(id) {
+    const result = await db.query(
+      `SELECT
+          r.review_id,
+          r.user_id,
+          u.name AS user_name,
+          u.avatar_url AS user_avatar_url,
+          r.location_id,
+          l.name AS location_name,
+          r.rating,
+          r.comment,
+          r.images,
+          r.date_created,
+          r.created_at,
+          r.updated_at
+       FROM review r
+       INNER JOIN location l ON l.location_id = r.location_id
+       LEFT JOIN users u ON u.user_id = r.user_id
+       WHERE l.destination_id = $1
+         AND l.deleted_at IS NULL
+         AND l.is_deleted = FALSE
+         AND r.deleted_at IS NULL
+         AND r.status = 'approved'
+       ORDER BY r.review_id DESC`,
       [id]
     );
 
