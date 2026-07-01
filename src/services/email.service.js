@@ -343,8 +343,8 @@ class EmailService {
         });
     }
 
-    async sendBookingPaymentStatus({ bookingId, status }) {
-        const booking = await bookingModel.findNotificationContext(bookingId);
+    async sendBookingPaymentStatus({ bookingId, status, booking: bookingContext }) {
+        const booking = bookingContext || await bookingModel.findNotificationContext(bookingId);
         if (!booking?.customer_email) {
             logger.warn('Skipped booking payment status email because customer email is missing', {
                 booking_id: bookingId,
