@@ -5,6 +5,7 @@ const bookingStatusHistoryModel = require('../models/bookingStatusHistory.model'
 const couponService = require('./coupon.service');
 const sepayService = require('./sepay.service');
 const zaloBotService = require('./zaloBot.service');
+const emailService = require('./email.service');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 
@@ -194,6 +195,7 @@ class PaymentService {
       client.release();
       clientReleased = true;
       await zaloBotService.notifyPaymentPaid(payment);
+      await emailService.sendBestEffort(() => emailService.sendPaymentPaid(payment));
       return { booking: confirmedBooking, payment };
     } catch (error) {
       if (!transactionCommitted) {
@@ -325,6 +327,7 @@ class PaymentService {
       clientReleased = true;
       if (status === 'paid') {
         await zaloBotService.notifyPaymentPaid(payment);
+        await emailService.sendBestEffort(() => emailService.sendPaymentPaid(payment));
       }
       return payment;
     } catch (error) {

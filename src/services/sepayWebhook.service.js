@@ -5,6 +5,7 @@ const sepayWebhookLogModel = require('../models/sepayWebhookLog.model');
 const couponService = require('./coupon.service');
 const sepayService = require('./sepay.service');
 const zaloBotService = require('./zaloBot.service');
+const emailService = require('./email.service');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 
@@ -135,6 +136,7 @@ class SepayWebhookService {
       client.release();
       clientReleased = true;
       await zaloBotService.notifyPaymentPaid(paidPayment);
+      await emailService.sendBestEffort(() => emailService.sendPaymentPaid(paidPayment));
 
       return {
         payment_id: paidPayment.payment_id,

@@ -84,6 +84,7 @@ module.exports = {
           p.paid_at,
           b.user_id,
           u.name AS customer_name,
+          u.email AS customer_email,
           u.phone AS customer_phone,
           t.tour_id,
           t.name AS tour_name
