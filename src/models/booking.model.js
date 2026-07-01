@@ -410,6 +410,8 @@ module.exports = {
               u.email AS customer_email,
               u.phone AS customer_phone,
               t.name AS tour_name,
+              c.code AS coupon_code,
+              c.name AS coupon_name,
               (
                 SELECT COUNT(*)::int
                 FROM booking_detail bd
@@ -418,6 +420,7 @@ module.exports = {
        FROM booking b
        INNER JOIN users u ON u.user_id = b.user_id
        INNER JOIN tour t ON t.tour_id = b.tour_id
+       LEFT JOIN coupon c ON c.coupon_id = b.coupon_id
        WHERE b.booking_id = $1`,
       [id]
     );

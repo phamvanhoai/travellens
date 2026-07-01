@@ -18,6 +18,8 @@ const formatDateTime = (value) => {
     return date.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
 };
 
+const formatMoney = (value) => `${Number(value || 0).toLocaleString('vi-VN')} VND`;
+
 class EmailService {
     constructor() {
         this.transporter = nodemailer.createTransport({
@@ -285,6 +287,9 @@ class EmailService {
         const currency = notification.currency || 'VND';
         const paidAt = formatDateTime(notification.paid_at);
         const departureAt = formatDateTime(notification.departure_at);
+        const originalAmount = formatMoney(notification.original_amount);
+        const discountAmount = formatMoney(notification.discount_amount);
+        const finalAmount = formatMoney(notification.final_amount);
         const subject = `Payment confirmed for booking #${notification.booking_id}`;
         const safeName = escapeHtml(notification.customer_name || 'Customer');
 
@@ -293,11 +298,15 @@ class EmailService {
             ['Tour', notification.tour_name],
             ['Departure', departureAt],
             ['Passengers', notification.passenger_count],
+            ['Original amount', originalAmount],
+            Number(notification.discount_amount || 0) > 0 ? ['Discount', `-${discountAmount}`] : null,
+            notification.coupon_code ? ['Coupon', notification.coupon_code] : null,
+            ['Amount due', finalAmount],
             ['Payment code', notification.payment_code],
-            ['Amount', `${amount} ${currency}`],
+            ['Paid amount', `${amount} ${currency}`],
             ['Transaction code', notification.transaction_code],
             ['Paid at', paidAt],
-        ].filter(([, value]) => value);
+        ].filter((row) => row && row[1]);
 
         const detailRows = details.map(([label, value]) => `
           <tr>
@@ -324,7 +333,7 @@ class EmailService {
             content,
             footerText: 'Please keep this email as your payment confirmation.',
         });
-        const text = `Hi ${notification.customer_name || 'Customer'}, payment for booking #${notification.booking_id} was successful. Payment code: ${notification.payment_code}. Amount: ${amount} ${currency}.${notification.tour_name ? ` Tour: ${notification.tour_name}.` : ''}`;
+        const text = `Hi ${notification.customer_name || 'Customer'}, payment for booking #${notification.booking_id} was successful. Payment code: ${notification.payment_code}. Original amount: ${originalAmount}. Discount: ${discountAmount}${notification.coupon_code ? `. Coupon: ${notification.coupon_code}` : ''}. Amount due: ${finalAmount}. Paid amount: ${amount} ${currency}.${notification.tour_name ? ` Tour: ${notification.tour_name}.` : ''}`;
 
         return this.sendMail({
             to: notification.customer_email,
@@ -347,7 +356,9 @@ class EmailService {
         const isFree = status === 'free_confirmed';
         const safeName = escapeHtml(booking.customer_name || 'Customer');
         const departureAt = formatDateTime(booking.departure_at);
-        const amount = `${Number(booking.final_amount || 0).toLocaleString('vi-VN')} VND`;
+        const originalAmount = formatMoney(booking.original_amount);
+        const discountAmount = formatMoney(booking.discount_amount);
+        const finalAmount = formatMoney(booking.final_amount);
         const title = isFree ? 'Booking confirmed' : 'Waiting for payment confirmation';
         const subject = isFree
             ? `Booking #${booking.booking_id} confirmed`
@@ -361,8 +372,11 @@ class EmailService {
             ['Tour', booking.tour_name || 'Tour'],
             ['Departure', departureAt],
             ['Passengers', booking.passenger_count],
-            ['Amount', amount],
-        ].filter(([, value]) => value !== null && value !== undefined);
+            ['Original amount', originalAmount],
+            Number(booking.discount_amount || 0) > 0 ? ['Discount', `-${discountAmount}`] : null,
+            booking.coupon_code ? ['Coupon', booking.coupon_code] : null,
+            ['Amount due', finalAmount],
+        ].filter((row) => row && row[1] !== null && row[1] !== undefined);
         const detailRows = details.map(([label, value]) => `
           <tr>
             <td style="padding:8px 12px; color:#64748b; border-bottom:1px solid #e5e7eb;">${escapeHtml(label)}</td>
@@ -387,7 +401,7 @@ class EmailService {
             subtitle: `Booking #${booking.booking_id}`,
             content,
         });
-        const text = `Hi ${booking.customer_name || 'Customer'}, ${message} Booking #${booking.booking_id}, tour: ${booking.tour_name || 'Tour'}, departure: ${departureAt || 'not specified'}, passengers: ${booking.passenger_count || 0}, amount: ${amount}.`;
+        const text = `Hi ${booking.customer_name || 'Customer'}, ${message} Booking #${booking.booking_id}, tour: ${booking.tour_name || 'Tour'}, departure: ${departureAt || 'not specified'}, passengers: ${booking.passenger_count || 0}, original amount: ${originalAmount}, discount: ${discountAmount}${booking.coupon_code ? `, coupon: ${booking.coupon_code}` : ''}, amount due: ${finalAmount}.`;
 
         return this.sendMail({
             to: booking.customer_email,
@@ -402,6 +416,9 @@ class EmailService {
 
         const amount = Number(refundRequest.refund_amount || 0).toLocaleString('vi-VN');
         const departureAt = formatDateTime(booking.departure_at);
+        const originalAmount = formatMoney(booking.original_amount);
+        const discountAmount = formatMoney(booking.discount_amount);
+        const finalAmount = formatMoney(booking.final_amount);
         const subject = `Cancellation request received for booking #${booking.booking_id}`;
         const content = `
       <p style="margin:0 0 16px; color:#0f172a; font-size:16px; line-height:1.7;">
@@ -414,6 +431,10 @@ class EmailService {
         <li>Booking: <strong>#${booking.booking_id}</strong></li>
         ${booking.tour_name ? `<li>Tour: <strong>${escapeHtml(booking.tour_name)}</strong></li>` : ''}
         ${departureAt ? `<li>Departure: <strong>${escapeHtml(departureAt)}</strong></li>` : ''}
+        <li>Original amount: <strong>${originalAmount}</strong></li>
+        ${Number(booking.discount_amount || 0) > 0 ? `<li>Discount: <strong>-${discountAmount}</strong></li>` : ''}
+        ${booking.coupon_code ? `<li>Coupon: <strong>${escapeHtml(booking.coupon_code)}</strong></li>` : ''}
+        <li>Amount due: <strong>${finalAmount}</strong></li>
         <li>Expected refund: <strong>${amount} VND</strong></li>
         ${refundRequest.reason ? `<li>Reason: <strong>${escapeHtml(refundRequest.reason)}</strong></li>` : ''}
       </ul>
@@ -441,6 +462,9 @@ class EmailService {
             : 'No manual refund is required for this cancellation.';
         const departureAt = formatDateTime(booking.departure_at);
         const reason = booking.cancel_reason || refundRequest?.reason;
+        const originalAmount = formatMoney(booking.original_amount);
+        const discountAmount = formatMoney(booking.discount_amount);
+        const finalAmount = formatMoney(booking.final_amount);
 
         const content = `
       <p style="margin:0 0 16px; color:#0f172a; font-size:16px; line-height:1.7;">
@@ -455,6 +479,10 @@ class EmailService {
       <ul style="margin:16px 0 0; padding-left:18px; color:#334155; font-size:15px; line-height:1.8;">
         ${booking.tour_name ? `<li>Tour: <strong>${escapeHtml(booking.tour_name)}</strong></li>` : ''}
         ${departureAt ? `<li>Departure: <strong>${escapeHtml(departureAt)}</strong></li>` : ''}
+        <li>Original amount: <strong>${originalAmount}</strong></li>
+        ${Number(booking.discount_amount || 0) > 0 ? `<li>Discount: <strong>-${discountAmount}</strong></li>` : ''}
+        ${booking.coupon_code ? `<li>Coupon: <strong>${escapeHtml(booking.coupon_code)}</strong></li>` : ''}
+        <li>Amount due: <strong>${finalAmount}</strong></li>
         ${reason ? `<li>Reason: <strong>${escapeHtml(reason)}</strong></li>` : ''}
       </ul>
     `;
@@ -465,7 +493,7 @@ class EmailService {
             content,
         });
 
-        const text = `Hi ${name || 'Customer'}, booking #${booking.booking_id} has been canceled. ${refundText}${booking.tour_name ? ` Tour: ${booking.tour_name}.` : ''}${departureAt ? ` Departure: ${departureAt}.` : ''}${reason ? ` Reason: ${reason}.` : ''}`;
+        const text = `Hi ${name || 'Customer'}, booking #${booking.booking_id} has been canceled. ${refundText}${booking.tour_name ? ` Tour: ${booking.tour_name}.` : ''}${departureAt ? ` Departure: ${departureAt}.` : ''} Original amount: ${originalAmount}. Discount: ${discountAmount}${booking.coupon_code ? `. Coupon: ${booking.coupon_code}` : ''}. Amount due: ${finalAmount}.${reason ? ` Reason: ${reason}.` : ''}`;
 
         return this.sendMail({ to, subject, html, text });
     }
@@ -476,6 +504,9 @@ class EmailService {
 
         const subject = `New manual refund request for booking #${booking.booking_id}`;
         const departureAt = formatDateTime(booking.departure_at);
+        const originalAmount = formatMoney(booking.original_amount);
+        const discountAmount = formatMoney(booking.discount_amount);
+        const finalAmount = formatMoney(booking.final_amount);
         const content = `
       <p style="margin:0 0 16px; color:#334155; font-size:15px; line-height:1.7;">
         A paid booking was canceled and needs manual refund processing.
@@ -487,6 +518,10 @@ class EmailService {
         ${departureAt ? `<li>Departure: <strong>${escapeHtml(departureAt)}</strong></li>` : ''}
         ${booking.customer_name ? `<li>Customer: <strong>${escapeHtml(booking.customer_name)}</strong></li>` : ''}
         ${booking.customer_phone ? `<li>Phone: <strong>${escapeHtml(booking.customer_phone)}</strong></li>` : ''}
+        <li>Original amount: <strong>${originalAmount}</strong></li>
+        ${Number(booking.discount_amount || 0) > 0 ? `<li>Discount: <strong>-${discountAmount}</strong></li>` : ''}
+        ${booking.coupon_code ? `<li>Coupon: <strong>${escapeHtml(booking.coupon_code)}</strong></li>` : ''}
+        <li>Amount due: <strong>${finalAmount}</strong></li>
         <li>Refund amount: <strong>${Number(refundRequest.refund_amount || 0).toLocaleString('vi-VN')} VND</strong></li>
         ${refundRequest.reason ? `<li>Reason: <strong>${escapeHtml(refundRequest.reason)}</strong></li>` : ''}
       </ul>

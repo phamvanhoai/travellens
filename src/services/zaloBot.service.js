@@ -37,6 +37,15 @@ const formatMoney = (amount, currency = 'VND') => {
   return `${numberAmount.toLocaleString('vi-VN')} ${currency || 'VND'}`;
 };
 
+const getBookingAmountLines = (booking) => [
+  booking.original_amount !== undefined ? `Giá gốc: ${formatMoney(booking.original_amount)}` : null,
+  Number(booking.discount_amount || 0) > 0
+    ? `Giảm giá: -${formatMoney(booking.discount_amount)}`
+    : null,
+  booking.coupon_code ? `Mã giảm giá: ${booking.coupon_code}` : null,
+  booking.final_amount !== undefined ? `Cần thanh toán: ${formatMoney(booking.final_amount)}` : null,
+];
+
 const formatDateTime = (value) => {
   if (!value) return null;
   const date = new Date(value);
@@ -165,7 +174,8 @@ class ZaloBotService {
       notification.passenger_count !== undefined ? `Số khách: ${notification.passenger_count}` : null,
       notification.customer_name ? `Khách hàng: ${notification.customer_name}` : null,
       notification.customer_phone ? `SĐT: ${notification.customer_phone}` : null,
-      `Số tiền: ${formatMoney(notification.amount, notification.currency)}`,
+      ...getBookingAmountLines(notification),
+      `Đã thanh toán: ${formatMoney(notification.amount, notification.currency)}`,
       `Mã thanh toán: ${notification.payment_code}`,
       notification.transaction_code ? `Mã giao dịch: ${notification.transaction_code}` : null,
       paidAt ? `Thanh toán lúc: ${paidAt}` : null,
@@ -221,6 +231,7 @@ class ZaloBotService {
       booking.passenger_count !== undefined ? `Số khách: ${booking.passenger_count}` : null,
       booking.customer_name ? `Khách hàng: ${booking.customer_name}` : null,
       booking.customer_phone ? `SĐT: ${booking.customer_phone}` : null,
+      ...getBookingAmountLines(booking),
       options.refundAmount !== undefined
         ? `Số tiền hoàn dự kiến: ${formatMoney(options.refundAmount, options.currency)}`
         : null,
@@ -281,7 +292,7 @@ class ZaloBotService {
       booking.passenger_count !== undefined ? `Số khách: ${booking.passenger_count}` : null,
       booking.customer_name ? `Khách hàng: ${booking.customer_name}` : null,
       booking.customer_phone ? `SĐT: ${booking.customer_phone}` : null,
-      `Số tiền: ${formatMoney(booking.final_amount)}`,
+      ...getBookingAmountLines(booking),
     ].filter(Boolean).join('\n');
 
     const results = [];
