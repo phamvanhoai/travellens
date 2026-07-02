@@ -74,6 +74,25 @@ module.exports = {
     response.success(res, data, 'Review submitted successfully', httpStatus.CREATED);
   }),
 
+  updateBookingTourReview: asyncHandler(async (req, res) => {
+    const data = await reviewService.updateBookingTourReview(
+      req.params.bookingId,
+      req.user.sub,
+      req.body
+    );
+
+    response.success(res, data, 'Review updated successfully');
+  }),
+
+  deleteBookingTourReview: asyncHandler(async (req, res) => {
+    const data = await reviewService.deleteBookingTourReview(
+      req.params.bookingId,
+      req.user.sub
+    );
+
+    response.success(res, data, 'Review deleted successfully');
+  }),
+
   remove: asyncHandler(async (req, res) => {
     const data = await reviewService.remove(req.params.id);
     response.success(res, data, 'Review deleted successfully');

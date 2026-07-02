@@ -91,6 +91,34 @@ class ReviewModel extends BaseModel {
     return result.rows[0] || null;
   }
 
+  async findActiveByBookingWithOwner(bookingId) {
+    const result = await db.query(
+      `SELECT review_id, booking_id, tour_id, user_id
+       FROM review
+       WHERE booking_id = $1
+         AND deleted_at IS NULL
+       LIMIT 1`,
+      [bookingId]
+    );
+
+    return result.rows[0] || null;
+  }
+
+  async updateBookingTourReview(bookingId, { rating, comment }) {
+    const result = await db.query(
+      `UPDATE review
+       SET rating = $2,
+           comment = $3,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE booking_id = $1
+         AND deleted_at IS NULL
+       RETURNING review_id, booking_id, tour_id, user_id, rating, comment, status, created_at, updated_at`,
+      [bookingId, rating, comment || null]
+    );
+
+    return result.rows[0] || null;
+  }
+
   async softDelete(id) {
     const result = await db.query(
       `UPDATE review
