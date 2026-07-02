@@ -222,6 +222,76 @@ const router = express.Router();
  *         description: Location Not Found
  *       409:
  *         description: Review Already Exists
+ *
+ * /locations/{locationId}/reviews/{reviewId}:
+ *   put:
+ *     summary: Update current customer's location review
+ *     tags: [Locations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: locationId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: path
+ *         name: reviewId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [rating]
+ *             properties:
+ *               rating:
+ *                 type: integer
+ *                 minimum: 1
+ *                 maximum: 5
+ *                 example: 4
+ *               comment:
+ *                 type: string
+ *                 maxLength: 1000
+ *                 nullable: true
+ *                 example: Updated review content.
+ *     responses:
+ *       200:
+ *         description: Review updated successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Review does not belong to current customer
+ *       404:
+ *         description: Location or review not found
+ *   delete:
+ *     summary: Delete current customer's location review
+ *     tags: [Locations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: locationId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: path
+ *         name: reviewId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Review deleted successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Review does not belong to current customer
+ *       404:
+ *         description: Location or review not found
  */
 router.get('/', validate(location.list), controller.list);
 router.get('/:id/weather', validate({ params: common.idParam }), controller.weather);
@@ -231,6 +301,20 @@ router.post(
   authorize('customer'),
   validate(review.submitLocationReview),
   reviewController.submitLocationReview
+);
+router.put(
+  '/:locationId/reviews/:reviewId',
+  authenticate,
+  authorize('customer'),
+  validate(review.updateLocationReview),
+  reviewController.updateLocationReview
+);
+router.delete(
+  '/:locationId/reviews/:reviewId',
+  authenticate,
+  authorize('customer'),
+  validate(review.deleteLocationReview),
+  reviewController.deleteLocationReview
 );
 router.get('/:id', validate({ params: common.idParam }), controller.get);
 
