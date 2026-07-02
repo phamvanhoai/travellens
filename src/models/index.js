@@ -17,6 +17,7 @@ module.exports = {
   coupon: require('./coupon.model'),
   blog: require('./blog.model'),
   blogLocation: require('./blogLocation.model'),
+  blogComment: require('./blogComment.model'),
   review: require('./review.model'),
   reviewPhoto: require('./reviewPhoto.model'),
   statistics: require('./statistics.model'),

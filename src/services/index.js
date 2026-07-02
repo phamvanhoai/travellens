@@ -20,6 +20,7 @@ module.exports = {
   coupon: require('./coupon.service'),
   blog: require('./blog.service'),
   blogLocation: require('./blogLocation.service'),
+  blogComment: require('./blogComment.service'),
   review: require('./review.service'),
   reviewPhoto: require('./reviewPhoto.service'),
   statistics: require('./statistics.service'),
