@@ -28,6 +28,7 @@ const options = {
       { name: 'Admin Media', description: 'Admin reusable image library for blog content' },
       { name: 'Staff Coupons', description: 'Staff coupon management endpoints' },
       { name: 'Staff Bookings', description: 'Staff booking management endpoints' },
+      { name: 'Staff Customers', description: 'Staff customer lookup endpoints' },
       { name: 'Staff Reviews', description: 'Staff review moderation endpoints' },
       { name: 'Staff Payments', description: 'Staff payment management endpoints' },
       { name: 'Staff Refund Requests', description: 'Staff manual refund request endpoints' },
@@ -82,6 +83,7 @@ const options = {
           properties: {
             user_id: { type: 'integer', readOnly: true, description: 'Resolved from the authenticated customer token.' },
             tour_id: { type: 'integer', example: 1 },
+            contact_phone: { type: 'string', nullable: true, example: '0901234567', description: 'Optional contact phone. Backend stores it in the first passenger special_request.' },
             travel_date: { type: 'string', format: 'date', example: '2026-07-15' },
             departure_at: { type: 'string', format: 'date-time', nullable: true, description: 'Optional override. If omitted, backend combines travel_date with the start time from tour.schedule.', example: '2026-07-15T08:00:00+07:00' },
             coupon_code: { type: 'string', nullable: true, example: 'SUMMER20' },
@@ -96,6 +98,75 @@ const options = {
                   seat_number: { type: 'string', nullable: true },
                   special_request: { type: 'string', nullable: true },
                 },
+              },
+            },
+          },
+        },
+        StaffBookingInput: {
+          type: 'object',
+          required: ['user_id', 'tour_id', 'travel_date', 'passengers'],
+          properties: {
+            user_id: {
+              type: 'integer',
+              example: 12,
+              description: 'Customer user_id returned by GET /staff/customers/lookup. Staff must lookup by email first.',
+            },
+            tour_id: { type: 'integer', example: 1 },
+            contact_phone: {
+              type: 'string',
+              nullable: true,
+              example: '0901234567',
+              description: 'Phone of the actual contact/traveler when staff books on behalf of another person. Backend stores it in the first passenger special_request.',
+            },
+            travel_date: { type: 'string', format: 'date', example: '2026-07-15' },
+            departure_at: {
+              type: 'string',
+              format: 'date-time',
+              nullable: true,
+              description: 'Optional override. If omitted, backend combines travel_date with the start time from tour.schedule.',
+              example: '2026-07-15T08:00:00+07:00',
+            },
+            coupon_code: { type: 'string', nullable: true, example: 'SUMMER20' },
+            passengers: {
+              type: 'array',
+              minItems: 1,
+              items: {
+                type: 'object',
+                required: ['passenger_name', 'age_category'],
+                properties: {
+                  passenger_name: { type: 'string', example: 'Nguyen Van A' },
+                  age_category: { type: 'string', enum: ['adult', 'child', 'infant'], example: 'adult' },
+                  seat_number: { type: 'string', nullable: true, example: '' },
+                  special_request: { type: 'string', nullable: true, example: '' },
+                },
+              },
+            },
+          },
+        },
+        StaffCustomerLookupResult: {
+          type: 'object',
+          properties: {
+            exists: { type: 'boolean', example: true },
+            reason: {
+              type: 'string',
+              nullable: true,
+              enum: ['not_found', 'not_customer', 'inactive'],
+              example: null,
+            },
+            message: {
+              type: 'string',
+              nullable: true,
+              example: 'Customer chưa tồn tại, vui lòng tạo tài khoản customer trước',
+            },
+            customer: {
+              type: 'object',
+              nullable: true,
+              properties: {
+                user_id: { type: 'integer', example: 12 },
+                name: { type: 'string', example: 'Nguyen Van A' },
+                email: { type: 'string', format: 'email', example: 'customer@example.com' },
+                phone: { type: 'string', nullable: true, example: '0901234567' },
+                status: { type: 'string', nullable: true, example: 'active' },
               },
             },
           },

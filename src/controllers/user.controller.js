@@ -16,6 +16,11 @@ module.exports = {
     });
   }),
 
+  lookupCustomerForStaff: asyncHandler(async (req, res) => {
+    const data = await userService.lookupActiveCustomerByEmail(req.query.email);
+    response.success(res, data);
+  }),
+
   create: asyncHandler(async (req, res) => {
     const data = await userService.create(req.body);
     response.success(res, data, 'User created successfully', httpStatus.CREATED);

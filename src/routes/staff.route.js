@@ -1,5 +1,8 @@
 const express = require('express');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
+const validate = require('../middlewares/validate.middleware');
+const userController = require('../controllers/user.controller');
+const { user } = require('../validators');
 
 const router = express.Router();
 
@@ -16,6 +19,8 @@ router.use(authenticate, authorize('staff', 'admin'));
  *     description: Staff review moderation endpoints. Requires Bearer token with role `staff` or `admin`.
  *   - name: Staff Payments
  *     description: Staff payment management endpoints. Requires Bearer token with role `staff` or `admin`.
+ *   - name: Staff Customers
+ *     description: Staff customer lookup endpoints. Requires Bearer token with role `staff` or `admin`.
  *
  * /staff/reviews:
  *   get:
@@ -254,13 +259,122 @@ router.use(authenticate, authorize('staff', 'admin'));
  *         description: Booking list
  *   post:
  *     summary: Create booking tour
+ *     description: Staff must lookup the customer by email first using `GET /staff/customers/lookup`, then send the returned `user_id` in this request body. Customer must exist, have role `customer`, and status `active`.
  *     tags: [Staff Bookings]
  *     security:
  *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/StaffBookingInput'
+ *           examples:
+ *             createStaffBooking:
+ *               summary: Create booking for an active customer
+ *               value:
+ *                 user_id: 12
+ *                 tour_id: 3
+ *                 contact_phone: "0901234567"
+ *                 travel_date: "2026-07-20"
+ *                 coupon_code: null
+ *                 passengers:
+ *                   - passenger_name: Nguyen Van A
+ *                     age_category: adult
+ *                     seat_number: ""
+ *                     special_request: ""
  *     responses:
  *       201:
- *         description: Booking created
+ *         description: Booking created. Response includes customer fields for staff confirmation.
+ *       400:
+ *         description: Customer is required, customer is inactive/not found, tour unavailable, or request data is invalid.
+ *       404:
+ *         description: Tour not found.
+ *
+ * /staff/customers/lookup:
+ *   get:
+ *     summary: Lookup customer by email before staff creates a booking
+ *     description: Email is the only customer identifier for staff booking creation. Phone and name can be duplicated and are returned only for confirmation. If the customer is inactive or the email belongs to a non-customer account, booking creation should be blocked.
+ *     tags: [Staff Customers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: email
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: email
+ *         example: customer@example.com
+ *     responses:
+ *       200:
+ *         description: Lookup result. `exists=true` means FE may use `customer.user_id` for `POST /staff/bookings`; otherwise FE should show the returned message and block booking creation.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 message: { type: string, example: Success }
+ *                 data:
+ *                   $ref: '#/components/schemas/StaffCustomerLookupResult'
+ *             examples:
+ *               activeCustomer:
+ *                 summary: Active customer found
+ *                 value:
+ *                   success: true
+ *                   message: Success
+ *                   data:
+ *                     exists: true
+ *                     customer:
+ *                       user_id: 12
+ *                       name: Nguyen Van A
+ *                       email: customer@example.com
+ *                       phone: "0901234567"
+ *               notFound:
+ *                 summary: Email does not exist
+ *                 value:
+ *                   success: true
+ *                   message: Success
+ *                   data:
+ *                     exists: false
+ *                     reason: not_found
+ *                     message: Customer chưa tồn tại, vui lòng tạo tài khoản customer trước
+ *               inactive:
+ *                 summary: Customer is not active
+ *                 value:
+ *                   success: true
+ *                   message: Success
+ *                   data:
+ *                     exists: false
+ *                     reason: inactive
+ *                     message: Customer đang không hoạt động, vui lòng kích hoạt tài khoản trước khi tạo booking
+ *                     customer:
+ *                       user_id: 12
+ *                       name: Nguyen Van A
+ *                       email: customer@example.com
+ *                       phone: "0901234567"
+ *                       status: inactive
+ *               notCustomer:
+ *                 summary: Email belongs to staff/admin
+ *                 value:
+ *                   success: true
+ *                   message: Success
+ *                   data:
+ *                     exists: false
+ *                     reason: not_customer
+ *                     message: Email này không thuộc tài khoản customer
+ *                     customer:
+ *                       user_id: 2
+ *                       name: Staff User
+ *                       email: staff@example.com
+ *                       phone: "0901234567"
+ *                       status: active
+ *       400:
+ *         description: Missing or invalid email.
  */
+router.get('/customers/lookup', validate(user.customerLookup), userController.lookupCustomerForStaff);
+
 router.use('/reviews', require('./review.route'));
 router.use('/coupons', require('./coupon.route'));
 router.use('/bookings', require('./bookingStaff.route'));

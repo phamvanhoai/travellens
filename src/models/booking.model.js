@@ -71,6 +71,12 @@ module.exports = {
         u.name ILIKE $${values.length}
         OR u.email ILIKE $${values.length}
         OR u.phone ILIKE $${values.length}
+        OR EXISTS (
+          SELECT 1
+          FROM booking_detail bds
+          WHERE bds.booking_id = b.booking_id
+            AND bds.special_request ILIKE $${values.length}
+        )
         OR t.name ILIKE $${values.length}
         OR CAST(b.booking_id AS TEXT) ILIKE $${values.length}
       )`);
@@ -112,8 +118,7 @@ module.exports = {
             'user_id', u.user_id,
             'name', u.name,
             'email', u.email,
-            'phone', u.phone,
-            'avatar_url', u.avatar_url
+            'phone', u.phone
           ) AS customer,
           json_build_object(
             'tour_id', t.tour_id,
@@ -187,7 +192,6 @@ module.exports = {
             'name', u.name,
             'email', u.email,
             'phone', u.phone,
-            'avatar_url', u.avatar_url,
             'address', u.address
           ) AS customer,
           json_build_object(
@@ -409,6 +413,14 @@ module.exports = {
               u.name AS customer_name,
               u.email AS customer_email,
               u.phone AS customer_phone,
+              (
+                SELECT bd.special_request
+                FROM booking_detail bd
+                WHERE bd.booking_id = b.booking_id
+                  AND bd.special_request ILIKE '%Contact phone:%'
+                ORDER BY bd.booking_detail_id ASC
+                LIMIT 1
+              ) AS contact_phone_note,
               t.name AS tour_name,
               c.code AS coupon_code,
               c.name AS coupon_name,

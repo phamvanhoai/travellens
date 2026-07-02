@@ -64,6 +64,57 @@ class UserService extends BaseService {
     return sanitize(await super.get(id));
   }
 
+  async lookupActiveCustomerByEmail(email) {
+    const user = await this.model.findByEmailForStaffLookup(email);
+    if (!user) {
+      return {
+        exists: false,
+        reason: 'not_found',
+        message: 'Customer chưa tồn tại, vui lòng tạo tài khoản customer trước',
+      };
+    }
+
+    if (user.role !== 'customer') {
+      return {
+        exists: false,
+        reason: 'not_customer',
+        message: 'Email này không thuộc tài khoản customer',
+        customer: {
+          user_id: user.user_id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          status: user.status,
+        },
+      };
+    }
+
+    if (user.status !== 'active') {
+      return {
+        exists: false,
+        reason: 'inactive',
+        message: 'Customer đang không hoạt động, vui lòng kích hoạt tài khoản trước khi tạo booking',
+        customer: {
+          user_id: user.user_id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          status: user.status,
+        },
+      };
+    }
+
+    return {
+      exists: true,
+      customer: {
+        user_id: user.user_id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+      },
+    };
+  }
+
   async create(payload) {
     const nextPayload = { ...payload };
     nextPayload.name = nextPayload.name.trim();

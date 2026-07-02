@@ -3,6 +3,7 @@ const Joi = require('joi');
 const optionalText = Joi.string().allow(null, '');
 const id = Joi.number().integer().positive();
 const money = Joi.number().min(0);
+const vietnamPhonePattern = /^0(?:3|5|7|8|9)\d{8}$/;
 const uploadedOrRemoteImage = (folder) => Joi.string().trim().custom((value, helpers) => {
   if (!value || value.startsWith(`/public/${folder}/`)) {
     return value;
@@ -72,6 +73,9 @@ module.exports = {
   booking: Joi.object({
     user_id: id,
     tour_id: id.required(),
+    contact_phone: Joi.string().trim().pattern(vietnamPhonePattern).allow(null, '').messages({
+      'string.pattern.base': 'contact_phone must be a valid Vietnamese mobile number with 10 digits, for example: 0901234567',
+    }),
     departure_at: Joi.date(),
     travel_date: Joi.date(),
     coupon_id: id.allow(null),
