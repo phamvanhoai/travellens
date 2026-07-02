@@ -20,6 +20,7 @@ module.exports = {
   coupon: require('./coupon.controller'),
   blog: require('./blog.controller'),
   blogLocation: require('./blogLocation.controller'),
+  blogComment: require('./blogComment.controller'),
   review: require('./review.controller'),
   reviewPhoto: require('./reviewPhoto.controller'),
   statistics: require('./statistics.controller'),

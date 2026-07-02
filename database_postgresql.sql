@@ -7,6 +7,7 @@ DROP TABLE IF EXISTS statistics CASCADE;
 DROP TABLE IF EXISTS revoked_tokens CASCADE;
 DROP TABLE IF EXISTS review_photo CASCADE;
 DROP TABLE IF EXISTS review CASCADE;
+DROP TABLE IF EXISTS blog_comment CASCADE;
 DROP TABLE IF EXISTS blog_location CASCADE;
 DROP TABLE IF EXISTS media_file CASCADE;
 DROP TABLE IF EXISTS blog CASCADE;
@@ -495,6 +496,38 @@ CREATE TABLE blog (
 );
 
 -- =========================================================
+-- Blog_Comment
+-- =========================================================
+CREATE TABLE blog_comment (
+    comment_id SERIAL PRIMARY KEY,
+    blog_id INT NOT NULL,
+    user_id INT NOT NULL,
+    parent_comment_id INT,
+    content TEXT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'approved',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
+    CONSTRAINT fk_blog_comment_blog
+        FOREIGN KEY (blog_id)
+        REFERENCES blog(blog_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_blog_comment_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(user_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_blog_comment_parent
+        FOREIGN KEY (parent_comment_id)
+        REFERENCES blog_comment(comment_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT chk_blog_comment_status
+        CHECK (status IN ('pending', 'approved', 'rejected'))
+);
+
+-- =========================================================
 -- Blog_Location
 -- =========================================================
 CREATE TABLE blog_location (
@@ -667,6 +700,11 @@ CREATE UNIQUE INDEX uq_coupon_active_code ON coupon(UPPER(code)) WHERE deleted_a
 CREATE INDEX idx_coupon_status ON coupon(status);
 CREATE INDEX idx_coupon_deleted_at ON coupon(deleted_at);
 CREATE INDEX idx_blog_user_id ON blog(user_id);
+CREATE INDEX idx_blog_comment_blog_id ON blog_comment(blog_id);
+CREATE INDEX idx_blog_comment_user_id ON blog_comment(user_id);
+CREATE INDEX idx_blog_comment_parent_comment_id ON blog_comment(parent_comment_id);
+CREATE INDEX idx_blog_comment_status ON blog_comment(status);
+CREATE INDEX idx_blog_comment_deleted_at ON blog_comment(deleted_at);
 CREATE INDEX idx_blog_location_blog_id ON blog_location(blog_id);
 CREATE INDEX idx_blog_location_location_id ON blog_location(location_id);
 CREATE INDEX idx_media_file_created_at ON media_file(created_at DESC);
