@@ -38,6 +38,21 @@ module.exports = {
     });
   }),
 
+  listTourReviews: asyncHandler(async (req, res) => {
+    const data = await reviewService.listTourReviews(req.params.tourId, req.query);
+    response.success(res, data);
+  }),
+
+  submitBookingTourReview: asyncHandler(async (req, res) => {
+    const data = await reviewService.submitBookingTourReview(
+      req.params.bookingId,
+      req.user.sub,
+      req.body
+    );
+
+    response.success(res, data, 'Review submitted successfully', httpStatus.CREATED);
+  }),
+
   remove: asyncHandler(async (req, res) => {
     const data = await reviewService.remove(req.params.id);
     response.success(res, data, 'Review deleted successfully');
