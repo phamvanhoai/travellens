@@ -1,5 +1,4 @@
 const locationModel = require('../models/location.model');
-const weatherService = require('./weather.service');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 const { removeUploadedFile } = require('../utils/uploadedFile');
@@ -15,31 +14,6 @@ class LocationService {
       throw new ApiError(httpStatus.NOT_FOUND, 'Location not found');
     }
     return location;
-  }
-
-  async getWeather(id) {
-    const location = await this.get(id);
-    const hasCoordinates = location.latitude !== null
-      && location.latitude !== undefined
-      && location.longitude !== null
-      && location.longitude !== undefined;
-
-    if (!hasCoordinates) {
-      throw new ApiError(httpStatus.BAD_REQUEST, 'Location coordinates are required');
-    }
-
-    const weather = await weatherService.getCurrentByCoordinates(
-      location.latitude,
-      location.longitude
-    );
-
-    return {
-      location_id: location.location_id,
-      location_name: location.name,
-      latitude: Number(location.latitude),
-      longitude: Number(location.longitude),
-      weather,
-    };
   }
 
   async create(payload) {
