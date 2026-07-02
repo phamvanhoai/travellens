@@ -25,6 +25,22 @@ module.exports = {
     }),
   },
 
+  updateBookingTourReview: {
+    params: Joi.object({
+      bookingId: id.required(),
+    }),
+    body: Joi.object({
+      rating: Joi.number().integer().min(1).max(5).required(),
+      comment: Joi.string().trim().max(1000).allow('', null),
+    }),
+  },
+
+  deleteBookingTourReview: {
+    params: Joi.object({
+      bookingId: id.required(),
+    }),
+  },
+
   submitLocationReview: {
     params: Joi.object({
       locationId: id.required(),

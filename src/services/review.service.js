@@ -124,6 +124,45 @@ class ReviewService extends BaseService {
     });
   }
 
+  async updateBookingTourReview(bookingId, userId, payload) {
+    const booking = await bookingModel.findOwnedReviewContext(bookingId, userId);
+    if (!booking) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Booking not found');
+    }
+
+    const review = await this.model.findActiveByBookingWithOwner(booking.booking_id);
+    if (!review) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Review not found');
+    }
+
+    if (Number(review.user_id) !== Number(userId)) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'You can only update your own review');
+    }
+
+    return this.model.updateBookingTourReview(booking.booking_id, {
+      rating: payload.rating,
+      comment: payload.comment,
+    });
+  }
+
+  async deleteBookingTourReview(bookingId, userId) {
+    const booking = await bookingModel.findOwnedReviewContext(bookingId, userId);
+    if (!booking) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Booking not found');
+    }
+
+    const review = await this.model.findActiveByBookingWithOwner(booking.booking_id);
+    if (!review) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Review not found');
+    }
+
+    if (Number(review.user_id) !== Number(userId)) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'You can only delete your own review');
+    }
+
+    return this.remove(review.review_id);
+  }
+
   async remove(id) {
     const review = await this.model.softDelete(id);
     if (!review) {

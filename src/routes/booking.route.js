@@ -52,6 +52,65 @@ router.use(authenticate, authorize('customer'));
  *         description: Booking not found
  *       409:
  *         description: Booking has already been reviewed
+ *   put:
+ *     summary: Update current customer's tour review for a booking
+ *     description: Updates the review attached to this booking. The booking must belong to the current customer.
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bookingId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [rating]
+ *             properties:
+ *               rating:
+ *                 type: integer
+ *                 minimum: 1
+ *                 maximum: 5
+ *                 example: 4
+ *               comment:
+ *                 type: string
+ *                 nullable: true
+ *                 example: Updated tour review.
+ *     responses:
+ *       200:
+ *         description: Review updated successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Review does not belong to current customer
+ *       404:
+ *         description: Booking or review not found
+ *   delete:
+ *     summary: Delete current customer's tour review for a booking
+ *     description: Soft deletes the review attached to this booking. The booking must belong to the current customer.
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bookingId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Review deleted successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Review does not belong to current customer
+ *       404:
+ *         description: Booking or review not found
  */
 
 router
@@ -69,10 +128,10 @@ router.patch(
   controller.customerCancel
 );
 
-router.post(
-  '/:bookingId/review',
-  validate(review.submitBookingTourReview),
-  reviewController.submitBookingTourReview
-);
+router
+  .route('/:bookingId/review')
+  .post(validate(review.submitBookingTourReview), reviewController.submitBookingTourReview)
+  .put(validate(review.updateBookingTourReview), reviewController.updateBookingTourReview)
+  .delete(validate(review.deleteBookingTourReview), reviewController.deleteBookingTourReview);
 
 module.exports = router;
