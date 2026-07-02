@@ -19,6 +19,12 @@ const formatDateTime = (value) => {
 };
 
 const formatMoney = (value) => `${Number(value || 0).toLocaleString('vi-VN')} VND`;
+const extractContactPhone = (booking) => {
+    if (booking?.contact_phone) return booking.contact_phone;
+
+    const match = String(booking?.contact_phone_note || '').match(/Contact phone:\s*([^\r\n]+)/i);
+    return match ? match[1].trim() : null;
+};
 
 class EmailService {
     constructor() {
@@ -353,22 +359,35 @@ class EmailService {
             return null;
         }
 
-        const isFree = status === 'free_confirmed';
+        const statusConfig = {
+            free_confirmed: {
+                title: 'Booking confirmed',
+                subject: `Booking #${booking.booking_id} confirmed`,
+                message: 'Your booking costs 0 VND, so it has been confirmed automatically. No payment is required.',
+            },
+            manual_pending: {
+                title: 'Waiting for payment confirmation',
+                subject: `Booking #${booking.booking_id} is waiting for confirmation`,
+                message: 'Your booking amount requires manual confirmation. Our staff will review it and notify you when it is confirmed.',
+            },
+            payment_required: {
+                title: 'Booking created',
+                subject: `Booking #${booking.booking_id} created`,
+                message: 'Your booking has been created. Please create a bank transfer payment and complete it before the payment expires.',
+            },
+        };
+        const config = statusConfig[status] || statusConfig.payment_required;
         const safeName = escapeHtml(booking.customer_name || 'Customer');
         const departureAt = formatDateTime(booking.departure_at);
         const originalAmount = formatMoney(booking.original_amount);
         const discountAmount = formatMoney(booking.discount_amount);
         const finalAmount = formatMoney(booking.final_amount);
-        const title = isFree ? 'Booking confirmed' : 'Waiting for payment confirmation';
-        const subject = isFree
-            ? `Booking #${booking.booking_id} confirmed`
-            : `Booking #${booking.booking_id} is waiting for confirmation`;
-        const message = isFree
-            ? 'Your booking costs 0 VND, so it has been confirmed automatically. No payment is required.'
-            : 'Your booking amount requires manual confirmation. Our staff will review it and notify you when it is confirmed.';
+        const contactPhone = extractContactPhone(booking) || booking.customer_phone;
 
         const details = [
             ['Booking', `#${booking.booking_id}`],
+            ['Customer account', booking.customer_name],
+            contactPhone ? ['Contact phone', contactPhone] : null,
             ['Tour', booking.tour_name || 'Tour'],
             ['Departure', departureAt],
             ['Passengers', booking.passenger_count],
@@ -389,7 +408,7 @@ class EmailService {
         Hi <strong>${safeName}</strong>,
       </p>
       <p style="margin:0 0 18px; color:#334155; font-size:15px; line-height:1.7;">
-        ${message}
+        ${config.message}
       </p>
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e5e7eb; border-radius:8px; border-collapse:separate; overflow:hidden;">
         ${detailRows}
@@ -397,15 +416,15 @@ class EmailService {
     `;
 
         const html = this.getBaseTemplate({
-            title,
+            title: config.title,
             subtitle: `Booking #${booking.booking_id}`,
             content,
         });
-        const text = `Hi ${booking.customer_name || 'Customer'}, ${message} Booking #${booking.booking_id}, tour: ${booking.tour_name || 'Tour'}, departure: ${departureAt || 'not specified'}, passengers: ${booking.passenger_count || 0}, original amount: ${originalAmount}, discount: ${discountAmount}${booking.coupon_code ? `, coupon: ${booking.coupon_code}` : ''}, amount due: ${finalAmount}.`;
+        const text = `Hi ${booking.customer_name || 'Customer'}, ${config.message} Booking #${booking.booking_id}, tour: ${booking.tour_name || 'Tour'}, departure: ${departureAt || 'not specified'}, passengers: ${booking.passenger_count || 0}, original amount: ${originalAmount}, discount: ${discountAmount}${booking.coupon_code ? `, coupon: ${booking.coupon_code}` : ''}, amount due: ${finalAmount}.`;
 
         return this.sendMail({
             to: booking.customer_email,
-            subject,
+            subject: config.subject,
             html,
             text,
         });

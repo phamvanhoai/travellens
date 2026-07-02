@@ -48,7 +48,8 @@ class BookingService extends BaseService {
       await this.ensureCustomerExists(payload.user_id, client);
       await this.ensureTourHasCapacity(tour, passengers.length, client, departureAt);
 
-      const pricedPassengers = this.applyPassengerPrices(passengers, tour);
+      const passengersWithContact = this.attachContactPhoneToPassengers(passengers, payload.contact_phone);
+      const pricedPassengers = this.applyPassengerPrices(passengersWithContact, tour);
       const originalAmount = this.calculateOriginalAmount(pricedPassengers);
       let couponSnapshot = {
         coupon_id: null,
@@ -109,9 +110,7 @@ class BookingService extends BaseService {
         await couponService.markUsed(couponSnapshot.coupon_id, client);
       }
 
-      const notificationBooking = (isFreeBooking || requiresManualPayment)
-        ? await bookingModel.findNotificationContext(booking.booking_id, client)
-        : null;
+      const notificationBooking = await bookingModel.findNotificationContext(booking.booking_id, client);
 
       await client.query('COMMIT');
       if (isFreeBooking || requiresManualPayment) {
@@ -142,6 +141,16 @@ class BookingService extends BaseService {
           email_sent: Boolean(emailResult),
           zalo_sent: Boolean(zaloResult?.sent),
           zalo_reason: zaloResult?.reason,
+        });
+      } else {
+        const emailResult = await emailService.sendBestEffort(() => emailService.sendBookingPaymentStatus({
+          bookingId: booking.booking_id,
+          status: 'payment_required',
+          booking: notificationBooking,
+        }));
+        logger.info('Booking created email notification completed', {
+          booking_id: booking.booking_id,
+          email_sent: Boolean(emailResult),
         });
       }
       return {
@@ -186,6 +195,25 @@ class BookingService extends BaseService {
 
   calculateOriginalAmount(passengers) {
     return passengers.reduce((total, passenger) => total + Number(passenger.price || 0), 0);
+  }
+
+  attachContactPhoneToPassengers(passengers, contactPhone) {
+    if (!contactPhone || !passengers.length) {
+      return passengers;
+    }
+
+    return passengers.map((passenger, index) => {
+      if (index !== 0) return passenger;
+
+      const existingRequest = String(passenger.special_request || '').trim();
+      const contactLine = `Contact phone: ${contactPhone}`;
+      return {
+        ...passenger,
+        special_request: existingRequest
+          ? `${existingRequest}\n${contactLine}`
+          : contactLine,
+      };
+    });
   }
 
   listForUser(userId, query = {}) {
@@ -296,6 +324,17 @@ class BookingService extends BaseService {
       throw new ApiError(httpStatus.NOT_FOUND, 'Booking not found');
     }
     return this.attachPassengersToBooking(booking);
+  }
+
+  async createForStaff(payload) {
+    const created = await this.create(payload);
+    const booking = await this.getForStaff(created.booking_id);
+    return {
+      ...booking,
+      payment_required: created.payment_required,
+      payment_method: created.payment_method,
+      details: booking.passengers,
+    };
   }
 
   createForUser(payload, userId) {

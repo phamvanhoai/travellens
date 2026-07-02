@@ -47,6 +47,11 @@ module.exports = {
     response.success(res, data);
   }),
 
+  staffCreate: asyncHandler(async (req, res) => {
+    const data = await bookingService.createForStaff(req.body);
+    response.success(res, data, 'Created', 201);
+  }),
+
   history: asyncHandler(async (req, res) => {
     const data = await bookingService.getHistory(req.params.id);
     response.success(res, data);
