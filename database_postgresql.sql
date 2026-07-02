@@ -540,7 +540,9 @@ CREATE TABLE media_file (
 CREATE TABLE review (
     review_id SERIAL PRIMARY KEY,
     user_id INT NOT NULL,
-    location_id INT NOT NULL,
+    location_id INT,
+    booking_id INT,
+    tour_id INT,
     rating INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
     comment TEXT,
     images TEXT,
@@ -557,6 +559,16 @@ CREATE TABLE review (
     CONSTRAINT fk_review_location
         FOREIGN KEY (location_id)
         REFERENCES location(location_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_review_booking
+        FOREIGN KEY (booking_id)
+        REFERENCES booking(booking_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_review_tour
+        FOREIGN KEY (tour_id)
+        REFERENCES tour(tour_id)
         ON UPDATE CASCADE
         ON DELETE CASCADE
 );
@@ -638,6 +650,11 @@ CREATE INDEX idx_refund_request_payment_id ON refund_request(payment_id);
 CREATE INDEX idx_refund_request_requested_by ON refund_request(requested_by);
 CREATE INDEX idx_refund_request_reviewed_by ON refund_request(reviewed_by);
 CREATE INDEX idx_review_location_id ON review(location_id);
+CREATE INDEX idx_review_booking_id ON review(booking_id);
+CREATE INDEX idx_review_tour_id ON review(tour_id);
+CREATE UNIQUE INDEX uq_review_active_booking
+    ON review(booking_id)
+    WHERE booking_id IS NOT NULL AND deleted_at IS NULL;
 CREATE INDEX idx_review_user_id ON review(user_id);
 CREATE UNIQUE INDEX idx_review_user_location_unique
     ON review(user_id, location_id)

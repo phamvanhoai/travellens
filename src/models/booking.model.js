@@ -256,6 +256,25 @@ module.exports = {
     return result.rows[0] || null;
   },
 
+  async findOwnedReviewContext(id, userId, executor = db) {
+    const result = await executor.query(
+      `SELECT
+          b.booking_id,
+          b.user_id,
+          b.tour_id,
+          b.status,
+          b.payment_status,
+          b.departure_at,
+          t.name AS tour_name
+       FROM booking b
+       INNER JOIN tour t ON t.tour_id = b.tour_id
+       WHERE b.booking_id = $1
+         AND b.user_id = $2`,
+      [id, userId]
+    );
+    return result.rows[0] || null;
+  },
+
   async findDetailsByBookingIds(bookingIds = [], executor = db) {
     if (!bookingIds.length) return [];
 
