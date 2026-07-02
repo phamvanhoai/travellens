@@ -18,6 +18,7 @@ module.exports = {
   view360Image: require('./view360Image.validator'),
   review: require('./review.validator'),
   reviewPhoto: require('./reviewPhoto.validator'),
+  blogComment: require('./blogComment.validator'),
   media: require('./media.validator'),
   refundRequest: require('./refundRequest.validator'),
 };
