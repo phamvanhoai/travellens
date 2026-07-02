@@ -158,7 +158,9 @@ module.exports = {
   blogLocation: Joi.object({ blog_id: id.required(), location_id: id.required() }),
   review: Joi.object({
     user_id: id.required(),
-    location_id: id.required(),
+    location_id: id,
+    booking_id: id,
+    tour_id: id,
     rating: Joi.number().integer().min(1).max(5).required(),
     comment: Joi.string().trim().max(1000).allow(null, ''),
     images: optionalText,

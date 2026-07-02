@@ -2,6 +2,7 @@ const BaseService = require('./base.service');
 const reviewModel = require('../models/review.model');
 const reviewPhotoModel = require('../models/reviewPhoto.model');
 const locationModel = require('../models/location.model');
+const bookingModel = require('../models/booking.model');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 const { removeUploadedFiles } = require('../utils/uploadedFile');
@@ -33,6 +34,51 @@ class ReviewService extends BaseService {
     return this.model.createLocationReview({
       userId,
       locationId,
+      rating: payload.rating,
+      comment: payload.comment,
+      status: 'approved',
+    });
+  }
+
+  async listTourReviews(tourId, query = {}) {
+    return this.model.findApproved({
+      ...query,
+      tour_id: tourId,
+    });
+  }
+
+  async submitBookingTourReview(bookingId, userId, payload) {
+    const booking = await bookingModel.findOwnedReviewContext(bookingId, userId);
+    if (!booking) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Booking not found');
+    }
+
+    if (booking.payment_status !== 'paid') {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Only paid bookings can be reviewed');
+    }
+
+    if (!['confirmed', 'paid'].includes(booking.status)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Only confirmed bookings can be reviewed');
+    }
+
+    if (!booking.departure_at) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Booking departure time is required before review');
+    }
+
+    const departureTime = new Date(booking.departure_at).getTime();
+    if (Number.isNaN(departureTime) || departureTime > Date.now()) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Tour can only be reviewed after departure time');
+    }
+
+    const existingReview = await this.model.findActiveByBooking(booking.booking_id);
+    if (existingReview) {
+      throw new ApiError(httpStatus.CONFLICT, 'Booking has already been reviewed');
+    }
+
+    return this.model.createTourReview({
+      userId,
+      bookingId: booking.booking_id,
+      tourId: booking.tour_id,
       rating: payload.rating,
       comment: payload.comment,
       status: 'approved',
