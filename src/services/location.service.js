@@ -10,11 +10,27 @@ class LocationService {
   }
 
   async get(id) {
-    const location = await locationModel.findActiveById(id);
+    const location = await locationModel.findDetailById(id);
     if (!location) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Location not found');
     }
-    return location;
+
+    const [maps, view360, reviews] = await Promise.all([
+      locationModel.findMapsByLocation(id),
+      locationModel.findView360ByLocation(id),
+      locationModel.findReviewsByLocation(id),
+    ]);
+
+    return {
+      ...location,
+      maps,
+      Maps: maps,
+      view360,
+      view360s: view360,
+      View360s: view360,
+      reviews,
+      Reviews: reviews,
+    };
   }
 
   async getWeather(id) {

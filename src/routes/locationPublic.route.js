@@ -70,6 +70,59 @@ const router = express.Router();
  *     responses:
  *       200:
  *         description: Location detail
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     location_id:
+ *                       type: integer
+ *                       example: 7
+ *                     name:
+ *                       type: string
+ *                       example: Main Hall
+ *                     latitude:
+ *                       type: number
+ *                       nullable: true
+ *                     longitude:
+ *                       type: number
+ *                       nullable: true
+ *                     description:
+ *                       type: string
+ *                       nullable: true
+ *                     thumbnail:
+ *                       type: string
+ *                       nullable: true
+ *                     travel_destination_id:
+ *                       type: integer
+ *                     travel_destination_name:
+ *                       type: string
+ *                       nullable: true
+ *                     maps:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                     view360:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                     view360s:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                     reviews:
+ *                       type: array
+ *                       items:
+ *                         type: object
  *       404:
  *         description: Location not found
  *
