@@ -34,4 +34,22 @@ module.exports = {
       comment: Joi.string().trim().max(1000).allow('', null),
     }),
   },
+
+  updateLocationReview: {
+    params: Joi.object({
+      locationId: id.required(),
+      reviewId: id.required(),
+    }),
+    body: Joi.object({
+      rating: Joi.number().integer().min(1).max(5).required(),
+      comment: Joi.string().trim().max(1000).allow('', null),
+    }),
+  },
+
+  deleteLocationReview: {
+    params: Joi.object({
+      locationId: id.required(),
+      reviewId: id.required(),
+    }),
+  },
 };

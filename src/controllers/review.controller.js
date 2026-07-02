@@ -38,6 +38,27 @@ module.exports = {
     });
   }),
 
+  updateLocationReview: asyncHandler(async (req, res) => {
+    const data = await reviewService.updateLocationReview(
+      req.params.locationId,
+      req.params.reviewId,
+      req.user.sub,
+      req.body
+    );
+
+    response.success(res, data, 'Review updated successfully');
+  }),
+
+  deleteLocationReview: asyncHandler(async (req, res) => {
+    const data = await reviewService.deleteLocationReview(
+      req.params.locationId,
+      req.params.reviewId,
+      req.user.sub
+    );
+
+    response.success(res, data, 'Review deleted successfully');
+  }),
+
   listTourReviews: asyncHandler(async (req, res) => {
     const data = await reviewService.listTourReviews(req.params.tourId, req.query);
     response.success(res, data);

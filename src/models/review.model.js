@@ -48,6 +48,36 @@ class ReviewModel extends BaseModel {
     return result.rows[0] || null;
   }
 
+  async findActiveLocationOwner(reviewId, locationId) {
+    const result = await db.query(
+      `SELECT review_id, user_id, location_id
+       FROM review
+       WHERE review_id = $1
+         AND location_id = $2
+         AND deleted_at IS NULL
+       LIMIT 1`,
+      [reviewId, locationId]
+    );
+
+    return result.rows[0] || null;
+  }
+
+  async updateLocationReview(reviewId, locationId, { rating, comment }) {
+    const result = await db.query(
+      `UPDATE review
+       SET rating = $3,
+           comment = $4,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE review_id = $1
+         AND location_id = $2
+         AND deleted_at IS NULL
+       RETURNING review_id, location_id, user_id, rating, comment, status, created_at, updated_at`,
+      [reviewId, locationId, rating, comment || null]
+    );
+
+    return result.rows[0] || null;
+  }
+
   async findActiveByBooking(bookingId) {
     const result = await db.query(
       `SELECT review_id
