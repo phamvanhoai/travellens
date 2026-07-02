@@ -40,6 +40,45 @@ class ReviewService extends BaseService {
     });
   }
 
+  async updateLocationReview(locationId, reviewId, userId, payload) {
+    const location = await locationModel.findActiveById(locationId);
+    if (!location) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Location Not Found');
+    }
+
+    const review = await this.model.findActiveLocationOwner(reviewId, locationId);
+    if (!review) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Review not found');
+    }
+
+    if (Number(review.user_id) !== Number(userId)) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'You can only update your own review');
+    }
+
+    return this.model.updateLocationReview(reviewId, locationId, {
+      rating: payload.rating,
+      comment: payload.comment,
+    });
+  }
+
+  async deleteLocationReview(locationId, reviewId, userId) {
+    const location = await locationModel.findActiveById(locationId);
+    if (!location) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Location Not Found');
+    }
+
+    const review = await this.model.findActiveLocationOwner(reviewId, locationId);
+    if (!review) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Review not found');
+    }
+
+    if (Number(review.user_id) !== Number(userId)) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'You can only delete your own review');
+    }
+
+    return this.remove(reviewId);
+  }
+
   async listTourReviews(tourId, query = {}) {
     return this.model.findApproved({
       ...query,
