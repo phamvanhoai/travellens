@@ -26,6 +26,11 @@ module.exports = {
     response.success(res, data, 'Location updated successfully');
   }),
 
+  weather: asyncHandler(async (req, res) => {
+    const data = await locationService.getWeather(req.params.id);
+    response.success(res, data);
+  }),
+
   remove: asyncHandler(async (req, res) => {
     const data = await locationService.remove(req.params.id);
     response.success(res, data, 'Location deleted successfully');

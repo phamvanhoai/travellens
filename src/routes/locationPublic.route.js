@@ -73,6 +73,64 @@ const router = express.Router();
  *       404:
  *         description: Location not found
  *
+ * /locations/{id}/weather:
+ *   get:
+ *     summary: Get current weather for a location
+ *     description: Uses the location latitude and longitude to fetch current weather from Open-Meteo. The backend caches responses briefly to avoid calling the provider on every request.
+ *     tags: [Locations]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Current weather for the location
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     location_id:
+ *                       type: integer
+ *                       example: 7
+ *                     location_name:
+ *                       type: string
+ *                       example: Main Hall
+ *                     latitude:
+ *                       type: number
+ *                       example: 10.777035
+ *                     longitude:
+ *                       type: number
+ *                       example: 106.695523
+ *                     weather:
+ *                       type: object
+ *                       properties:
+ *                         provider: { type: string, example: open-meteo }
+ *                         temperature: { type: number, example: 31 }
+ *                         feels_like: { type: number, example: 35 }
+ *                         humidity: { type: number, example: 74 }
+ *                         precipitation: { type: number, example: 0 }
+ *                         wind_speed: { type: number, example: 9 }
+ *                         weather_code: { type: integer, example: 3 }
+ *                         condition: { type: string, example: Overcast }
+ *                         cached: { type: boolean, example: false }
+ *                         updated_at: { type: string, example: "2026-07-02T09:00" }
+ *       400:
+ *         description: Location coordinates are missing or weather provider failed
+ *       404:
+ *         description: Location not found
+ *
  * /locations/{locationId}/reviews:
  *   post:
  *     summary: Submit a review for a location
@@ -113,6 +171,7 @@ const router = express.Router();
  *         description: Review Already Exists
  */
 router.get('/', validate(location.list), controller.list);
+router.get('/:id/weather', validate({ params: common.idParam }), controller.weather);
 router.post(
   '/:locationId/reviews',
   authenticate,
