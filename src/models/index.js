@@ -7,6 +7,7 @@ module.exports = {
   travelDestination: require('./travelDestination.model'),
   location: require('./location.model'),
   view360: require('./view360.model'),
+  view360Hotspot: require('./view360Hotspot.model'),
   view360Image: require('./view360Image.model'),
   map: require('./map.model'),
   booking: require('./booking.model'),

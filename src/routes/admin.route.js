@@ -3,12 +3,13 @@ const { authenticate, authorize } = require('../middlewares/auth.middleware');
 const validate = require('../middlewares/validate.middleware');
 const statisticsController = require('../controllers/statistics.controller');
 const view360Controller = require('../controllers/view360.controller');
+const view360HotspotController = require('../controllers/view360Hotspot.controller');
 const view360ImageController = require('../controllers/view360Image.controller');
 const {
   handleView360AudioUpload,
   handleView360ImageUpload,
 } = require('../middlewares/upload.middleware');
-const { view360, view360Image } = require('../validators');
+const { view360, view360Hotspot, view360Image } = require('../validators');
 
 const router = express.Router();
 
@@ -711,6 +712,135 @@ router.get('/statistics/content', statisticsController.content);
  *     responses:
  *       200:
  *         description: View360 image deleted successfully
+ *
+ * /admin/view360/{view360Id}/hotspots:
+ *   get:
+ *     summary: Admin list View360 hotspots
+ *     tags: [Admin View360]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: view360Id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: View360 hotspot list
+ *   post:
+ *     summary: Admin create View360 hotspot
+ *     tags: [Admin View360]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: view360Id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [yaw, pitch]
+ *             properties:
+ *               type:
+ *                 type: string
+ *                 enum: [info, navigation, link, location]
+ *                 example: info
+ *               title:
+ *                 type: string
+ *                 nullable: true
+ *                 example: Cổng chính
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: Khu vực lối vào chính
+ *               yaw:
+ *                 type: number
+ *                 example: 120.5
+ *               pitch:
+ *                 type: number
+ *                 example: -8.2
+ *               target_view360_id:
+ *                 type: integer
+ *                 nullable: true
+ *               target_url:
+ *                 type: string
+ *                 nullable: true
+ *               order_index:
+ *                 type: integer
+ *                 example: 1
+ *               is_active:
+ *                 type: boolean
+ *                 example: true
+ *     responses:
+ *       201:
+ *         description: View360 hotspot created successfully
+ *
+ * /admin/view360-hotspots/{hotspotId}:
+ *   put:
+ *     summary: Admin update View360 hotspot
+ *     tags: [Admin View360]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: hotspotId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             minProperties: 1
+ *             properties:
+ *               type:
+ *                 type: string
+ *                 enum: [info, navigation, link, location]
+ *               title:
+ *                 type: string
+ *                 nullable: true
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *               yaw:
+ *                 type: number
+ *               pitch:
+ *                 type: number
+ *               target_view360_id:
+ *                 type: integer
+ *                 nullable: true
+ *               target_url:
+ *                 type: string
+ *                 nullable: true
+ *               order_index:
+ *                 type: integer
+ *               is_active:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: View360 hotspot updated successfully
+ *   delete:
+ *     summary: Admin delete View360 hotspot
+ *     tags: [Admin View360]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: hotspotId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: View360 hotspot deleted successfully
  */
 router
   .route('/locations/:locationId/view360')
@@ -731,6 +861,16 @@ router
   .route('/view360-images/:imageId')
   .put(handleView360ImageUpload, validate(view360Image.update), view360ImageController.update)
   .delete(validate(view360Image.imageParam), view360ImageController.remove);
+
+router
+  .route('/view360/:view360Id/hotspots')
+  .get(validate(view360Hotspot.viewParam), view360HotspotController.listByView)
+  .post(validate(view360Hotspot.create), view360HotspotController.createForView);
+
+router
+  .route('/view360-hotspots/:hotspotId')
+  .put(validate(view360Hotspot.update), view360HotspotController.update)
+  .delete(validate(view360Hotspot.hotspotParam), view360HotspotController.remove);
 
 /**
  * @swagger

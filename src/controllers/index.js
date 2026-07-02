@@ -7,6 +7,7 @@ module.exports = {
   travelDestination: require('./travelDestination.controller'),
   location: require('./location.controller'),
   view360: require('./view360.controller'),
+  view360Hotspot: require('./view360Hotspot.controller'),
   view360Image: require('./view360Image.controller'),
   map: require('./map.controller'),
   nearby: require('./nearby.controller'),

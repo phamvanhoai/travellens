@@ -243,6 +243,36 @@ CREATE TABLE view360_image (
 );
 
 -- =========================================================
+-- View360Hotspot
+-- =========================================================
+CREATE TABLE view360_hotspot (
+    hotspot_id SERIAL PRIMARY KEY,
+    view360_id INT NOT NULL,
+    type VARCHAR(50) NOT NULL DEFAULT 'info' CHECK (type IN ('info', 'navigation', 'link', 'location')),
+    title VARCHAR(255),
+    description TEXT,
+    yaw NUMERIC(10,4) NOT NULL,
+    pitch NUMERIC(10,4) NOT NULL,
+    target_view360_id INT,
+    target_url TEXT,
+    order_index INT DEFAULT 0 CHECK (order_index IS NULL OR order_index >= 0),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
+    CONSTRAINT fk_view360_hotspot_view360
+        FOREIGN KEY (view360_id)
+        REFERENCES view360(view_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_view360_hotspot_target_view360
+        FOREIGN KEY (target_view360_id)
+        REFERENCES view360(view_id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL
+);
+
+-- =========================================================
 -- Booking
 -- =========================================================
 CREATE TABLE booking (
@@ -585,6 +615,9 @@ CREATE INDEX idx_view360_location_id ON view360(location_id);
 CREATE INDEX idx_view360_image_view_id ON view360_image(view_id);
 CREATE INDEX idx_view360_deleted_at ON view360(deleted_at);
 CREATE INDEX idx_view360_image_deleted_at ON view360_image(deleted_at);
+CREATE INDEX idx_view360_hotspot_view360_id ON view360_hotspot(view360_id);
+CREATE INDEX idx_view360_hotspot_target_view360_id ON view360_hotspot(target_view360_id);
+CREATE INDEX idx_view360_hotspot_deleted_at ON view360_hotspot(deleted_at);
 CREATE INDEX idx_booking_user_id ON booking(user_id);
 CREATE INDEX idx_booking_tour_id ON booking(tour_id);
 CREATE INDEX idx_booking_coupon_id ON booking(coupon_id);
