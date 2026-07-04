@@ -19,6 +19,7 @@ module.exports = {
   zaloBot: require('./zaloBot.service'),
   coupon: require('./coupon.service'),
   blog: require('./blog.service'),
+  blogCategory: require('./blogCategory.service'),
   blogLocation: require('./blogLocation.service'),
   blogComment: require('./blogComment.service'),
   review: require('./review.service'),

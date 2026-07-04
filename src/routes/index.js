@@ -11,6 +11,7 @@ router.use('/admin', require('./admin.route'));
 router.use('/staff', require('./staff.route'));
 router.use('/destination-categories', require('./destinationCategoryPublic.route'));
 router.use('/tour-categories', require('./tourCategoryPublic.route'));
+router.use('/blog-categories', require('./blogCategoryPublic.route'));
 router.use('/tours', require('./tourPublic.route'));
 router.use('/travel-destinations', require('./travelDestinationPublic.route'));
 router.use('/locations', require('./locationPublic.route'));
