@@ -3,7 +3,6 @@ const bookingStatusHistoryModel = require('../models/bookingStatusHistory.model'
 const paymentModel = require('../models/payment.model');
 const refundRequestModel = require('../models/refundRequest.model');
 const emailService = require('./email.service');
-const zaloBotService = require('./zaloBot.service');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 
@@ -14,8 +13,6 @@ class RefundRequestService {
 
   async approve(id, payload = {}, staffId) {
     const client = await bookingModel.getClient();
-    let clientReleased = false;
-    let transactionCommitted = false;
     try {
       await client.query('BEGIN');
 
@@ -45,9 +42,6 @@ class RefundRequestService {
       }, client);
 
       await client.query('COMMIT');
-      transactionCommitted = true;
-      client.release();
-      clientReleased = true;
       await emailService.sendBestEffort(async () => {
         const booking = await bookingModel.findNotificationContext(refundRequest.booking_id);
         if (!booking?.customer_email) return null;
@@ -58,28 +52,17 @@ class RefundRequestService {
           refundRequest: approved,
         });
       });
-      await zaloBotService.notifyBookingCanceled(refundRequest.booking_id, {
-        status: 'canceled',
-        reason: refundRequest.reason || payload.staff_note,
-        refundAmount: refundRequest.refund_amount,
-      });
       return approved;
     } catch (error) {
-      if (!transactionCommitted) {
-        await client.query('ROLLBACK');
-      }
+      await client.query('ROLLBACK');
       throw error;
     } finally {
-      if (!clientReleased) {
-        client.release();
-      }
+      client.release();
     }
   }
 
   async reject(id, payload = {}, staffId) {
     const client = await bookingModel.getClient();
-    let clientReleased = false;
-    let transactionCommitted = false;
     try {
       await client.query('BEGIN');
 
@@ -106,9 +89,6 @@ class RefundRequestService {
       }, client);
 
       await client.query('COMMIT');
-      transactionCommitted = true;
-      client.release();
-      clientReleased = true;
       await emailService.sendBestEffort(async () => {
         const booking = await bookingModel.findNotificationContext(refundRequest.booking_id);
         if (!booking?.customer_email) return null;
@@ -121,21 +101,15 @@ class RefundRequestService {
       });
       return rejected;
     } catch (error) {
-      if (!transactionCommitted) {
-        await client.query('ROLLBACK');
-      }
+      await client.query('ROLLBACK');
       throw error;
     } finally {
-      if (!clientReleased) {
-        client.release();
-      }
+      client.release();
     }
   }
 
   async complete(id, payload = {}, staffId) {
     const client = await bookingModel.getClient();
-    let clientReleased = false;
-    let transactionCommitted = false;
     try {
       await client.query('BEGIN');
 
@@ -176,9 +150,6 @@ class RefundRequestService {
       }, client);
 
       await client.query('COMMIT');
-      transactionCommitted = true;
-      client.release();
-      clientReleased = true;
       await emailService.sendBestEffort(async () => {
         const booking = await bookingModel.findNotificationContext(refundRequest.booking_id);
         if (!booking?.customer_email) return null;
@@ -191,14 +162,10 @@ class RefundRequestService {
       });
       return completed;
     } catch (error) {
-      if (!transactionCommitted) {
-        await client.query('ROLLBACK');
-      }
+      await client.query('ROLLBACK');
       throw error;
     } finally {
-      if (!clientReleased) {
-        client.release();
-      }
+      client.release();
     }
   }
 

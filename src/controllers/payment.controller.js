@@ -29,11 +29,6 @@ module.exports = {
     response.success(res, data);
   }),
 
-  confirmManualBooking: asyncHandler(async (req, res) => {
-    const data = await paymentService.confirmManualBooking(req.params.id, req.body, req.user?.sub);
-    response.success(res, data, 'Manual payment confirmed');
-  }),
-
   refund: asyncHandler(async (req, res) => {
     const data = await paymentService.refund(req.params.id, req.body);
     response.success(res, data, 'Payment refunded');

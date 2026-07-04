@@ -82,28 +82,15 @@ module.exports = {
           p.currency,
           p.transaction_code,
           p.paid_at,
-          b.departure_at,
           b.user_id,
-          b.original_amount,
-          b.discount_amount,
-          b.final_amount,
-          c.code AS coupon_code,
-          c.name AS coupon_name,
           u.name AS customer_name,
-          u.email AS customer_email,
           u.phone AS customer_phone,
           t.tour_id,
-          t.name AS tour_name,
-          (
-            SELECT COUNT(*)::int
-            FROM booking_detail bd
-            WHERE bd.booking_id = b.booking_id
-          ) AS passenger_count
+          t.name AS tour_name
        FROM payment p
        INNER JOIN booking b ON b.booking_id = p.booking_id
        INNER JOIN users u ON u.user_id = b.user_id
        INNER JOIN tour t ON t.tour_id = b.tour_id
-       LEFT JOIN coupon c ON c.coupon_id = b.coupon_id
        WHERE p.payment_id = $1
          AND p.deleted_at IS NULL`,
       [paymentId]

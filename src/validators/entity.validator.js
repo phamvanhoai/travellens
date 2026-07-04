@@ -3,7 +3,6 @@ const Joi = require('joi');
 const optionalText = Joi.string().allow(null, '');
 const id = Joi.number().integer().positive();
 const money = Joi.number().min(0);
-const vietnamPhonePattern = /^0(?:3|5|7|8|9)\d{8}$/;
 const uploadedOrRemoteImage = (folder) => Joi.string().trim().custom((value, helpers) => {
   if (!value || value.startsWith(`/public/${folder}/`)) {
     return value;
@@ -73,40 +72,25 @@ module.exports = {
   booking: Joi.object({
     user_id: id,
     tour_id: id.required(),
-    contact_phone: Joi.string().trim().pattern(vietnamPhonePattern).allow(null, '').messages({
-      'string.pattern.base': 'contact_phone must be a valid Vietnamese mobile number with 10 digits, for example: 0901234567',
-    }),
     departure_at: Joi.date(),
     travel_date: Joi.date(),
     coupon_id: id.allow(null),
     coupon_code: Joi.string().trim().uppercase().allow(null, ''),
-    original_amount: Joi.forbidden().messages({
-      'any.unknown': 'original_amount is calculated by server',
-    }),
-    discount_amount: Joi.forbidden().messages({
-      'any.unknown': 'discount_amount is calculated by server',
-    }),
-    final_amount: Joi.forbidden().messages({
-      'any.unknown': 'final_amount is calculated by server',
-    }),
-    status: Joi.string().valid('confirmed', 'canceled', 'pending', 'waiting_manual_confirmation', 'cancel_pending').default('pending'),
+    original_amount: money,
+    discount_amount: money,
+    final_amount: money,
+    status: Joi.string().valid('confirmed', 'canceled', 'pending', 'cancel_pending').default('pending'),
     payment_status: Joi.string().valid('unpaid', 'paid', 'failed', 'refunded', 'pending').default('unpaid'),
     passengers: Joi.array().items(Joi.object({
       passenger_name: Joi.string().max(150).required(),
       age_category: Joi.string().valid('adult', 'child', 'infant').required(),
-      price: Joi.forbidden().messages({
-        'any.unknown': 'passenger price is calculated by server from tour price',
-      }),
+      price: money.optional(),
       seat_number: optionalText,
       special_request: optionalText,
     })).min(1).required(),
   }),
   bookingCancel: Joi.object({
     reason: Joi.string().trim().min(1).max(1000).required(),
-  }),
-  manualBookingConfirmation: Joi.object({
-    transaction_code: Joi.string().trim().max(255),
-    note: Joi.string().trim().max(1000),
   }),
   bookingDetail: Joi.object({
     booking_id: id.required(),
@@ -158,9 +142,7 @@ module.exports = {
   blogLocation: Joi.object({ blog_id: id.required(), location_id: id.required() }),
   review: Joi.object({
     user_id: id.required(),
-    location_id: id,
-    booking_id: id,
-    tour_id: id,
+    location_id: id.required(),
     rating: Joi.number().integer().min(1).max(5).required(),
     comment: Joi.string().trim().max(1000).allow(null, ''),
     images: optionalText,

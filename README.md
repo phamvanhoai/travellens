@@ -462,7 +462,8 @@ Example:
   "passengers": [
     {
       "passenger_name": "Nguyen Van A",
-      "age_category": "adult"
+      "age_category": "adult",
+      "price": 700000
     }
   ]
 }
@@ -471,8 +472,6 @@ Example:
 Server rules:
 
 - `user_id` is resolved from JWT, not from request body.
-- Passenger `price`, `original_amount`, `discount_amount`, and `final_amount` are not accepted from the client.
-- Passenger prices are calculated by server from tour ticket prices: adult uses `tour.price`, child uses `tour.child_price`, infant is free.
 - `travel_date` is the customer-selected travel date. The backend combines it with the start time from `tour.schedule` to store `departure_at`.
 - `status` starts as `pending`.
 - `payment_status` starts as `unpaid`.

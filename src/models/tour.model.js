@@ -1,20 +1,14 @@
 const db = require('../config/db');
 const BaseModel = require('./base.model');
 
-const ACTIVE_BOOKING_STATUSES = [
-  'pending',
-  'waiting_manual_confirmation',
-  'confirmed',
-  'cancel_pending',
-  'paid',
-];
+const ACTIVE_BOOKING_STATUSES = ['pending', 'confirmed', 'cancel_pending', 'paid'];
 
 class TourModel extends BaseModel {
   constructor() {
     super({
       table: 'tour',
       primaryKey: 'tour_id',
-      fields: ['name', 'description', 'price', 'child_price', 'schedule', 'capacity', 'thumbnail', 'status', 'tour_category_id'],
+      fields: ['name', 'description', 'price', 'schedule', 'capacity', 'thumbnail', 'status', 'tour_category_id'],
       searchable: ['name', 'description', 'schedule'],
       filters: ['tour_category_id', 'status'],
     });
@@ -85,7 +79,6 @@ class TourModel extends BaseModel {
           t.name,
           t.description,
           t.price::float AS price,
-          t.child_price::float AS child_price,
           t.schedule,
           t.start_at,
           t.capacity,
@@ -154,7 +147,6 @@ class TourModel extends BaseModel {
           t.name,
           t.description,
           t.price::float AS price,
-          t.child_price::float AS child_price,
           t.schedule,
           t.start_at,
           t.capacity,
@@ -275,16 +267,15 @@ class TourModel extends BaseModel {
   async createTour(payload, client) {
     const result = await client.query(
       `INSERT INTO tour (
-          tour_category_id, name, description, price, child_price, schedule, capacity, thumbnail, status
+          tour_category_id, name, description, price, schedule, capacity, thumbnail, status
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, 'active'))
+       VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, 'active'))
        RETURNING tour_id`,
       [
         payload.tour_category_id,
         payload.name,
         payload.description || null,
         payload.price,
-        payload.child_price,
         payload.schedule,
         payload.capacity,
         payload.thumbnail || null,
@@ -296,7 +287,7 @@ class TourModel extends BaseModel {
   }
 
   async updateTour(id, payload, client) {
-    const fields = ['tour_category_id', 'name', 'description', 'price', 'child_price', 'schedule', 'capacity', 'thumbnail', 'status'];
+    const fields = ['tour_category_id', 'name', 'description', 'price', 'schedule', 'capacity', 'thumbnail', 'status'];
     const keys = fields.filter((field) => payload[field] !== undefined);
 
     if (!keys.length) {

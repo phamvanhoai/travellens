@@ -38,61 +38,6 @@ module.exports = {
     });
   }),
 
-  updateLocationReview: asyncHandler(async (req, res) => {
-    const data = await reviewService.updateLocationReview(
-      req.params.locationId,
-      req.params.reviewId,
-      req.user.sub,
-      req.body
-    );
-
-    response.success(res, data, 'Review updated successfully');
-  }),
-
-  deleteLocationReview: asyncHandler(async (req, res) => {
-    const data = await reviewService.deleteLocationReview(
-      req.params.locationId,
-      req.params.reviewId,
-      req.user.sub
-    );
-
-    response.success(res, data, 'Review deleted successfully');
-  }),
-
-  listTourReviews: asyncHandler(async (req, res) => {
-    const data = await reviewService.listTourReviews(req.params.tourId, req.query);
-    response.success(res, data);
-  }),
-
-  submitBookingTourReview: asyncHandler(async (req, res) => {
-    const data = await reviewService.submitBookingTourReview(
-      req.params.bookingId,
-      req.user.sub,
-      req.body
-    );
-
-    response.success(res, data, 'Review submitted successfully', httpStatus.CREATED);
-  }),
-
-  updateBookingTourReview: asyncHandler(async (req, res) => {
-    const data = await reviewService.updateBookingTourReview(
-      req.params.bookingId,
-      req.user.sub,
-      req.body
-    );
-
-    response.success(res, data, 'Review updated successfully');
-  }),
-
-  deleteBookingTourReview: asyncHandler(async (req, res) => {
-    const data = await reviewService.deleteBookingTourReview(
-      req.params.bookingId,
-      req.user.sub
-    );
-
-    response.success(res, data, 'Review deleted successfully');
-  }),
-
   remove: asyncHandler(async (req, res) => {
     const data = await reviewService.remove(req.params.id);
     response.success(res, data, 'Review deleted successfully');

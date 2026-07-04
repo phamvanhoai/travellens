@@ -7,7 +7,6 @@ module.exports = {
     query: Joi.object({
       page: Joi.number().integer().min(1).default(1),
       limit: Joi.number().integer().min(1).max(100).default(20),
-      search: Joi.string().trim().allow(''),
       booking_id: id,
       payment_id: id,
       status: Joi.string().valid('pending', 'approved', 'rejected', 'completed'),

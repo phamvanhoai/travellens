@@ -7,9 +7,7 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "lint": "node --check src/server.js",
-    "migrate:cancel-booking": "node scripts/run-cancel-booking-migrations.js",
-    "migrate:tour-child-price": "node scripts/run-tour-child-price-migration.js",
-    "migrate:manual-payment": "node scripts/run-manual-payment-migration.js"
+    "migrate:cancel-booking": "node scripts/run-cancel-booking-migrations.js"
   },
   "keywords": [
     "travel",

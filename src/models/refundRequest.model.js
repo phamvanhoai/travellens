@@ -33,24 +33,6 @@ const buildListWhere = (query = {}) => {
     values.push(query.payment_id);
     clauses.push(`rr.payment_id = $${values.length}`);
   }
-  if (query.search) {
-    values.push(`%${query.search}%`);
-    clauses.push(`(
-      customer.name ILIKE $${values.length}
-      OR customer.email ILIKE $${values.length}
-      OR customer.phone ILIKE $${values.length}
-      OR requester.name ILIKE $${values.length}
-      OR requester.email ILIKE $${values.length}
-      OR t.name ILIKE $${values.length}
-      OR p.payment_code ILIKE $${values.length}
-      OR p.transaction_code ILIKE $${values.length}
-      OR rr.reason ILIKE $${values.length}
-      OR rr.staff_note ILIKE $${values.length}
-      OR CAST(rr.refund_request_id AS TEXT) ILIKE $${values.length}
-      OR CAST(rr.booking_id AS TEXT) ILIKE $${values.length}
-      OR CAST(rr.payment_id AS TEXT) ILIKE $${values.length}
-    )`);
-  }
 
   return {
     text: clauses.length ? `WHERE ${clauses.join(' AND ')}` : '',
@@ -64,83 +46,22 @@ module.exports = {
     const limit = Math.min(Math.max(Number(query.limit || 20), 1), 100);
     const offset = (page - 1) * limit;
     const where = buildListWhere(query);
-
-    const countResult = await executor.query(
-      `SELECT COUNT(*)::int AS total
-       FROM refund_request rr
-       INNER JOIN booking b ON b.booking_id = rr.booking_id
-       INNER JOIN users customer ON customer.user_id = b.user_id
-       LEFT JOIN users requester ON requester.user_id = rr.requested_by
-       INNER JOIN tour t ON t.tour_id = b.tour_id
-       INNER JOIN payment p ON p.payment_id = rr.payment_id
-       ${where.text}`,
-      where.values
-    );
-
     const values = [...where.values, limit, offset];
 
     const result = await executor.query(
       `SELECT ${refundRequestColumns},
-              rr.refund_amount::float AS refund_amount,
-              json_build_object(
-                'user_id', customer.user_id,
-                'name', customer.name,
-                'email', customer.email,
-                'phone', customer.phone,
-                'avatar_url', customer.avatar_url
-              ) AS customer,
-              CASE
-                WHEN requester.user_id IS NULL THEN NULL
-                ELSE json_build_object(
-                  'user_id', requester.user_id,
-                  'name', requester.name,
-                  'email', requester.email,
-                  'phone', requester.phone,
-                  'avatar_url', requester.avatar_url
-                )
-              END AS requester,
-              json_build_object(
-                'tour_id', t.tour_id,
-                'name', t.name,
-                'schedule', t.schedule,
-                'thumbnail', t.thumbnail
-              ) AS tour,
-              json_build_object(
-                'payment_id', p.payment_id,
-                'payment_code', p.payment_code,
-                'amount', p.amount::float,
-                'payment_method', p.payment_method,
-                'payment_provider', p.payment_provider,
-                'status', p.status,
-                'transaction_code', p.transaction_code,
-                'paid_at', p.paid_at,
-                'currency', p.currency
-              ) AS payment,
-              customer.name AS customer_name,
-              t.name AS tour_name,
-              p.payment_code
+              u.name AS customer_name,
+              t.name AS tour_name
        FROM refund_request rr
        INNER JOIN booking b ON b.booking_id = rr.booking_id
-       INNER JOIN users customer ON customer.user_id = b.user_id
-       LEFT JOIN users requester ON requester.user_id = rr.requested_by
+       INNER JOIN users u ON u.user_id = rr.requested_by
        INNER JOIN tour t ON t.tour_id = b.tour_id
-       INNER JOIN payment p ON p.payment_id = rr.payment_id
        ${where.text}
        ORDER BY rr.refund_request_id DESC
        LIMIT $${values.length - 1} OFFSET $${values.length}`,
       values
     );
-
-    const total = countResult.rows[0].total;
-    return {
-      items: result.rows,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
+    return result.rows;
   },
 
   async findPendingByBooking(bookingId, executor = db) {
