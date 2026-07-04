@@ -6,6 +6,7 @@ const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 const mediaFileModel = require('../models/mediaFile.model');
 const blogContent = require('../utils/blogContent');
+const blogCategoryModel = require('../models/blogCategory.model');
 
 class BlogService extends BaseService {
 
@@ -21,9 +22,11 @@ class BlogService extends BaseService {
     try {
       await client.query('BEGIN');
       await this.ensureLocationsExist(locationIds, client);
+      await this.ensureBlogCategoryExists(payload.blog_category_id, client);
 
       const blog = await blogModel.createBlog({
         user_id: userId,
+        blog_category_id: payload.blog_category_id || null,
         title: payload.title,
         content,
       }, client);
@@ -74,6 +77,10 @@ class BlogService extends BaseService {
         );
       }
 
+      if (payload.blog_category_id !== undefined) {
+        await this.ensureBlogCategoryExists(payload.blog_category_id, client);
+      }
+
       let updatedBlog = blog;
       const updatePayload = this.pickBlogFields(payload);
       if (Object.keys(updatePayload).length) {
@@ -122,7 +129,7 @@ class BlogService extends BaseService {
   }
 
   pickBlogFields(payload) {
-    const allowedFields = ['title', 'content'];
+    const allowedFields = ['blog_category_id', 'title', 'content'];
     return allowedFields.reduce((nextPayload, field) => {
       if (payload[field] !== undefined) {
         nextPayload[field] = payload[field];
@@ -168,6 +175,15 @@ class BlogService extends BaseService {
     const existingIds = await locationModel.findExistingActiveIds(locationIds, executor);
     if (existingIds.length !== locationIds.length) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Location not found');
+    }
+  }
+
+  async ensureBlogCategoryExists(blogCategoryId, executor) {
+    if (blogCategoryId === undefined || blogCategoryId === null) return;
+
+    const exists = await blogCategoryModel.exists(blogCategoryId, executor);
+    if (!exists) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Blog category not found');
     }
   }
 }

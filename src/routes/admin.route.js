@@ -2078,5 +2078,6 @@ router.use('/media', require('./mediaFile.route'));
 router.use('/maps', require('./map.route'));
 router.use('/destination-categories', require('./destinationCategory.route'));
 router.use('/tour-categories', require('./tourCategory.route'));
+router.use('/blog-categories', require('./blogCategory.route'));
 
 module.exports = router;

@@ -11,6 +11,7 @@ DROP TABLE IF EXISTS blog_comment CASCADE;
 DROP TABLE IF EXISTS blog_location CASCADE;
 DROP TABLE IF EXISTS media_file CASCADE;
 DROP TABLE IF EXISTS blog CASCADE;
+DROP TABLE IF EXISTS blog_category CASCADE;
 DROP TABLE IF EXISTS refund_request CASCADE;
 DROP TABLE IF EXISTS payment CASCADE;
 DROP TABLE IF EXISTS coupon CASCADE;
@@ -480,11 +481,23 @@ ALTER TABLE booking
     ON DELETE SET NULL;
 
 -- =========================================================
+-- Blog Category
+-- =========================================================
+CREATE TABLE blog_category (
+    blog_category_id SERIAL PRIMARY KEY,
+    name VARCHAR(150) NOT NULL UNIQUE,
+    description TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =========================================================
 -- Blog
 -- =========================================================
 CREATE TABLE blog (
     blog_id SERIAL PRIMARY KEY,
     user_id INT NOT NULL,
+    blog_category_id INT,
     title VARCHAR(255) NOT NULL,
     content TEXT,
     date_created DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -492,7 +505,12 @@ CREATE TABLE blog (
         FOREIGN KEY (user_id)
         REFERENCES users(user_id)
         ON UPDATE CASCADE
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_blog_category
+        FOREIGN KEY (blog_category_id)
+        REFERENCES blog_category(blog_category_id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
 );
 
 -- =========================================================
@@ -700,6 +718,7 @@ CREATE UNIQUE INDEX uq_coupon_active_code ON coupon(UPPER(code)) WHERE deleted_a
 CREATE INDEX idx_coupon_status ON coupon(status);
 CREATE INDEX idx_coupon_deleted_at ON coupon(deleted_at);
 CREATE INDEX idx_blog_user_id ON blog(user_id);
+CREATE INDEX idx_blog_blog_category_id ON blog(blog_category_id);
 CREATE INDEX idx_blog_comment_blog_id ON blog_comment(blog_id);
 CREATE INDEX idx_blog_comment_user_id ON blog_comment(user_id);
 CREATE INDEX idx_blog_comment_parent_comment_id ON blog_comment(parent_comment_id);

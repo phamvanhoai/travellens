@@ -36,6 +36,10 @@ module.exports = {
     name: Joi.string().trim().max(150).required(),
     description: optionalText,
   }),
+  blogCategory: Joi.object({
+    name: Joi.string().trim().max(150).required(),
+    description: optionalText,
+  }),
   travelDestination: Joi.object({
     name: Joi.string().trim().max(200).required(),
     description: optionalText,
@@ -148,11 +152,13 @@ module.exports = {
     user_id: id,
     title: Joi.string().max(255).required(),
     content: optionalText,
+    blog_category_id: id.allow(null),
     location_ids: Joi.array().items(id).default([]),
   }),
   blogUpdate: Joi.object({
     title: Joi.string().max(255),
     content: optionalText,
+    blog_category_id: id.allow(null),
     location_ids: Joi.array().items(id),
   }).min(1),
   blogLocation: Joi.object({ blog_id: id.required(), location_id: id.required() }),
