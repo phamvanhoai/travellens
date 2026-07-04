@@ -7,6 +7,7 @@ const { httpStatus } = require('../constants');
 const mediaFileModel = require('../models/mediaFile.model');
 const blogContent = require('../utils/blogContent');
 const blogCategoryModel = require('../models/blogCategory.model');
+const blogCategoryLinkModel = require('../models/blogCategoryLink.model');
 
 class BlogService extends BaseService {
 
@@ -16,27 +17,29 @@ class BlogService extends BaseService {
 
   async create(payload, userId) {
     const locationIds = this.normalizeLocationIds(payload.location_ids || []);
+    const categoryIds = this.normalizeCategoryIds(payload.category_ids || []);
     const content = await this.prepareContent(payload.content);
     const client = await blogModel.getClient();
 
     try {
       await client.query('BEGIN');
       await this.ensureLocationsExist(locationIds, client);
-      await this.ensureBlogCategoryExists(payload.blog_category_id, client);
+      await this.ensureBlogCategoriesExist(categoryIds, client);
 
       const blog = await blogModel.createBlog({
         user_id: userId,
-        blog_category_id: payload.blog_category_id || null,
         title: payload.title,
         content,
       }, client);
 
       await blogLocationModel.replaceForBlog(blog.blog_id, locationIds, client);
+      await blogCategoryLinkModel.replaceForBlog(blog.blog_id, categoryIds, client);
 
       await client.query('COMMIT');
       return {
         ...blog,
         location_ids: locationIds,
+        category_ids: categoryIds,
       };
     } catch (error) {
       await client.query('ROLLBACK');
@@ -77,10 +80,6 @@ class BlogService extends BaseService {
         );
       }
 
-      if (payload.blog_category_id !== undefined) {
-        await this.ensureBlogCategoryExists(payload.blog_category_id, client);
-      }
-
       let updatedBlog = blog;
       const updatePayload = this.pickBlogFields(payload);
       if (Object.keys(updatePayload).length) {
@@ -92,6 +91,13 @@ class BlogService extends BaseService {
         await this.ensureLocationsExist(locationIds, client);
         await blogLocationModel.replaceForBlog(id, locationIds, client);
         updatedBlog.location_ids = locationIds;
+      }
+
+      if (payload.category_ids !== undefined) {
+        const categoryIds = this.normalizeCategoryIds(payload.category_ids || []);
+        await this.ensureBlogCategoriesExist(categoryIds, client);
+        await blogCategoryLinkModel.replaceForBlog(id, categoryIds, client);
+        updatedBlog.category_ids = categoryIds;
       }
 
       await client.query('COMMIT');
@@ -129,7 +135,7 @@ class BlogService extends BaseService {
   }
 
   pickBlogFields(payload) {
-    const allowedFields = ['blog_category_id', 'title', 'content'];
+    const allowedFields = ['title', 'content'];
     return allowedFields.reduce((nextPayload, field) => {
       if (payload[field] !== undefined) {
         nextPayload[field] = payload[field];
@@ -178,11 +184,18 @@ class BlogService extends BaseService {
     }
   }
 
-  async ensureBlogCategoryExists(blogCategoryId, executor) {
-    if (blogCategoryId === undefined || blogCategoryId === null) return;
+  normalizeCategoryIds(categoryIds) {
+    const normalizedIds = categoryIds.map((categoryId) => Number(categoryId));
+    if (new Set(normalizedIds).size !== normalizedIds.length) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Duplicate category_id inside one blog is not allowed');
+    }
+    return normalizedIds;
+  }
 
-    const exists = await blogCategoryModel.exists(blogCategoryId, executor);
-    if (!exists) {
+  async ensureBlogCategoriesExist(categoryIds, executor) {
+    if (!categoryIds.length) return;
+    const existingIds = await blogCategoryModel.findExistingIds(categoryIds, executor);
+    if (existingIds.length !== categoryIds.length) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Blog category not found');
     }
   }
