@@ -7,6 +7,7 @@ DROP TABLE IF EXISTS statistics CASCADE;
 DROP TABLE IF EXISTS revoked_tokens CASCADE;
 DROP TABLE IF EXISTS review_photo CASCADE;
 DROP TABLE IF EXISTS review CASCADE;
+DROP TABLE IF EXISTS blog_comment CASCADE;
 DROP TABLE IF EXISTS blog_location CASCADE;
 DROP TABLE IF EXISTS media_file CASCADE;
 DROP TABLE IF EXISTS blog CASCADE;
@@ -115,6 +116,7 @@ CREATE TABLE tour (
     name VARCHAR(255) NOT NULL,
     description TEXT,
     price NUMERIC(12,2) NOT NULL CHECK (price >= 0),
+    child_price NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (child_price >= 0),
     schedule TEXT,
     start_at TIMESTAMP,
     capacity INT CHECK (capacity >= 0),
@@ -242,6 +244,36 @@ CREATE TABLE view360_image (
 );
 
 -- =========================================================
+-- View360Hotspot
+-- =========================================================
+CREATE TABLE view360_hotspot (
+    hotspot_id SERIAL PRIMARY KEY,
+    view360_id INT NOT NULL,
+    type VARCHAR(50) NOT NULL DEFAULT 'info' CHECK (type IN ('info', 'navigation', 'link', 'location')),
+    title VARCHAR(255),
+    description TEXT,
+    yaw NUMERIC(10,4) NOT NULL,
+    pitch NUMERIC(10,4) NOT NULL,
+    target_view360_id INT,
+    target_url TEXT,
+    order_index INT DEFAULT 0 CHECK (order_index IS NULL OR order_index >= 0),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
+    CONSTRAINT fk_view360_hotspot_view360
+        FOREIGN KEY (view360_id)
+        REFERENCES view360(view_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_view360_hotspot_target_view360
+        FOREIGN KEY (target_view360_id)
+        REFERENCES view360(view_id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL
+);
+
+-- =========================================================
 -- Booking
 -- =========================================================
 CREATE TABLE booking (
@@ -253,7 +285,7 @@ CREATE TABLE booking (
     original_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (original_amount >= 0),
     discount_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (discount_amount >= 0),
     final_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (final_amount >= 0),
-    status VARCHAR(50) NOT NULL CHECK (status IN ('pending', 'confirmed', 'cancel_pending', 'canceled', 'expired')),
+    status VARCHAR(50) NOT NULL CHECK (status IN ('pending', 'waiting_manual_confirmation', 'confirmed', 'cancel_pending', 'canceled', 'expired')),
     payment_status VARCHAR(50) NOT NULL CHECK (payment_status IN ('unpaid', 'paid', 'failed', 'refunded', 'pending')),
     canceled_at TIMESTAMP,
     canceled_by INT,
@@ -464,6 +496,38 @@ CREATE TABLE blog (
 );
 
 -- =========================================================
+-- Blog_Comment
+-- =========================================================
+CREATE TABLE blog_comment (
+    comment_id SERIAL PRIMARY KEY,
+    blog_id INT NOT NULL,
+    user_id INT NOT NULL,
+    parent_comment_id INT,
+    content TEXT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'approved',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
+    CONSTRAINT fk_blog_comment_blog
+        FOREIGN KEY (blog_id)
+        REFERENCES blog(blog_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_blog_comment_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(user_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_blog_comment_parent
+        FOREIGN KEY (parent_comment_id)
+        REFERENCES blog_comment(comment_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT chk_blog_comment_status
+        CHECK (status IN ('pending', 'approved', 'rejected'))
+);
+
+-- =========================================================
 -- Blog_Location
 -- =========================================================
 CREATE TABLE blog_location (
@@ -509,7 +573,9 @@ CREATE TABLE media_file (
 CREATE TABLE review (
     review_id SERIAL PRIMARY KEY,
     user_id INT NOT NULL,
-    location_id INT NOT NULL,
+    location_id INT,
+    booking_id INT,
+    tour_id INT,
     rating INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
     comment TEXT,
     images TEXT,
@@ -526,6 +592,16 @@ CREATE TABLE review (
     CONSTRAINT fk_review_location
         FOREIGN KEY (location_id)
         REFERENCES location(location_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_review_booking
+        FOREIGN KEY (booking_id)
+        REFERENCES booking(booking_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_review_tour
+        FOREIGN KEY (tour_id)
+        REFERENCES tour(tour_id)
         ON UPDATE CASCADE
         ON DELETE CASCADE
 );
@@ -584,6 +660,9 @@ CREATE INDEX idx_view360_location_id ON view360(location_id);
 CREATE INDEX idx_view360_image_view_id ON view360_image(view_id);
 CREATE INDEX idx_view360_deleted_at ON view360(deleted_at);
 CREATE INDEX idx_view360_image_deleted_at ON view360_image(deleted_at);
+CREATE INDEX idx_view360_hotspot_view360_id ON view360_hotspot(view360_id);
+CREATE INDEX idx_view360_hotspot_target_view360_id ON view360_hotspot(target_view360_id);
+CREATE INDEX idx_view360_hotspot_deleted_at ON view360_hotspot(deleted_at);
 CREATE INDEX idx_booking_user_id ON booking(user_id);
 CREATE INDEX idx_booking_tour_id ON booking(tour_id);
 CREATE INDEX idx_booking_coupon_id ON booking(coupon_id);
@@ -604,6 +683,11 @@ CREATE INDEX idx_refund_request_payment_id ON refund_request(payment_id);
 CREATE INDEX idx_refund_request_requested_by ON refund_request(requested_by);
 CREATE INDEX idx_refund_request_reviewed_by ON refund_request(reviewed_by);
 CREATE INDEX idx_review_location_id ON review(location_id);
+CREATE INDEX idx_review_booking_id ON review(booking_id);
+CREATE INDEX idx_review_tour_id ON review(tour_id);
+CREATE UNIQUE INDEX uq_review_active_booking
+    ON review(booking_id)
+    WHERE booking_id IS NOT NULL AND deleted_at IS NULL;
 CREATE INDEX idx_review_user_id ON review(user_id);
 CREATE UNIQUE INDEX idx_review_user_location_unique
     ON review(user_id, location_id)
@@ -616,6 +700,11 @@ CREATE UNIQUE INDEX uq_coupon_active_code ON coupon(UPPER(code)) WHERE deleted_a
 CREATE INDEX idx_coupon_status ON coupon(status);
 CREATE INDEX idx_coupon_deleted_at ON coupon(deleted_at);
 CREATE INDEX idx_blog_user_id ON blog(user_id);
+CREATE INDEX idx_blog_comment_blog_id ON blog_comment(blog_id);
+CREATE INDEX idx_blog_comment_user_id ON blog_comment(user_id);
+CREATE INDEX idx_blog_comment_parent_comment_id ON blog_comment(parent_comment_id);
+CREATE INDEX idx_blog_comment_status ON blog_comment(status);
+CREATE INDEX idx_blog_comment_deleted_at ON blog_comment(deleted_at);
 CREATE INDEX idx_blog_location_blog_id ON blog_location(blog_id);
 CREATE INDEX idx_blog_location_location_id ON blog_location(location_id);
 CREATE INDEX idx_media_file_created_at ON media_file(created_at DESC);

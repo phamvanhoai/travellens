@@ -7,14 +7,21 @@ const tourModel = require('../models/tour.model');
 const userModel = require('../models/user.model');
 const couponService = require('./coupon.service');
 const emailService = require('./email.service');
+const zaloBotService = require('./zaloBot.service');
+const logger = require('../config/logger');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 
 const CUSTOMER_CANCEL_DEADLINE_HOURS = 24;
+const BANK_TRANSFER_MIN_AMOUNT = Number(process.env.BANK_TRANSFER_MIN_AMOUNT || 2000);
 
 class BookingService extends BaseService {
   list(query = {}) {
     return bookingModel.findAll(query);
+  }
+
+  listForStaff(query = {}) {
+    return bookingModel.findAllForStaffView(query);
   }
 
   async listWithPassengers(query = {}) {
@@ -41,8 +48,9 @@ class BookingService extends BaseService {
       await this.ensureCustomerExists(payload.user_id, client);
       await this.ensureTourHasCapacity(tour, passengers.length, client, departureAt);
 
-      const ticketPrice = Number(tour.price);
-      const originalAmount = ticketPrice * passengers.length;
+      const passengersWithContact = this.attachContactPhoneToPassengers(passengers, payload.contact_phone);
+      const pricedPassengers = this.applyPassengerPrices(passengersWithContact, tour);
+      const originalAmount = this.calculateOriginalAmount(pricedPassengers);
       let couponSnapshot = {
         coupon_id: null,
         discount_amount: 0,
@@ -53,10 +61,15 @@ class BookingService extends BaseService {
         couponSnapshot = await couponService.validateCoupon({
           code: payload.coupon_code,
           booking_amount: originalAmount,
-        });
+        }, client);
       } else if (payload.coupon_id) {
         throw new ApiError(httpStatus.BAD_REQUEST, 'Use coupon_code to apply coupon');
       }
+
+      const finalAmount = Math.max(0, Math.round(Number(couponSnapshot.final_amount || 0)));
+      couponSnapshot.final_amount = finalAmount;
+      const isFreeBooking = finalAmount === 0;
+      const requiresManualPayment = finalAmount > 0 && finalAmount < BANK_TRANSFER_MIN_AMOUNT;
 
       const booking = await bookingModel.create({
         user_id: payload.user_id,
@@ -66,13 +79,14 @@ class BookingService extends BaseService {
         original_amount: originalAmount,
         discount_amount: couponSnapshot.discount_amount,
         final_amount: couponSnapshot.final_amount,
-        status: 'pending',
-        payment_status: 'unpaid',
+        status: isFreeBooking
+          ? 'confirmed'
+          : (requiresManualPayment ? 'waiting_manual_confirmation' : 'pending'),
+        payment_status: isFreeBooking ? 'paid' : 'unpaid',
       }, client);
       const details = await bookingModel.createDetails(
         booking.booking_id,
-        passengers,
-        ticketPrice,
+        pricedPassengers,
         client
       );
       await this.logHistory({
@@ -86,12 +100,66 @@ class BookingService extends BaseService {
         metadata: {
           passenger_count: passengers.length,
           final_amount: booking.final_amount,
+          payment_required: !isFreeBooking,
+          payment_method: requiresManualPayment ? 'manual' : (isFreeBooking ? 'free' : 'bank_transfer'),
           departure_at: booking.departure_at,
         },
       }, client);
 
+      if (isFreeBooking && couponSnapshot.coupon_id) {
+        await couponService.markUsed(couponSnapshot.coupon_id, client);
+      }
+
+      const notificationBooking = await bookingModel.findNotificationContext(booking.booking_id, client);
+
       await client.query('COMMIT');
-      return { ...booking, details, passengers: details };
+      if (isFreeBooking || requiresManualPayment) {
+        const notificationStatus = isFreeBooking ? 'free_confirmed' : 'manual_pending';
+        const emailResult = await emailService.sendBestEffort(() => emailService.sendBookingPaymentStatus({
+          bookingId: booking.booking_id,
+          status: notificationStatus,
+          booking: notificationBooking,
+        }));
+        let zaloResult = null;
+        try {
+          zaloResult = await zaloBotService.notifyBookingPaymentStatus(
+            booking.booking_id,
+            notificationStatus,
+            { booking: notificationBooking }
+          );
+        } catch (notificationError) {
+          logger.error('Unexpected Zalo booking payment status notification error', {
+            booking_id: booking.booking_id,
+            status: notificationStatus,
+            error: notificationError.message,
+            details: notificationError.details,
+          });
+        }
+        logger.info('Booking payment status notification completed', {
+          booking_id: booking.booking_id,
+          status: notificationStatus,
+          email_sent: Boolean(emailResult),
+          zalo_sent: Boolean(zaloResult?.sent),
+          zalo_reason: zaloResult?.reason,
+        });
+      } else {
+        const emailResult = await emailService.sendBestEffort(() => emailService.sendBookingPaymentStatus({
+          bookingId: booking.booking_id,
+          status: 'payment_required',
+          booking: notificationBooking,
+        }));
+        logger.info('Booking created email notification completed', {
+          booking_id: booking.booking_id,
+          email_sent: Boolean(emailResult),
+        });
+      }
+      return {
+        ...booking,
+        payment_required: !isFreeBooking,
+        payment_method: requiresManualPayment ? 'manual' : (isFreeBooking ? 'free' : 'bank_transfer'),
+        details,
+        passengers: details,
+      };
     } catch (error) {
       await client.query('ROLLBACK');
       if (error.code === '23503' && error.constraint === 'fk_booking_tour') {
@@ -101,6 +169,51 @@ class BookingService extends BaseService {
     } finally {
       client.release();
     }
+  }
+
+  applyPassengerPrices(passengers, tour) {
+    return passengers.map((passenger) => ({
+      ...passenger,
+      price: this.resolvePassengerPrice(tour, passenger.age_category),
+    }));
+  }
+
+  resolvePassengerPrice(tour, ageCategory) {
+    const prices = {
+      adult: tour.price,
+      child: tour.child_price,
+      infant: 0,
+    };
+    const price = prices[ageCategory];
+
+    if (price === undefined || price === null || Number.isNaN(Number(price))) {
+      throw new ApiError(httpStatus.BAD_REQUEST, `Ticket price is not configured for ${ageCategory}`);
+    }
+
+    return Number(price);
+  }
+
+  calculateOriginalAmount(passengers) {
+    return passengers.reduce((total, passenger) => total + Number(passenger.price || 0), 0);
+  }
+
+  attachContactPhoneToPassengers(passengers, contactPhone) {
+    if (!contactPhone || !passengers.length) {
+      return passengers;
+    }
+
+    return passengers.map((passenger, index) => {
+      if (index !== 0) return passenger;
+
+      const existingRequest = String(passenger.special_request || '').trim();
+      const contactLine = `Contact phone: ${contactPhone}`;
+      return {
+        ...passenger,
+        special_request: existingRequest
+          ? `${existingRequest}\n${contactLine}`
+          : contactLine,
+      };
+    });
   }
 
   listForUser(userId, query = {}) {
@@ -205,6 +318,25 @@ class BookingService extends BaseService {
     return this.attachPassengersToBooking(booking);
   }
 
+  async getForStaff(id) {
+    const booking = await bookingModel.findStaffViewById(id);
+    if (!booking) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Booking not found');
+    }
+    return this.attachPassengersToBooking(booking);
+  }
+
+  async createForStaff(payload) {
+    const created = await this.create(payload);
+    const booking = await this.getForStaff(created.booking_id);
+    return {
+      ...booking,
+      payment_required: created.payment_required,
+      payment_method: created.payment_method,
+      details: booking.passengers,
+    };
+  }
+
   createForUser(payload, userId) {
     return this.create({ ...payload, user_id: userId });
   }
@@ -248,6 +380,8 @@ class BookingService extends BaseService {
 
   async cancel(id, options = {}) {
     const client = await bookingModel.getClient();
+    let clientReleased = false;
+    let transactionCommitted = false;
     try {
       await client.query('BEGIN');
       const booking = await bookingModel.findForUpdate(id, options.userId, client);
@@ -262,7 +396,8 @@ class BookingService extends BaseService {
       }
 
       const hasPaidPayment = await bookingModel.hasPaidPayment(id, client);
-      const isPaidBooking = booking.payment_status === 'paid' || hasPaidPayment;
+      const isPaidBooking = Number(booking.final_amount) > 0
+        && (booking.payment_status === 'paid' || hasPaidPayment);
       if (isPaidBooking && !options.refundPaidBooking) {
         throw new ApiError(httpStatus.CONFLICT, 'Paid booking requires staff refund before cancellation');
       }
@@ -299,13 +434,26 @@ class BookingService extends BaseService {
         }, client);
 
         await client.query('COMMIT');
+        transactionCommitted = true;
+        client.release();
+        clientReleased = true;
         await emailService.sendBestEffort(async () => {
           const bookingContext = await bookingModel.findNotificationContext(id);
           if (!bookingContext) return null;
+          await emailService.sendBestEffort(() => emailService.sendCancellationRequested({
+            booking: bookingContext,
+            refundRequest,
+          }));
           return emailService.sendRefundRequestCreated({
             booking: bookingContext,
             refundRequest,
           });
+        });
+        await zaloBotService.notifyBookingCanceled(id, {
+          status: 'cancel_pending',
+          reason: options.reason,
+          refundAmount: paidPayment.amount,
+          currency: paidPayment.currency,
         });
         return {
           ...pendingCancel,
@@ -336,13 +484,24 @@ class BookingService extends BaseService {
       }, client);
 
       await client.query('COMMIT');
+      transactionCommitted = true;
+      client.release();
+      clientReleased = true;
       await emailService.sendBestEffort(() => this.sendCancelNotifications({ bookingId: id }));
+      await zaloBotService.notifyBookingCanceled(id, {
+        status: 'canceled',
+        reason: options.reason,
+      });
       return canceled;
     } catch (error) {
-      await client.query('ROLLBACK');
+      if (!transactionCommitted) {
+        await client.query('ROLLBACK');
+      }
       throw error;
     } finally {
-      client.release();
+      if (!clientReleased) {
+        client.release();
+      }
     }
   }
 

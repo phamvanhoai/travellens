@@ -184,6 +184,17 @@ class UserModel extends BaseModel {
     return result.rows[0] || null;
   }
 
+  async findByEmailForStaffLookup(email, executor = db) {
+    const normalizedEmail = email.toLowerCase().trim();
+    const result = await executor.query(
+      `SELECT user_id, name, email, phone, role, status
+       FROM users
+       WHERE email = $1`,
+      [normalizedEmail]
+    );
+    return result.rows[0] || null;
+  }
+
   async findActiveStaffAndAdmins(executor = db) {
     const result = await executor.query(
       `SELECT user_id, name, email, role

@@ -90,6 +90,101 @@ module.exports = {
     return result.rows[0] || null;
   },
 
+  async findDetailById(id, executor = db) {
+    const result = await executor.query(
+      `SELECT
+          l.location_id,
+          l.name,
+          l.latitude,
+          l.longitude,
+          l.description,
+          l.thumbnail,
+          l.destination_id,
+          l.destination_id AS travel_destination_id,
+          td.name AS travel_destination_name,
+          l.created_at,
+          l.updated_at
+       FROM location l
+       LEFT JOIN travel_destination td ON td.destination_id = l.destination_id
+       WHERE l.location_id = $1
+         AND l.deleted_at IS NULL
+         AND l.is_deleted = FALSE`,
+      [id]
+    );
+
+    return result.rows[0] || null;
+  },
+
+  async findMapsByLocation(locationId, executor = db) {
+    const result = await executor.query(
+      `SELECT
+          map_id,
+          location_id,
+          title,
+          map_file,
+          description,
+          display_order,
+          created_at,
+          updated_at
+       FROM map
+       WHERE location_id = $1
+         AND deleted_at IS NULL
+         AND is_deleted = FALSE
+       ORDER BY display_order ASC NULLS LAST, map_id DESC`,
+      [locationId]
+    );
+
+    return result.rows;
+  },
+
+  async findView360ByLocation(locationId, executor = db) {
+    const result = await executor.query(
+      `SELECT
+          view_id,
+          location_id,
+          title,
+          description,
+          audio_file,
+          language,
+          order_index,
+          created_at,
+          updated_at
+       FROM view360
+       WHERE location_id = $1
+         AND deleted_at IS NULL
+       ORDER BY order_index ASC NULLS LAST, view_id ASC`,
+      [locationId]
+    );
+
+    return result.rows;
+  },
+
+  async findReviewsByLocation(locationId, executor = db) {
+    const result = await executor.query(
+      `SELECT
+          r.review_id,
+          r.user_id,
+          u.name AS user_name,
+          u.avatar_url AS user_avatar_url,
+          r.location_id,
+          r.rating,
+          r.comment,
+          r.images,
+          r.status,
+          r.created_at,
+          r.updated_at
+       FROM review r
+       LEFT JOIN users u ON u.user_id = r.user_id
+       WHERE r.location_id = $1
+         AND r.deleted_at IS NULL
+         AND r.status = 'approved'
+       ORDER BY r.review_id DESC`,
+      [locationId]
+    );
+
+    return result.rows;
+  },
+
   async findExistingActiveIds(ids, executor = db) {
     if (!ids.length) return [];
     const result = await executor.query(
@@ -154,7 +249,7 @@ module.exports = {
   },
 
   async updateLocation(id, payload, executor = db) {
-    const fields = ['name', 'description', 'latitude', 'longitude', 'thumbnail']
+    const fields = ['destination_id', 'name', 'description', 'latitude', 'longitude', 'thumbnail']
       .filter((field) => payload[field] !== undefined);
 
     if (!fields.length) {
