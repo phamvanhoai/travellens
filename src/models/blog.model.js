@@ -6,16 +6,31 @@ class BlogModel extends BaseModel {
     super({
       table: 'blog',
       primaryKey: 'blog_id',
-      fields: ['user_id', 'blog_category_id', 'title', 'content', 'date_created', 'views'],
+      fields: ['user_id', 'title', 'content', 'date_created', 'views'],
       searchable: ['title', 'content'],
-      filters: ['user_id', 'blog_category_id'],
+      filters: ['user_id'],
     });
   }
 
   async listBlogs(query = {}) {
-    let sql = `SELECT b.*, bc.name AS blog_category
-      FROM blog b
-      LEFT JOIN blog_category bc ON bc.blog_category_id = b.blog_category_id`;
+    let sql = `SELECT b.*,
+        ARRAY(
+          SELECT bbc.blog_category_id
+          FROM blog_blog_category bbc
+          WHERE bbc.blog_id = b.blog_id
+          ORDER BY bbc.blog_category_id
+        ) AS category_ids,
+        COALESCE((
+          SELECT json_agg(json_build_object(
+            'blog_category_id', bc.blog_category_id,
+            'name', bc.name,
+            'description', bc.description
+          ) ORDER BY bc.name)
+          FROM blog_blog_category bbc
+          JOIN blog_category bc ON bc.blog_category_id = bbc.blog_category_id
+          WHERE bbc.blog_id = b.blog_id
+        ), '[]'::json) AS categories
+      FROM blog b`;
     const values = [];
     const clauses = [];
 
@@ -27,7 +42,11 @@ class BlogModel extends BaseModel {
 
     if (query.blog_category_id) {
       values.push(query.blog_category_id);
-      clauses.push(`b.blog_category_id = $${values.length}`);
+      clauses.push(`EXISTS (
+        SELECT 1 FROM blog_blog_category bbc
+        WHERE bbc.blog_id = b.blog_id
+          AND bbc.blog_category_id = $${values.length}
+      )`);
     }
 
     if (clauses.length) {
@@ -68,9 +87,24 @@ class BlogModel extends BaseModel {
   }
   async findById(blogId) {
     const result = await db.query(
-      `SELECT b.*, bc.name AS blog_category
+      `SELECT b.*,
+         ARRAY(
+           SELECT bbc.blog_category_id
+           FROM blog_blog_category bbc
+           WHERE bbc.blog_id = b.blog_id
+           ORDER BY bbc.blog_category_id
+         ) AS category_ids,
+         COALESCE((
+           SELECT json_agg(json_build_object(
+             'blog_category_id', bc.blog_category_id,
+             'name', bc.name,
+             'description', bc.description
+           ) ORDER BY bc.name)
+           FROM blog_blog_category bbc
+           JOIN blog_category bc ON bc.blog_category_id = bbc.blog_category_id
+           WHERE bbc.blog_id = b.blog_id
+         ), '[]'::json) AS categories
        FROM blog b
-       LEFT JOIN blog_category bc ON bc.blog_category_id = b.blog_category_id
        WHERE b.blog_id = $1`,
       [blogId]
     );
@@ -88,16 +122,16 @@ class BlogModel extends BaseModel {
 
   async createBlog(payload, executor = db) {
     const result = await executor.query(
-      `INSERT INTO blog (user_id, blog_category_id, title, content)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO blog (user_id, title, content)
+       VALUES ($1, $2, $3)
        RETURNING *`,
-      [payload.user_id, payload.blog_category_id, payload.title, payload.content]
+      [payload.user_id, payload.title, payload.content]
     );
     return result.rows[0];
   }
 
   async updateBlog(id, payload, executor = db) {
-    const fields = ['blog_category_id', 'title', 'content'].filter((field) => payload[field] !== undefined);
+    const fields = ['title', 'content'].filter((field) => payload[field] !== undefined);
     if (!fields.length) return this.findForUpdate(id, executor);
     const values = fields.map((field) => payload[field]);
     const assignments = fields.map((field, index) => `${field} = $${index + 1}`);

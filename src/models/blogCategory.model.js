@@ -21,10 +21,19 @@ class BlogCategoryModel extends BaseModel {
 
   async countBlogs(id) {
     const result = await db.query(
-      'SELECT COUNT(*)::int AS total FROM blog WHERE blog_category_id = $1',
+      'SELECT COUNT(*)::int AS total FROM blog_blog_category WHERE blog_category_id = $1',
       [id]
     );
     return result.rows[0].total;
+  }
+
+  async findExistingIds(ids, executor = db) {
+    if (!ids.length) return [];
+    const result = await executor.query(
+      'SELECT blog_category_id FROM blog_category WHERE blog_category_id = ANY($1::int[])',
+      [ids]
+    );
+    return result.rows.map((row) => Number(row.blog_category_id));
   }
 }
 
