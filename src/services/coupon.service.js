@@ -106,8 +106,8 @@ class CouponService {
     return archived;
   }
 
-  async validateCoupon({ code, booking_amount: bookingAmount }) {
-    const coupon = await couponModel.findByCode(code);
+  async validateCoupon({ code, booking_amount: bookingAmount }, executor) {
+    const coupon = await couponModel.findByCode(code, executor);
     if (!coupon) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Coupon not found');
     }

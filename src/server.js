@@ -7,6 +7,7 @@ const path = require('path');
 const { cors, db, logger } = require('./config');
 const routes = require('./routes');
 const limiter = require('./middlewares/rateLimiter.middleware');
+const expirySweep = require('./middlewares/expiry.middleware');
 const { notFound, errorHandler } = require('./middlewares/error.middleware');
 const swaggerSpec = require('./docs/swagger');
 const startBookingExpiryJob = require('./jobs/bookingExpiry.job');
@@ -29,6 +30,7 @@ app.use(helmet({
 }));
 app.use(cors);
 app.use(limiter);
+app.use(expirySweep);
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
