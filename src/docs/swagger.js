@@ -190,7 +190,7 @@ const options = {
           required: ['user_id', 'title'],
           properties: {
             user_id: { type: 'integer', example: 1 },
-            blog_category_id: { type: 'integer', nullable: true, example: 1 },
+            category_ids: { type: 'array', items: { type: 'integer' }, example: [1, 2] },
             title: { type: 'string', example: 'A day at Dinh Doc Lap' },
             content: { type: 'string', nullable: true },
             location_ids: { type: 'array', items: { type: 'integer' }, example: [1] },

@@ -749,7 +749,7 @@ const router = express.Router();
  *       - in: query
  *         name: blog_category_id
  *         schema: { type: integer }
- *         description: Filter blogs by category
+ *         description: Filter blogs containing this category
  *     responses:
  *       200: { description: Blog list }
  *   post:
