@@ -15,6 +15,26 @@ class BlogModel extends BaseModel {
   async listBlogs(query = {}) {
     let sql = `SELECT b.*,
         ARRAY(
+          SELECT bl.location_id
+          FROM blog_location bl
+          WHERE bl.blog_id = b.blog_id
+          ORDER BY bl.location_id
+        ) AS location_ids,
+        COALESCE((
+          SELECT json_agg(json_build_object(
+            'location_id', l.location_id,
+            'name', l.name,
+            'thumbnail', l.thumbnail,
+            'latitude', l.latitude,
+            'longitude', l.longitude,
+            'destination_id', l.destination_id,
+            'travel_destination_id', l.destination_id
+          ) ORDER BY l.name)
+          FROM blog_location bl
+          JOIN location l ON l.location_id = bl.location_id
+          WHERE bl.blog_id = b.blog_id
+        ), '[]'::json) AS locations,
+        ARRAY(
           SELECT bbc.blog_category_id
           FROM blog_blog_category bbc
           WHERE bbc.blog_id = b.blog_id
@@ -88,6 +108,26 @@ class BlogModel extends BaseModel {
   async findById(blogId) {
     const result = await db.query(
       `SELECT b.*,
+         ARRAY(
+           SELECT bl.location_id
+           FROM blog_location bl
+           WHERE bl.blog_id = b.blog_id
+           ORDER BY bl.location_id
+         ) AS location_ids,
+         COALESCE((
+           SELECT json_agg(json_build_object(
+             'location_id', l.location_id,
+             'name', l.name,
+             'thumbnail', l.thumbnail,
+             'latitude', l.latitude,
+             'longitude', l.longitude,
+             'destination_id', l.destination_id,
+             'travel_destination_id', l.destination_id
+           ) ORDER BY l.name)
+           FROM blog_location bl
+           JOIN location l ON l.location_id = bl.location_id
+           WHERE bl.blog_id = b.blog_id
+         ), '[]'::json) AS locations,
          ARRAY(
            SELECT bbc.blog_category_id
            FROM blog_blog_category bbc
