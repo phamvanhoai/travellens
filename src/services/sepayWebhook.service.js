@@ -5,7 +5,6 @@ const sepayWebhookLogModel = require('../models/sepayWebhookLog.model');
 const couponService = require('./coupon.service');
 const sepayService = require('./sepay.service');
 const zaloBotService = require('./zaloBot.service');
-const emailService = require('./email.service');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 
@@ -33,8 +32,6 @@ class SepayWebhookService {
     };
 
     const client = await bookingModel.getClient();
-    let clientReleased = false;
-    let transactionCommitted = false;
     try {
       await client.query('BEGIN');
 
@@ -132,11 +129,7 @@ class SepayWebhookService {
 
       await sepayWebhookLogModel.updateStatus(log.sepay_webhook_log_id, 'processed', 'Payment marked as paid', payment.payment_id, client);
       await client.query('COMMIT');
-      transactionCommitted = true;
-      client.release();
-      clientReleased = true;
       await zaloBotService.notifyPaymentPaid(paidPayment);
-      await emailService.sendBestEffort(() => emailService.sendPaymentPaid(paidPayment));
 
       return {
         payment_id: paidPayment.payment_id,
@@ -144,14 +137,10 @@ class SepayWebhookService {
         status: paidPayment.status,
       };
     } catch (error) {
-      if (!transactionCommitted) {
-        await client.query('ROLLBACK');
-      }
+      await client.query('ROLLBACK');
       throw error;
     } finally {
-      if (!clientReleased) {
-        client.release();
-      }
+      client.release();
     }
   }
 }

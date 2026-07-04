@@ -1,5 +1,4 @@
 const locationModel = require('../models/location.model');
-const weatherService = require('./weather.service');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 const { removeUploadedFile } = require('../utils/uploadedFile');
@@ -10,52 +9,11 @@ class LocationService {
   }
 
   async get(id) {
-    const location = await locationModel.findDetailById(id);
+    const location = await locationModel.findActiveById(id);
     if (!location) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Location not found');
     }
-
-    const [maps, view360, reviews] = await Promise.all([
-      locationModel.findMapsByLocation(id),
-      locationModel.findView360ByLocation(id),
-      locationModel.findReviewsByLocation(id),
-    ]);
-
-    return {
-      ...location,
-      maps,
-      Maps: maps,
-      view360,
-      view360s: view360,
-      View360s: view360,
-      reviews,
-      Reviews: reviews,
-    };
-  }
-
-  async getWeather(id) {
-    const location = await this.get(id);
-    const hasCoordinates = location.latitude !== null
-      && location.latitude !== undefined
-      && location.longitude !== null
-      && location.longitude !== undefined;
-
-    if (!hasCoordinates) {
-      throw new ApiError(httpStatus.BAD_REQUEST, 'Location coordinates are required');
-    }
-
-    const weather = await weatherService.getCurrentByCoordinates(
-      location.latitude,
-      location.longitude
-    );
-
-    return {
-      location_id: location.location_id,
-      location_name: location.name,
-      latitude: Number(location.latitude),
-      longitude: Number(location.longitude),
-      weather,
-    };
+    return location;
   }
 
   async create(payload) {
@@ -98,22 +56,14 @@ class LocationService {
     try {
       await client.query('BEGIN');
       const current = await this.ensureExists(id, client);
-      const destinationId = payload.travel_destination_id ?? current.destination_id;
-      const name = payload.name ? payload.name.trim() : current.name;
 
-      if (payload.travel_destination_id !== undefined) {
-        await this.ensureTravelDestinationExists(destinationId, client);
-      }
-
-      if (payload.name || payload.travel_destination_id !== undefined) {
-        await this.ensureUniqueName(destinationId, name, id, client);
+      if (payload.name) {
+        await this.ensureUniqueName(current.destination_id, payload.name, id, client);
       }
 
       const location = await locationModel.updateLocation(id, {
         ...payload,
-        destination_id: payload.travel_destination_id !== undefined ? destinationId : undefined,
-        travel_destination_id: undefined,
-        name: payload.name ? name : undefined,
+        name: payload.name ? payload.name.trim() : undefined,
       }, client);
 
       await client.query('COMMIT');
@@ -131,9 +81,6 @@ class LocationService {
       await client.query('ROLLBACK');
       if (error.code === '23505') {
         throw new ApiError(httpStatus.CONFLICT, 'Duplicate location name inside same destination');
-      }
-      if (error.code === '23503') {
-        throw new ApiError(httpStatus.NOT_FOUND, 'Travel destination not found');
       }
       throw error;
     } finally {

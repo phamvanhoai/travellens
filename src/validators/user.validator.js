@@ -37,12 +37,6 @@ module.exports = {
     }),
   },
 
-  customerLookup: {
-    query: Joi.object({
-      email: Joi.string().trim().lowercase().email().required(),
-    }),
-  },
-
   create: {
     body: Joi.object({
       name: Joi.string().trim().max(150).pattern(fullNamePattern).required().messages({

@@ -73,8 +73,8 @@ module.exports = {
     return result.rows[0] || null;
   },
 
-  async findByCode(code, executor = db) {
-    const result = await executor.query(
+  async findByCode(code) {
+    const result = await db.query(
       'SELECT * FROM coupon WHERE code = $1 AND deleted_at IS NULL',
       [code.toUpperCase().trim()]
     );

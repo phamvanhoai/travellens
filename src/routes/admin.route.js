@@ -3,13 +3,12 @@ const { authenticate, authorize } = require('../middlewares/auth.middleware');
 const validate = require('../middlewares/validate.middleware');
 const statisticsController = require('../controllers/statistics.controller');
 const view360Controller = require('../controllers/view360.controller');
-const view360HotspotController = require('../controllers/view360Hotspot.controller');
 const view360ImageController = require('../controllers/view360Image.controller');
 const {
   handleView360AudioUpload,
   handleView360ImageUpload,
 } = require('../middlewares/upload.middleware');
-const { view360, view360Hotspot, view360Image } = require('../validators');
+const { view360, view360Image } = require('../validators');
 
 const router = express.Router();
 
@@ -712,135 +711,6 @@ router.get('/statistics/content', statisticsController.content);
  *     responses:
  *       200:
  *         description: View360 image deleted successfully
- *
- * /admin/view360/{view360Id}/hotspots:
- *   get:
- *     summary: Admin list View360 hotspots
- *     tags: [Admin View360]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: view360Id
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: View360 hotspot list
- *   post:
- *     summary: Admin create View360 hotspot
- *     tags: [Admin View360]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: view360Id
- *         required: true
- *         schema:
- *           type: integer
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [yaw, pitch]
- *             properties:
- *               type:
- *                 type: string
- *                 enum: [info, navigation, link, location]
- *                 example: info
- *               title:
- *                 type: string
- *                 nullable: true
- *                 example: Cổng chính
- *               description:
- *                 type: string
- *                 nullable: true
- *                 example: Khu vực lối vào chính
- *               yaw:
- *                 type: number
- *                 example: 120.5
- *               pitch:
- *                 type: number
- *                 example: -8.2
- *               target_view360_id:
- *                 type: integer
- *                 nullable: true
- *               target_url:
- *                 type: string
- *                 nullable: true
- *               order_index:
- *                 type: integer
- *                 example: 1
- *               is_active:
- *                 type: boolean
- *                 example: true
- *     responses:
- *       201:
- *         description: View360 hotspot created successfully
- *
- * /admin/view360-hotspots/{hotspotId}:
- *   put:
- *     summary: Admin update View360 hotspot
- *     tags: [Admin View360]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: hotspotId
- *         required: true
- *         schema:
- *           type: integer
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             minProperties: 1
- *             properties:
- *               type:
- *                 type: string
- *                 enum: [info, navigation, link, location]
- *               title:
- *                 type: string
- *                 nullable: true
- *               description:
- *                 type: string
- *                 nullable: true
- *               yaw:
- *                 type: number
- *               pitch:
- *                 type: number
- *               target_view360_id:
- *                 type: integer
- *                 nullable: true
- *               target_url:
- *                 type: string
- *                 nullable: true
- *               order_index:
- *                 type: integer
- *               is_active:
- *                 type: boolean
- *     responses:
- *       200:
- *         description: View360 hotspot updated successfully
- *   delete:
- *     summary: Admin delete View360 hotspot
- *     tags: [Admin View360]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: hotspotId
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: View360 hotspot deleted successfully
  */
 router
   .route('/locations/:locationId/view360')
@@ -861,16 +731,6 @@ router
   .route('/view360-images/:imageId')
   .put(handleView360ImageUpload, validate(view360Image.update), view360ImageController.update)
   .delete(validate(view360Image.imageParam), view360ImageController.remove);
-
-router
-  .route('/view360/:view360Id/hotspots')
-  .get(validate(view360Hotspot.viewParam), view360HotspotController.listByView)
-  .post(validate(view360Hotspot.create), view360HotspotController.createForView);
-
-router
-  .route('/view360-hotspots/:hotspotId')
-  .put(validate(view360Hotspot.update), view360HotspotController.update)
-  .delete(validate(view360Hotspot.hotspotParam), view360HotspotController.remove);
 
 /**
  * @swagger
@@ -943,7 +803,7 @@ router
  *         multipart/form-data:
  *           schema:
  *             type: object
- *             required: [tour_category_id, name, price, child_price, schedule, capacity, destinations]
+ *             required: [tour_category_id, name, price, schedule, capacity, destinations]
  *             properties:
  *               tour_category_id:
  *                 type: integer
@@ -962,10 +822,6 @@ router
  *                 type: number
  *                 minimum: 0
  *                 example: 250000
- *               child_price:
- *                 type: number
- *                 minimum: 0
- *                 example: 162500
  *               schedule:
  *                 type: string
  *                 example: 08:00 - 12:00
@@ -987,7 +843,7 @@ router
  *         application/json:
  *           schema:
  *             type: object
- *             required: [tour_category_id, name, price, child_price, schedule, capacity, destinations]
+ *             required: [tour_category_id, name, price, schedule, capacity, destinations]
  *             properties:
  *               tour_category_id:
  *                 type: integer
@@ -1006,10 +862,6 @@ router
  *                 type: number
  *                 minimum: 0
  *                 example: 250000
- *               child_price:
- *                 type: number
- *                 minimum: 0
- *                 example: 162500
  *               schedule:
  *                 type: string
  *                 example: 08:00 - 12:00
@@ -1740,7 +1592,7 @@ router
  * /admin/locations/{id}:
  *   put:
  *     summary: Admin update location
- *     description: Updates location information, including moving it to another existing travel destination. Supports uploading a new thumbnail file or passing an existing thumbnail URL. Deleted locations cannot be updated and updated_at is changed automatically.
+ *     description: Updates location information. Supports uploading a new thumbnail file or passing an existing thumbnail URL. Deleted locations cannot be updated and updated_at is changed automatically.
  *     tags: [Admin Locations]
  *     security:
  *       - bearerAuth: []
@@ -1758,10 +1610,6 @@ router
  *             type: object
  *             minProperties: 1
  *             properties:
- *               travel_destination_id:
- *                 type: integer
- *                 minimum: 1
- *                 example: 8
  *               name:
  *                 type: string
  *                 maxLength: 255
@@ -1786,10 +1634,6 @@ router
  *             type: object
  *             minProperties: 1
  *             properties:
- *               travel_destination_id:
- *                 type: integer
- *                 minimum: 1
- *                 example: 8
  *               name:
  *                 type: string
  *                 maxLength: 255
@@ -1817,9 +1661,7 @@ router
  *       400:
  *         description: Bad request or unsupported file format
  *       404:
- *         description: Location or travel destination not found
- *       409:
- *         description: Duplicate location name inside the destination
+ *         description: Location not found
  *   delete:
  *     summary: Admin delete location
  *     description: Soft deletes a location only when it has no related View360, View360Image, Map, Review, or Blog_Location data.
