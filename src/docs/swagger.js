@@ -25,6 +25,7 @@ const options = {
       { name: 'Admin Tour Categories', description: 'Admin tour category management' },
       { name: 'Admin Tours', description: 'Admin tour viewing endpoints' },
       { name: 'Admin Blogs', description: 'Admin blog management endpoints' },
+      { name: 'Admin Blog Categories', description: 'Admin blog category management endpoints' },
       { name: 'Admin Media', description: 'Admin reusable image library for blog content' },
       { name: 'Staff Coupons', description: 'Staff coupon management endpoints' },
       { name: 'Staff Bookings', description: 'Staff booking management endpoints' },
@@ -40,6 +41,7 @@ const options = {
       { name: 'Maps', description: 'Map endpoints' },
       { name: 'Bookings', description: 'Customer booking endpoints. Requires Bearer token with role customer.' },
       { name: 'Blogs', description: 'Travel blog endpoints' },
+      { name: 'Blog Categories', description: 'Public blog category endpoints' },
       { name: 'Reviews', description: 'Location review endpoints' },
       { name: 'AI Chat', description: 'AI travel chat endpoints' },
       { name: 'AI Suggestions', description: 'AI travel suggestion endpoints' },
@@ -188,6 +190,7 @@ const options = {
           required: ['user_id', 'title'],
           properties: {
             user_id: { type: 'integer', example: 1 },
+            blog_category_id: { type: 'integer', nullable: true, example: 1 },
             title: { type: 'string', example: 'A day at Dinh Doc Lap' },
             content: { type: 'string', nullable: true },
             location_ids: { type: 'array', items: { type: 'integer' }, example: [1] },

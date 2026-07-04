@@ -19,6 +19,7 @@ module.exports = {
   zaloWebhook: require('./zaloWebhook.controller'),
   coupon: require('./coupon.controller'),
   blog: require('./blog.controller'),
+  blogCategory: require('./blogCategory.controller'),
   blogLocation: require('./blogLocation.controller'),
   blogComment: require('./blogComment.controller'),
   review: require('./review.controller'),
