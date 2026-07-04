@@ -1,5 +1,6 @@
 const express = require('express');
 const controller = require('../controllers/booking.controller');
+const paymentController = require('../controllers/payment.controller');
 const validate = require('../middlewares/validate.middleware');
 const { common, entity } = require('../validators');
 
@@ -7,14 +8,20 @@ const router = express.Router();
 
 router
   .route('/')
-  .get(validate({ query: common.paginationQuery }), controller.list)
-  .post(validate({ body: entity.booking }), controller.create);
+  .get(validate({ query: common.paginationQuery }), controller.staffList)
+  .post(validate({ body: entity.booking }), controller.staffCreate);
 
 router
   .route('/:id')
-  .get(validate({ params: common.idParam }), controller.get);
+  .get(validate({ params: common.idParam }), controller.staffGet);
 
 router.get('/:id/history', validate({ params: common.idParam }), controller.history);
+
+router.patch(
+  '/:id/confirm-manual-payment',
+  validate({ params: common.idParam, body: entity.manualBookingConfirmation }),
+  paymentController.confirmManualBooking
+);
 
 router.patch(
   '/:id/cancel',

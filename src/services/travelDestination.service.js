@@ -14,11 +14,13 @@ class TravelDestinationService {
       throw new ApiError(httpStatus.NOT_FOUND, 'Travel destination not found');
     }
 
-    const [locations, tours, view360, statistics] = await Promise.all([
+    const [locations, tours, view360, maps, blogs, reviews] = await Promise.all([
       travelDestinationModel.getLocations(id),
       travelDestinationModel.getTours(id),
       travelDestinationModel.getView360(id),
-      travelDestinationModel.getStatistics(id),
+      travelDestinationModel.getMaps(id),
+      travelDestinationModel.getBlogs(id),
+      travelDestinationModel.getReviews(id),
     ]);
 
     return {
@@ -26,7 +28,9 @@ class TravelDestinationService {
       locations,
       tours,
       view360,
-      statistics,
+      maps,
+      blogs,
+      reviews,
     };
   }
 
