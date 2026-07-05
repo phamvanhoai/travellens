@@ -3,6 +3,7 @@ const controller = require('../controllers/blog.controller');
 const validate = require('../middlewares/validate.middleware');
 const { authenticate } = require('../middlewares/auth.middleware');
 const { common, entity } = require('../validators');
+const { handleBlogThumbnailUpload } = require('../middlewares/upload.middleware');
 
 const router = express.Router();
 
@@ -14,6 +15,7 @@ router.get(
 
 router.post(
   '/',
+  handleBlogThumbnailUpload,
   authenticate,
   validate({ body: entity.blog }),
   controller.create
@@ -27,6 +29,7 @@ router.get(
 
 router.put(
   '/:id',
+  handleBlogThumbnailUpload,
   authenticate,
   validate({ params: common.idParam, body: entity.blogUpdate }),
   controller.update

@@ -14,6 +14,21 @@ class BlogService extends BaseService {
     return await this.model.listBlogs(query);
   }
 
+  async listPublic(query = {}) {
+    return this.model.listBlogs({ ...query, public_only: true });
+  }
+
+  async getPublic(idOrSlug) {
+    const blog = /^\d+$/.test(String(idOrSlug))
+      ? await this.model.findById(idOrSlug)
+      : await this.model.findBySlug(idOrSlug, true);
+    if (!blog || blog.status !== 'published'
+      || (blog.published_at && new Date(blog.published_at) > new Date())) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Blog not found');
+    }
+    return blog;
+  }
+
   async create(payload, userId) {
     const locationIds = this.normalizeLocationIds(payload.location_ids || []);
     const categoryIds = this.normalizeCategoryIds(payload.category_ids || []);
@@ -25,10 +40,17 @@ class BlogService extends BaseService {
       await this.ensureLocationsExist(locationIds, client);
       await this.ensureBlogCategoriesExist(categoryIds, client);
 
+      const slug = await this.resolveSlug(payload.slug, payload.title, null, client);
+      const status = payload.status || 'published';
+
       const blog = await blogModel.createBlog({
         user_id: userId,
         title: payload.title,
+        slug,
+        thumbnail: payload.thumbnail || null,
         content,
+        status,
+        published_at: status === 'published' ? (payload.published_at || new Date()) : null,
       }, client);
 
       await blogLocationModel.replaceForBlog(blog.blog_id, locationIds, client);
@@ -81,6 +103,12 @@ class BlogService extends BaseService {
 
       let updatedBlog = blog;
       const updatePayload = this.pickBlogFields(payload);
+      if (payload.slug !== undefined) {
+        updatePayload.slug = await this.resolveSlug(payload.slug, payload.title || blog.title, id, client);
+      }
+      if (payload.status === 'published' && payload.published_at === undefined && !blog.published_at) {
+        updatePayload.published_at = new Date();
+      }
       if (Object.keys(updatePayload).length) {
         updatedBlog = await blogModel.updateBlog(id, updatePayload, client);
       }
@@ -134,7 +162,7 @@ class BlogService extends BaseService {
   }
 
   pickBlogFields(payload) {
-    const allowedFields = ['title', 'content'];
+    const allowedFields = ['title', 'thumbnail', 'content', 'status', 'published_at'];
     return allowedFields.reduce((nextPayload, field) => {
       if (payload[field] !== undefined) {
         nextPayload[field] = payload[field];
@@ -145,6 +173,34 @@ class BlogService extends BaseService {
 
   async prepareContent(content) {
     return blogContent.sanitize(content);
+  }
+
+  slugify(value) {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/Đ/g, 'D')
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 255);
+  }
+
+  async resolveSlug(requestedSlug, title, excludeId, executor) {
+    const base = this.slugify(requestedSlug || title) || 'blog';
+    if (requestedSlug && await blogModel.slugExists(base, excludeId, executor)) {
+      throw new ApiError(httpStatus.CONFLICT, 'Blog URL is already in use');
+    }
+
+    let slug = base;
+    let suffix = 2;
+    while (await blogModel.slugExists(slug, excludeId, executor)) {
+      const tail = `-${suffix++}`;
+      slug = `${base.slice(0, 255 - tail.length)}${tail}`;
+    }
+    return slug;
   }
 
   normalizeLocationIds(locationIds) {

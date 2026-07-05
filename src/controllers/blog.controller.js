@@ -20,6 +20,24 @@ baseController.list = async (req, res, next) => {
   }
 };
 
+baseController.publicList = async (req, res, next) => {
+  try {
+    const result = await blogService.listPublic(req.query);
+    res.json({ success: true, message: 'Success', data: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
+baseController.publicGet = async (req, res, next) => {
+  try {
+    const result = await blogService.getPublic(req.params.idOrSlug);
+    res.json({ success: true, message: 'Success', data: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 baseController.create = async (req, res, next) => {
   try {

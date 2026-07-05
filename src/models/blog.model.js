@@ -6,7 +6,7 @@ class BlogModel extends BaseModel {
     super({
       table: 'blog',
       primaryKey: 'blog_id',
-      fields: ['user_id', 'title', 'content', 'date_created', 'views'],
+      fields: ['user_id', 'title', 'slug', 'thumbnail', 'content', 'status', 'published_at', 'date_created', 'views'],
       searchable: ['title', 'content'],
       filters: ['user_id'],
     });
@@ -67,6 +67,13 @@ class BlogModel extends BaseModel {
         WHERE bbc.blog_id = b.blog_id
           AND bbc.blog_category_id = $${values.length}
       )`);
+    }
+
+    if (query.public_only) {
+      clauses.push(`b.status = 'published' AND (b.published_at IS NULL OR b.published_at <= CURRENT_TIMESTAMP)`);
+    } else if (query.status) {
+      values.push(query.status);
+      clauses.push(`b.status = $${values.length}`);
     }
 
     if (clauses.length) {
@@ -152,6 +159,27 @@ class BlogModel extends BaseModel {
     return result.rows[0];
   }
 
+  async findBySlug(slug, publicOnly = false) {
+    const result = await db.query(
+      `SELECT b.* FROM blog b
+       WHERE LOWER(b.slug) = LOWER($1)
+         ${publicOnly ? "AND b.status = 'published' AND (b.published_at IS NULL OR b.published_at <= CURRENT_TIMESTAMP)" : ''}`,
+      [slug]
+    );
+    return result.rows[0] || null;
+  }
+
+  async slugExists(slug, excludeId = null, executor = db) {
+    const result = await executor.query(
+      `SELECT 1 FROM blog
+       WHERE LOWER(slug) = LOWER($1)
+         AND ($2::int IS NULL OR blog_id <> $2)
+       LIMIT 1`,
+      [slug, excludeId]
+    );
+    return result.rowCount > 0;
+  }
+
   async findForUpdate(blogId, executor = db) {
     const result = await executor.query(
       'SELECT * FROM blog WHERE blog_id = $1 FOR UPDATE',
@@ -162,16 +190,18 @@ class BlogModel extends BaseModel {
 
   async createBlog(payload, executor = db) {
     const result = await executor.query(
-      `INSERT INTO blog (user_id, title, content)
-       VALUES ($1, $2, $3)
+      `INSERT INTO blog (user_id, title, slug, thumbnail, content, status, published_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [payload.user_id, payload.title, payload.content]
+      [payload.user_id, payload.title, payload.slug, payload.thumbnail, payload.content,
+        payload.status, payload.published_at]
     );
     return result.rows[0];
   }
 
   async updateBlog(id, payload, executor = db) {
-    const fields = ['title', 'content'].filter((field) => payload[field] !== undefined);
+    const fields = ['title', 'slug', 'thumbnail', 'content', 'status', 'published_at']
+      .filter((field) => payload[field] !== undefined);
     if (!fields.length) return this.findForUpdate(id, executor);
     const values = fields.map((field) => payload[field]);
     const assignments = fields.map((field, index) => `${field} = $${index + 1}`);
