@@ -4,6 +4,13 @@ const idParam = Joi.object({
   id: Joi.alternatives().try(Joi.number().integer().positive(), Joi.string().pattern(/^\d+:\d+$/)).required(),
 });
 
+const blogIdentifierParam = Joi.object({
+  idOrSlug: Joi.alternatives().try(
+    Joi.number().integer().positive(),
+    Joi.string().trim().lowercase().max(255).pattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+  ).required(),
+});
+
 const paginationQuery = Joi.object({
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(20),
@@ -21,6 +28,7 @@ const travelDestinationListQuery = Joi.object({
 
 module.exports = {
   idParam,
+  blogIdentifierParam,
   paginationQuery,
   travelDestinationListQuery,
 };

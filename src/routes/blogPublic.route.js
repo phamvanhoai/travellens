@@ -4,10 +4,11 @@ const blogCommentController = require('../controllers/blogComment.controller');
 const validate = require('../middlewares/validate.middleware');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
 const { blogComment, common, entity } = require('../validators');
+const { handleBlogThumbnailUpload } = require('../middlewares/upload.middleware');
 
 const router = express.Router();
 
-router.get('/', validate({ query: common.paginationQuery }), controller.list);
+router.get('/', validate({ query: common.paginationQuery }), controller.publicList);
 /**
  * @swagger
  * /blogs/{blogId}/comments:
@@ -214,12 +215,13 @@ router
     validate(blogComment.remove),
     blogCommentController.remove
   );
-router.get('/:id', validate({ params: common.idParam }), controller.get);
-router.post('/', authenticate, authorize('customer'), validate({ body: entity.blog }), controller.create);
+router.get('/:idOrSlug', validate({ params: common.blogIdentifierParam }), controller.publicGet);
+router.post('/', authenticate, authorize('customer'), handleBlogThumbnailUpload, validate({ body: entity.blog }), controller.create);
 router.put(
   '/:id',
   authenticate,
   authorize('customer'),
+  handleBlogThumbnailUpload,
   validate({ params: common.idParam, body: entity.blogUpdate }),
   controller.update
 );
