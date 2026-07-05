@@ -499,7 +499,11 @@ CREATE TABLE blog (
     blog_id SERIAL PRIMARY KEY,
     user_id INT NOT NULL,
     title VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) NOT NULL UNIQUE,
+    thumbnail TEXT,
     content TEXT,
+    status VARCHAR(20) NOT NULL DEFAULT 'published' CHECK (status IN ('draft', 'published', 'archived')),
+    published_at TIMESTAMP,
     date_created DATE NOT NULL DEFAULT CURRENT_DATE,
     CONSTRAINT fk_blog_user
         FOREIGN KEY (user_id)
@@ -732,6 +736,8 @@ CREATE UNIQUE INDEX uq_coupon_active_code ON coupon(UPPER(code)) WHERE deleted_a
 CREATE INDEX idx_coupon_status ON coupon(status);
 CREATE INDEX idx_coupon_deleted_at ON coupon(deleted_at);
 CREATE INDEX idx_blog_user_id ON blog(user_id);
+CREATE UNIQUE INDEX idx_blog_slug_unique ON blog(LOWER(slug));
+CREATE INDEX idx_blog_status_published_at ON blog(status, published_at DESC);
 CREATE INDEX idx_blog_blog_category_category_id ON blog_blog_category(blog_category_id);
 CREATE INDEX idx_blog_comment_blog_id ON blog_comment(blog_id);
 CREATE INDEX idx_blog_comment_user_id ON blog_comment(user_id);
