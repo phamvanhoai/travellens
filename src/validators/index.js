@@ -21,4 +21,5 @@ module.exports = {
   blogComment: require('./blogComment.validator'),
   media: require('./media.validator'),
   refundRequest: require('./refundRequest.validator'),
+  travelFeed: require('./travelFeed.validator'),
 };
