@@ -25,6 +25,7 @@ router.use('/webhooks', require('./webhook.route'));
 router.use('/coupons', require('./couponPublic.route'));
 router.use('/blogs', require('./blogPublic.route'));
 router.use('/reviews', require('./reviewPublic.route'));
+router.use('/travel-feed', require('./travelFeed.route'));
 router.use('/chat', require('./chat.route'));
 router.use('/suggestions', require('./suggestion.route'));
 router.use('/saved', require('./savedItem.route'));
