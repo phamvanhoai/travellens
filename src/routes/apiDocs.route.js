@@ -123,6 +123,13 @@ const router = express.Router();
  *     tags: [Admin Blogs]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [draft, published, archived] }
+ *       - in: query
+ *         name: blog_category_id
+ *         schema: { type: integer }
  *     responses:
  *       200: { description: Blog list }
  *   post:
@@ -135,6 +142,8 @@ const router = express.Router();
  *       content:
  *         application/json:
  *           schema: { $ref: '#/components/schemas/BlogInput' }
+ *         multipart/form-data:
+ *           schema: { $ref: '#/components/schemas/BlogMultipartInput' }
  *     responses:
  *       201: { description: Blog created }
  *
@@ -151,6 +160,7 @@ const router = express.Router();
  *         schema: { type: integer }
  *     responses:
  *       200: { description: Blog detail }
+ *
  *   put:
  *     summary: Admin update blog
  *     tags: [Admin Blogs]
@@ -165,7 +175,9 @@ const router = express.Router();
  *       required: true
  *       content:
  *         application/json:
- *           schema: { $ref: '#/components/schemas/BlogInput' }
+ *           schema: { $ref: '#/components/schemas/BlogUpdateInput' }
+ *         multipart/form-data:
+ *           schema: { $ref: '#/components/schemas/BlogMultipartUpdateInput' }
  *     responses:
  *       200: { description: Blog updated }
  *   delete:
@@ -762,20 +774,27 @@ const router = express.Router();
  *       content:
  *         application/json:
  *           schema: { $ref: '#/components/schemas/BlogInput' }
+ *         multipart/form-data:
+ *           schema: { $ref: '#/components/schemas/BlogMultipartInput' }
  *     responses:
  *       201: { description: Blog created }
  *
- * /blogs/{id}:
+ * /blogs/{idOrSlug}:
  *   get:
  *     summary: Get blog detail
  *     tags: [Blogs]
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: idOrSlug
  *         required: true
- *         schema: { type: integer }
+ *         schema:
+ *           oneOf:
+ *             - { type: integer }
+ *             - { type: string, example: mot-ngay-tai-dinh-doc-lap }
  *     responses:
  *       200: { description: Blog detail }
+ *
+ * /blogs/{id}:
  *   put:
  *     summary: Update blog
  *     tags: [Blogs]
@@ -790,7 +809,9 @@ const router = express.Router();
  *       required: true
  *       content:
  *         application/json:
- *           schema: { $ref: '#/components/schemas/BlogInput' }
+ *           schema: { $ref: '#/components/schemas/BlogUpdateInput' }
+ *         multipart/form-data:
+ *           schema: { $ref: '#/components/schemas/BlogMultipartUpdateInput' }
  *     responses:
  *       200: { description: Blog updated }
  *   delete:
