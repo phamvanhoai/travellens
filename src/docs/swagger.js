@@ -81,11 +81,16 @@ const options = {
         },
         BookingInput: {
           type: 'object',
-          required: ['tour_id', 'travel_date'],
+          required: ['tour_id', 'contact_phone', 'travel_date', 'passengers'],
           properties: {
             user_id: { type: 'integer', readOnly: true, description: 'Resolved from the authenticated customer token.' },
             tour_id: { type: 'integer', example: 1 },
-            contact_phone: { type: 'string', nullable: true, example: '0901234567', description: 'Optional contact phone. Backend stores it in the first passenger special_request.' },
+            contact_phone: {
+              type: 'string',
+              pattern: '^0(?:3|5|7|8|9)\\d{8}$',
+              example: '0901234567',
+              description: 'Required Vietnamese mobile contact phone. Backend stores it in the first passenger special_request.',
+            },
             travel_date: { type: 'string', format: 'date', example: '2026-07-15' },
             departure_at: { type: 'string', format: 'date-time', nullable: true, description: 'Optional override. If omitted, backend combines travel_date with the start time from tour.schedule.', example: '2026-07-15T08:00:00+07:00' },
             coupon_code: { type: 'string', nullable: true, example: 'SUMMER20' },
@@ -95,7 +100,13 @@ const options = {
                 type: 'object',
                 required: ['passenger_name', 'age_category'],
                 properties: {
-                  passenger_name: { type: 'string', example: 'Nguyen Van A' },
+                  passenger_name: {
+                    type: 'string',
+                    maxLength: 150,
+                    pattern: '^[\\p{L}]+(?:\\s+[\\p{L}]+)+$',
+                    example: 'Nguyen Van A',
+                    description: 'At least 2 words, letters and spaces only.',
+                  },
                   age_category: { type: 'string', enum: ['adult', 'child', 'infant'] },
                   seat_number: { type: 'string', nullable: true },
                   special_request: { type: 'string', nullable: true },
@@ -106,7 +117,7 @@ const options = {
         },
         StaffBookingInput: {
           type: 'object',
-          required: ['user_id', 'tour_id', 'travel_date', 'passengers'],
+          required: ['user_id', 'tour_id', 'contact_phone', 'travel_date', 'passengers'],
           properties: {
             user_id: {
               type: 'integer',
@@ -116,9 +127,9 @@ const options = {
             tour_id: { type: 'integer', example: 1 },
             contact_phone: {
               type: 'string',
-              nullable: true,
+              pattern: '^0(?:3|5|7|8|9)\\d{8}$',
               example: '0901234567',
-              description: 'Phone of the actual contact/traveler when staff books on behalf of another person. Backend stores it in the first passenger special_request.',
+              description: 'Required phone of the actual contact/traveler when staff books on behalf of another person. Backend stores it in the first passenger special_request.',
             },
             travel_date: { type: 'string', format: 'date', example: '2026-07-15' },
             departure_at: {
@@ -136,7 +147,13 @@ const options = {
                 type: 'object',
                 required: ['passenger_name', 'age_category'],
                 properties: {
-                  passenger_name: { type: 'string', example: 'Nguyen Van A' },
+                  passenger_name: {
+                    type: 'string',
+                    maxLength: 150,
+                    pattern: '^[\\p{L}]+(?:\\s+[\\p{L}]+)+$',
+                    example: 'Nguyen Van A',
+                    description: 'At least 2 words, letters and spaces only.',
+                  },
                   age_category: { type: 'string', enum: ['adult', 'child', 'infant'], example: 'adult' },
                   seat_number: { type: 'string', nullable: true, example: '' },
                   special_request: { type: 'string', nullable: true, example: '' },
@@ -178,7 +195,13 @@ const options = {
           required: ['booking_id', 'passenger_name', 'age_category', 'price'],
           properties: {
             booking_id: { type: 'integer', example: 1 },
-            passenger_name: { type: 'string', example: 'Nguyen Van A' },
+            passenger_name: {
+              type: 'string',
+              maxLength: 150,
+              pattern: '^[\\p{L}]+(?:\\s+[\\p{L}]+)+$',
+              example: 'Nguyen Van A',
+              description: 'At least 2 words, letters and spaces only.',
+            },
             age_category: { type: 'string', enum: ['adult', 'child', 'infant'] },
             price: { type: 'number', example: 700000 },
             seat_number: { type: 'string', nullable: true },
