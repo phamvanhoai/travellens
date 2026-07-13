@@ -5,8 +5,10 @@
 
 DROP TABLE IF EXISTS statistics CASCADE;
 DROP TABLE IF EXISTS revoked_tokens CASCADE;
+DROP TABLE IF EXISTS user_block CASCADE;
 DROP TABLE IF EXISTS review_photo CASCADE;
 DROP TABLE IF EXISTS review CASCADE;
+DROP TABLE IF EXISTS travel_post_share CASCADE;
 DROP TABLE IF EXISTS travel_post_report CASCADE;
 DROP TABLE IF EXISTS travel_post_comment CASCADE;
 DROP TABLE IF EXISTS travel_post_like CASCADE;
@@ -55,6 +57,23 @@ CREATE TABLE users (
     date_of_birth DATE,
     gender VARCHAR(20),
     address TEXT
+);
+
+CREATE TABLE user_block (
+    blocker_id INT NOT NULL,
+    blocked_id INT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (blocker_id, blocked_id),
+    CONSTRAINT fk_user_block_blocker
+        FOREIGN KEY (blocker_id)
+        REFERENCES users(user_id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_user_block_blocked
+        FOREIGN KEY (blocked_id)
+        REFERENCES users(user_id)
+        ON DELETE CASCADE,
+    CONSTRAINT chk_user_block_not_self
+        CHECK (blocker_id <> blocked_id)
 );
 
 -- =========================================================
@@ -680,6 +699,7 @@ CREATE TABLE travel_post (
     like_count INT NOT NULL DEFAULT 0,
     comment_count INT NOT NULL DEFAULT 0,
     report_count INT NOT NULL DEFAULT 0,
+    share_count INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP,
@@ -700,7 +720,7 @@ CREATE TABLE travel_post (
     CONSTRAINT chk_travel_post_visibility
         CHECK (visibility IN ('public', 'private')),
     CONSTRAINT chk_travel_post_counts
-        CHECK (like_count >= 0 AND comment_count >= 0 AND report_count >= 0)
+        CHECK (like_count >= 0 AND comment_count >= 0 AND report_count >= 0 AND share_count >= 0)
 );
 
 CREATE TABLE travel_post_photo (
@@ -785,6 +805,25 @@ CREATE TABLE travel_post_report (
         UNIQUE (post_id, user_id)
 );
 
+CREATE TABLE travel_post_share (
+    share_id SERIAL PRIMARY KEY,
+    post_id INT NOT NULL,
+    user_id INT NOT NULL,
+    platform VARCHAR(30) NOT NULL,
+    counted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_travel_post_share_post
+        FOREIGN KEY (post_id)
+        REFERENCES travel_post(post_id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_travel_post_share_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(user_id)
+        ON DELETE CASCADE,
+    CONSTRAINT chk_travel_post_share_platform
+        CHECK (platform IN ('facebook', 'zalo', 'copy_link', 'other'))
+);
+
 -- =========================================================
 -- Statistics
 -- =========================================================
@@ -799,6 +838,7 @@ CREATE TABLE statistics (
 -- Indexes for foreign keys
 -- =========================================================
 CREATE INDEX idx_travel_destination_destination_category_id ON travel_destination(destination_category_id);
+CREATE INDEX idx_user_block_blocked_id ON user_block(blocked_id);
 CREATE INDEX idx_destination_category_name ON destination_category(name);
 CREATE INDEX idx_tour_category_name ON tour_category(name);
 CREATE UNIQUE INDEX idx_travel_destination_name_unique ON travel_destination(name) WHERE deleted_at IS NULL;
@@ -871,6 +911,10 @@ CREATE INDEX idx_travel_post_comment_deleted_at ON travel_post_comment(deleted_a
 CREATE INDEX idx_travel_post_report_post_id ON travel_post_report(post_id);
 CREATE INDEX idx_travel_post_report_user_id ON travel_post_report(user_id);
 CREATE INDEX idx_travel_post_report_status ON travel_post_report(status);
+CREATE INDEX idx_travel_post_share_post_id ON travel_post_share(post_id);
+CREATE INDEX idx_travel_post_share_user_id ON travel_post_share(user_id);
+CREATE INDEX idx_travel_post_share_platform ON travel_post_share(platform);
+CREATE INDEX idx_travel_post_share_recent ON travel_post_share(post_id, user_id, platform, created_at DESC);
 CREATE INDEX idx_coupon_code ON coupon(code);
 CREATE UNIQUE INDEX uq_coupon_active_code ON coupon(UPPER(code)) WHERE deleted_at IS NULL;
 CREATE INDEX idx_coupon_status ON coupon(status);

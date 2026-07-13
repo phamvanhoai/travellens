@@ -31,6 +31,33 @@ const authenticate = async (req, res, next) => {
   }
 };
 
+const optionalAuthenticate = async (req, res, next) => {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+
+  if (!token) {
+    next();
+    return;
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    const isRevoked = await revokedTokenModel.isRevoked(token);
+    if (isRevoked) {
+      next(new ApiError(httpStatus.UNAUTHORIZED, 'Token has been revoked'));
+      return;
+    }
+
+    req.token = token;
+    req.user = decoded;
+
+    next();
+  } catch (error) {
+    next(new ApiError(httpStatus.UNAUTHORIZED, 'Invalid or expired token'));
+  }
+};
+
 const authorize = (...roles) => async (req, res, next) => {
   try {
     if (!req.user) {
@@ -98,6 +125,7 @@ const requireActiveAccount = async (req, res, next) => {
 
 module.exports = {
   authenticate,
+  optionalAuthenticate,
   authorize,
   requireActiveAccount,
 };
