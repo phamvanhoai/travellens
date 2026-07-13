@@ -4,6 +4,17 @@ const SORT_COLUMNS = {
   newest: 'tp.created_at DESC, tp.post_id DESC',
   oldest: 'tp.created_at ASC, tp.post_id ASC',
   popular: 'tp.like_count DESC, tp.comment_count DESC, tp.created_at DESC, tp.post_id DESC',
+  reported: 'tp.report_count DESC, tp.created_at DESC, tp.post_id DESC',
+};
+
+const COMMENT_SORT_COLUMNS = {
+  newest: 'tpc.created_at DESC, tpc.comment_id DESC',
+  oldest: 'tpc.created_at ASC, tpc.comment_id ASC',
+};
+
+const REPORT_SORT_COLUMNS = {
+  newest: 'tpr.created_at DESC, tpr.report_id DESC',
+  oldest: 'tpr.created_at ASC, tpr.report_id ASC',
 };
 
 const buildFeedWhere = (query = {}, viewerId) => {
@@ -46,6 +57,154 @@ const buildFeedWhere = (query = {}, viewerId) => {
 
   return {
     text: `WHERE ${clauses.join(' AND ')}`,
+    values,
+  };
+};
+
+const buildAdminWhere = (query = {}) => {
+  const values = [];
+  const clauses = [];
+
+  if (!query.include_deleted) {
+    clauses.push('tp.deleted_at IS NULL');
+  }
+
+  if (query.status) {
+    values.push(query.status);
+    clauses.push(`tp.status = $${values.length}`);
+  }
+
+  if (query.visibility) {
+    values.push(query.visibility);
+    clauses.push(`tp.visibility = $${values.length}`);
+  }
+
+  if (query.destination_id) {
+    values.push(query.destination_id);
+    clauses.push(`tp.destination_id = $${values.length}`);
+  }
+
+  if (query.location_id) {
+    values.push(query.location_id);
+    clauses.push(`tp.location_id = $${values.length}`);
+  }
+
+  if (query.user_id) {
+    values.push(query.user_id);
+    clauses.push(`tp.user_id = $${values.length}`);
+  }
+
+  if (query.has_reports !== undefined) {
+    clauses.push(query.has_reports ? 'tp.report_count > 0' : 'tp.report_count = 0');
+  }
+
+  if (query.search) {
+    values.push(`%${query.search}%`);
+    clauses.push(`(
+      tp.content ILIKE $${values.length}
+      OR u.name ILIKE $${values.length}
+      OR u.email ILIKE $${values.length}
+      OR td.name ILIKE $${values.length}
+      OR l.name ILIKE $${values.length}
+    )`);
+  }
+
+  return {
+    text: clauses.length ? `WHERE ${clauses.join(' AND ')}` : '',
+    values,
+  };
+};
+
+const buildAdminCommentWhere = (query = {}) => {
+  const values = [];
+  const clauses = [];
+
+  if (!query.include_deleted) {
+    clauses.push('tpc.deleted_at IS NULL');
+  }
+
+  if (query.post_id) {
+    values.push(query.post_id);
+    clauses.push(`tpc.post_id = $${values.length}`);
+  }
+
+  if (query.user_id) {
+    values.push(query.user_id);
+    clauses.push(`tpc.user_id = $${values.length}`);
+  }
+
+  if (query.status) {
+    values.push(query.status);
+    clauses.push(`tpc.status = $${values.length}`);
+  }
+
+  if (query.has_parent !== undefined) {
+    clauses.push(query.has_parent ? 'tpc.parent_comment_id IS NOT NULL' : 'tpc.parent_comment_id IS NULL');
+  }
+
+  if (query.search) {
+    values.push(`%${query.search}%`);
+    clauses.push(`(
+      tpc.content ILIKE $${values.length}
+      OR u.name ILIKE $${values.length}
+      OR u.email ILIKE $${values.length}
+      OR tp.content ILIKE $${values.length}
+    )`);
+  }
+
+  return {
+    text: clauses.length ? `WHERE ${clauses.join(' AND ')}` : '',
+    values,
+  };
+};
+
+const buildAdminReportWhere = (query = {}) => {
+  const values = [];
+  const clauses = [];
+
+  if (query.include_deleted_posts === false) {
+    clauses.push('tp.deleted_at IS NULL');
+  }
+
+  if (query.post_id) {
+    values.push(query.post_id);
+    clauses.push(`tpr.post_id = $${values.length}`);
+  }
+
+  if (query.user_id) {
+    values.push(query.user_id);
+    clauses.push(`tpr.user_id = $${values.length}`);
+  }
+
+  if (query.reviewed_by) {
+    values.push(query.reviewed_by);
+    clauses.push(`tpr.reviewed_by = $${values.length}`);
+  }
+
+  if (query.status) {
+    values.push(query.status);
+    clauses.push(`tpr.status = $${values.length}`);
+  }
+
+  if (query.reason) {
+    values.push(query.reason);
+    clauses.push(`tpr.reason = $${values.length}`);
+  }
+
+  if (query.search) {
+    values.push(`%${query.search}%`);
+    clauses.push(`(
+      tpr.description ILIKE $${values.length}
+      OR reporter.name ILIKE $${values.length}
+      OR reporter.email ILIKE $${values.length}
+      OR post_author.name ILIKE $${values.length}
+      OR post_author.email ILIKE $${values.length}
+      OR tp.content ILIKE $${values.length}
+    )`);
+  }
+
+  return {
+    text: clauses.length ? `WHERE ${clauses.join(' AND ')}` : '',
     values,
   };
 };
@@ -134,6 +293,353 @@ class TravelPostModel {
       page,
       limit,
     };
+  }
+
+  async listForAdmin(query = {}) {
+    const page = Math.max(Number(query.page || 1), 1);
+    const limit = Math.min(Math.max(Number(query.limit || 10), 1), 100);
+    const offset = (page - 1) * limit;
+    const where = buildAdminWhere(query);
+    const sort = SORT_COLUMNS[query.sort] || SORT_COLUMNS.newest;
+
+    const countResult = await db.query(
+      `SELECT COUNT(*)::int AS total
+       FROM travel_post tp
+       JOIN users u ON u.user_id = tp.user_id
+       LEFT JOIN travel_destination td
+         ON td.destination_id = tp.destination_id
+       LEFT JOIN location l
+         ON l.location_id = tp.location_id
+       ${where.text}`,
+      where.values
+    );
+
+    const values = [...where.values, limit, offset];
+    const limitParam = values.length - 1;
+    const offsetParam = values.length;
+
+    const result = await db.query(
+      `SELECT
+          tp.post_id,
+          tp.user_id,
+          tp.content,
+          tp.destination_id,
+          td.name AS destination_name,
+          tp.location_id,
+          l.name AS location_name,
+          tp.status,
+          tp.visibility,
+          tp.like_count,
+          tp.comment_count,
+          tp.report_count,
+          tp.share_count,
+          tp.created_at,
+          tp.updated_at,
+          tp.deleted_at,
+          json_build_object(
+            'user_id', u.user_id,
+            'name', u.name,
+            'email', u.email,
+            'avatar_url', u.avatar_url,
+            'status', u.status
+          ) AS author,
+          COALESCE((
+            SELECT json_agg(json_build_object(
+              'photo_id', tpp.photo_id,
+              'image_url', tpp.image_url,
+              'display_order', tpp.display_order,
+              'created_at', tpp.created_at,
+              'deleted_at', tpp.deleted_at
+            ) ORDER BY tpp.display_order ASC, tpp.photo_id ASC)
+            FROM travel_post_photo tpp
+            WHERE tpp.post_id = tp.post_id
+              AND tpp.deleted_at IS NULL
+          ), '[]'::json) AS photos,
+          (
+            SELECT COUNT(*)::int
+            FROM travel_post_report tpr
+            WHERE tpr.post_id = tp.post_id
+              AND tpr.status = 'pending'
+          ) AS pending_report_count
+       FROM travel_post tp
+       JOIN users u ON u.user_id = tp.user_id
+       LEFT JOIN travel_destination td
+         ON td.destination_id = tp.destination_id
+       LEFT JOIN location l
+         ON l.location_id = tp.location_id
+       ${where.text}
+       ORDER BY ${sort}
+       LIMIT $${limitParam} OFFSET $${offsetParam}`,
+      values
+    );
+
+    return {
+      items: result.rows,
+      total: countResult.rows[0].total,
+      page,
+      limit,
+    };
+  }
+
+  async softDeletePost(postId, executor = db) {
+    const result = await executor.query(
+      `UPDATE travel_post
+       SET status = 'deleted',
+           deleted_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE post_id = $1
+         AND deleted_at IS NULL
+       RETURNING
+         post_id,
+         user_id,
+         content,
+         destination_id,
+         location_id,
+         status,
+         visibility,
+         like_count,
+         comment_count,
+         report_count,
+         share_count,
+         created_at,
+         updated_at,
+         deleted_at`,
+      [postId]
+    );
+
+    return result.rows[0] || null;
+  }
+
+  async listCommentsForAdmin(query = {}) {
+    const page = Math.max(Number(query.page || 1), 1);
+    const limit = Math.min(Math.max(Number(query.limit || 20), 1), 100);
+    const offset = (page - 1) * limit;
+    const where = buildAdminCommentWhere(query);
+    const sort = COMMENT_SORT_COLUMNS[query.sort] || COMMENT_SORT_COLUMNS.newest;
+
+    const countResult = await db.query(
+      `SELECT COUNT(*)::int AS total
+       FROM travel_post_comment tpc
+       JOIN users u ON u.user_id = tpc.user_id
+       JOIN travel_post tp ON tp.post_id = tpc.post_id
+       ${where.text}`,
+      where.values
+    );
+
+    const values = [...where.values, limit, offset];
+    const limitParam = values.length - 1;
+    const offsetParam = values.length;
+
+    const result = await db.query(
+      `SELECT
+          tpc.comment_id,
+          tpc.post_id,
+          tpc.user_id,
+          tpc.parent_comment_id,
+          tpc.content,
+          tpc.status,
+          tpc.created_at,
+          tpc.updated_at,
+          tpc.deleted_at,
+          json_build_object(
+            'user_id', u.user_id,
+            'name', u.name,
+            'email', u.email,
+            'avatar_url', u.avatar_url,
+            'status', u.status
+          ) AS author,
+          json_build_object(
+            'post_id', tp.post_id,
+            'content', tp.content,
+            'status', tp.status,
+            'visibility', tp.visibility,
+            'deleted_at', tp.deleted_at
+          ) AS post
+       FROM travel_post_comment tpc
+       JOIN users u ON u.user_id = tpc.user_id
+       JOIN travel_post tp ON tp.post_id = tpc.post_id
+       ${where.text}
+       ORDER BY ${sort}
+       LIMIT $${limitParam} OFFSET $${offsetParam}`,
+      values
+    );
+
+    return {
+      items: result.rows,
+      total: countResult.rows[0].total,
+      page,
+      limit,
+    };
+  }
+
+  async softDeleteCommentForAdmin(commentId, executor = db) {
+    const result = await executor.query(
+      `WITH current_comment AS (
+         SELECT comment_id, post_id, status AS from_status
+         FROM travel_post_comment
+         WHERE comment_id = $1
+           AND deleted_at IS NULL
+           AND status <> 'deleted'
+       )
+       UPDATE travel_post_comment tpc
+       SET status = 'deleted',
+           deleted_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP
+       FROM current_comment cc
+       WHERE tpc.comment_id = cc.comment_id
+       RETURNING
+         tpc.comment_id,
+         tpc.post_id,
+         tpc.user_id,
+         tpc.parent_comment_id,
+         tpc.content,
+         cc.from_status,
+         tpc.status,
+         tpc.created_at,
+         tpc.updated_at,
+         tpc.deleted_at`,
+      [commentId]
+    );
+
+    return result.rows[0] || null;
+  }
+
+  async listReportsForAdmin(query = {}) {
+    const page = Math.max(Number(query.page || 1), 1);
+    const limit = Math.min(Math.max(Number(query.limit || 20), 1), 100);
+    const offset = (page - 1) * limit;
+    const where = buildAdminReportWhere(query);
+    const sort = REPORT_SORT_COLUMNS[query.sort] || REPORT_SORT_COLUMNS.newest;
+
+    const countResult = await db.query(
+      `SELECT COUNT(*)::int AS total
+       FROM travel_post_report tpr
+       JOIN users reporter ON reporter.user_id = tpr.user_id
+       JOIN travel_post tp ON tp.post_id = tpr.post_id
+       JOIN users post_author ON post_author.user_id = tp.user_id
+       LEFT JOIN users reviewer ON reviewer.user_id = tpr.reviewed_by
+       ${where.text}`,
+      where.values
+    );
+
+    const values = [...where.values, limit, offset];
+    const limitParam = values.length - 1;
+    const offsetParam = values.length;
+
+    const result = await db.query(
+      `SELECT
+          tpr.report_id,
+          tpr.post_id,
+          tpr.user_id,
+          tpr.reason,
+          tpr.description,
+          tpr.status,
+          tpr.reviewed_by,
+          tpr.reviewed_at,
+          tpr.created_at,
+          json_build_object(
+            'user_id', reporter.user_id,
+            'name', reporter.name,
+            'email', reporter.email,
+            'avatar_url', reporter.avatar_url,
+            'status', reporter.status
+          ) AS reporter,
+          CASE
+            WHEN reviewer.user_id IS NULL THEN NULL
+            ELSE json_build_object(
+              'user_id', reviewer.user_id,
+              'name', reviewer.name,
+              'email', reviewer.email,
+              'avatar_url', reviewer.avatar_url,
+              'status', reviewer.status
+            )
+          END AS reviewer,
+          json_build_object(
+            'post_id', tp.post_id,
+            'content', tp.content,
+            'status', tp.status,
+            'visibility', tp.visibility,
+            'like_count', tp.like_count,
+            'comment_count', tp.comment_count,
+            'report_count', tp.report_count,
+            'share_count', tp.share_count,
+            'created_at', tp.created_at,
+            'updated_at', tp.updated_at,
+            'deleted_at', tp.deleted_at,
+            'author', json_build_object(
+              'user_id', post_author.user_id,
+              'name', post_author.name,
+              'email', post_author.email,
+              'avatar_url', post_author.avatar_url,
+              'status', post_author.status
+            ),
+            'cover_image_url', (
+              SELECT tpp.image_url
+              FROM travel_post_photo tpp
+              WHERE tpp.post_id = tp.post_id
+                AND tpp.deleted_at IS NULL
+              ORDER BY tpp.display_order ASC, tpp.photo_id ASC
+              LIMIT 1
+            )
+          ) AS post
+       FROM travel_post_report tpr
+       JOIN users reporter ON reporter.user_id = tpr.user_id
+       JOIN travel_post tp ON tp.post_id = tpr.post_id
+       JOIN users post_author ON post_author.user_id = tp.user_id
+       LEFT JOIN users reviewer ON reviewer.user_id = tpr.reviewed_by
+       ${where.text}
+       ORDER BY ${sort}
+       LIMIT $${limitParam} OFFSET $${offsetParam}`,
+      values
+    );
+
+    return {
+      items: result.rows,
+      total: countResult.rows[0].total,
+      page,
+      limit,
+    };
+  }
+
+  async findReportForUpdate(reportId, executor = db) {
+    const result = await executor.query(
+      `SELECT report_id, post_id, user_id, reason, description, status, reviewed_by, reviewed_at, created_at
+       FROM travel_post_report
+       WHERE report_id = $1
+       FOR UPDATE`,
+      [reportId]
+    );
+
+    return result.rows[0] || null;
+  }
+
+  async reviewReportForAdmin(reportId, payload, reviewedBy, executor = db) {
+    const result = await executor.query(
+      `UPDATE travel_post_report
+       SET status = $2,
+           reviewed_by = $3,
+           reviewed_at = CURRENT_TIMESTAMP
+       WHERE report_id = $1
+       RETURNING report_id, post_id, user_id, reason, description, status, reviewed_by, reviewed_at, created_at`,
+      [reportId, payload.status, reviewedBy]
+    );
+
+    return result.rows[0] || null;
+  }
+
+  async resolveReportsForPost(postId, reviewedBy, executor = db) {
+    const result = await executor.query(
+      `UPDATE travel_post_report
+       SET status = 'resolved',
+           reviewed_by = $2,
+           reviewed_at = CURRENT_TIMESTAMP
+       WHERE post_id = $1
+         AND status = 'pending'
+       RETURNING report_id, post_id, user_id, reason, description, status, reviewed_by, reviewed_at, created_at`,
+      [postId, reviewedBy]
+    );
+
+    return result.rows;
   }
 
   async findActiveDestination(destinationId, executor = db) {

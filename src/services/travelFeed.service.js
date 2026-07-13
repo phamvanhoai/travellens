@@ -110,6 +110,128 @@ const assertCanInteractWithUser = async (userId, targetUserId, executor) => {
 };
 
 class TravelFeedService {
+  async listForAdmin(query = {}) {
+    const result = await travelPostModel.listForAdmin(query);
+
+    return {
+      items: result.items,
+      pagination: {
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        totalPages: Math.ceil(result.total / result.limit),
+      },
+    };
+  }
+
+  async removeForAdmin(postId) {
+    const post = await travelPostModel.softDeletePost(postId);
+
+    if (!post) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Travel post not found');
+    }
+
+    return post;
+  }
+
+  async listCommentsForAdmin(query = {}) {
+    const result = await travelPostModel.listCommentsForAdmin(query);
+
+    return {
+      items: result.items,
+      pagination: {
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        totalPages: Math.ceil(result.total / result.limit),
+      },
+    };
+  }
+
+  async removeCommentForAdmin(commentId) {
+    const client = await travelPostModel.getClient();
+
+    try {
+      await client.query('BEGIN');
+
+      const comment = await travelPostModel.softDeleteCommentForAdmin(commentId, client);
+
+      if (!comment) {
+        throw new ApiError(httpStatus.NOT_FOUND, 'Travel post comment not found');
+      }
+
+      if (comment.from_status === 'published') {
+        await travelPostModel.decrementCommentCount(comment.post_id, client);
+      }
+
+      await client.query('COMMIT');
+      return comment;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async listReportsForAdmin(query = {}) {
+    const result = await travelPostModel.listReportsForAdmin(query);
+
+    return {
+      items: result.items,
+      pagination: {
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        totalPages: Math.ceil(result.total / result.limit),
+      },
+    };
+  }
+
+  async reviewReportForAdmin(reportId, payload = {}, adminId) {
+    const report = await travelPostModel.reviewReportForAdmin(reportId, payload, adminId);
+
+    if (!report) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Travel post report not found');
+    }
+
+    return report;
+  }
+
+  async deleteViolatedPostForAdmin(reportId, adminId) {
+    const client = await travelPostModel.getClient();
+
+    try {
+      await client.query('BEGIN');
+
+      const report = await travelPostModel.findReportForUpdate(reportId, client);
+
+      if (!report) {
+        throw new ApiError(httpStatus.NOT_FOUND, 'Travel post report not found');
+      }
+
+      const post = await travelPostModel.softDeletePost(report.post_id, client);
+
+      if (!post) {
+        throw new ApiError(httpStatus.NOT_FOUND, 'Travel post not found or already deleted');
+      }
+
+      const resolvedReports = await travelPostModel.resolveReportsForPost(report.post_id, adminId, client);
+
+      await client.query('COMMIT');
+      return {
+        post,
+        report_id: Number(reportId),
+        resolved_reports: resolvedReports,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async list(userId, query = {}) {
     const result = await travelPostModel.listFeed(query, userId);
 

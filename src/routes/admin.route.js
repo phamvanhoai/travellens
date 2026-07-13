@@ -2076,6 +2076,7 @@ router.use('/locations', require('./location.route'));
 router.use('/blogs', require('./blog.route'));
 router.use('/media', require('./mediaFile.route'));
 router.use('/maps', require('./map.route'));
+router.use('/travel-feed', require('./travelPostAdmin.route'));
 router.use('/destination-categories', require('./destinationCategory.route'));
 router.use('/tour-categories', require('./tourCategory.route'));
 router.use('/blog-categories', require('./blogCategory.route'));

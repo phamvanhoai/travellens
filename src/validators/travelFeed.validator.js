@@ -17,6 +17,78 @@ const sharePlatforms = [
 ];
 
 module.exports = {
+  adminList: {
+    query: Joi.object({
+      page: Joi.number().integer().min(1).default(1),
+      limit: Joi.number().integer().min(1).max(100).default(10),
+      search: Joi.string().trim().allow(''),
+      destination_id: Joi.number().integer().positive(),
+      location_id: Joi.number().integer().positive(),
+      user_id: Joi.number().integer().positive(),
+      status: Joi.string().valid('draft', 'published', 'hidden', 'deleted'),
+      visibility: Joi.string().valid('public', 'private'),
+      has_reports: Joi.boolean(),
+      include_deleted: Joi.boolean().default(false),
+      sort: Joi.string().valid('newest', 'oldest', 'popular', 'reported').default('newest'),
+    }),
+  },
+
+  adminPostAction: {
+    params: Joi.object({
+      postId: Joi.number().integer().positive().required(),
+    }),
+  },
+
+  adminListComments: {
+    query: Joi.object({
+      page: Joi.number().integer().min(1).default(1),
+      limit: Joi.number().integer().min(1).max(100).default(20),
+      search: Joi.string().trim().allow(''),
+      post_id: Joi.number().integer().positive(),
+      user_id: Joi.number().integer().positive(),
+      status: Joi.string().valid('published', 'hidden', 'deleted'),
+      has_parent: Joi.boolean(),
+      include_deleted: Joi.boolean().default(false),
+      sort: Joi.string().valid('newest', 'oldest').default('newest'),
+    }),
+  },
+
+  adminCommentAction: {
+    params: Joi.object({
+      commentId: Joi.number().integer().positive().required(),
+    }),
+  },
+
+  adminListReports: {
+    query: Joi.object({
+      page: Joi.number().integer().min(1).default(1),
+      limit: Joi.number().integer().min(1).max(100).default(20),
+      search: Joi.string().trim().allow(''),
+      post_id: Joi.number().integer().positive(),
+      user_id: Joi.number().integer().positive(),
+      reviewed_by: Joi.number().integer().positive(),
+      status: Joi.string().valid('pending', 'reviewed', 'dismissed', 'resolved'),
+      reason: Joi.string().valid(...reportReasons),
+      include_deleted_posts: Joi.boolean().default(true),
+      sort: Joi.string().valid('newest', 'oldest').default('newest'),
+    }),
+  },
+
+  adminReportAction: {
+    params: Joi.object({
+      reportId: Joi.number().integer().positive().required(),
+    }),
+  },
+
+  adminReviewReport: {
+    params: Joi.object({
+      reportId: Joi.number().integer().positive().required(),
+    }),
+    body: Joi.object({
+      status: Joi.string().valid('reviewed', 'dismissed', 'resolved').required(),
+    }),
+  },
+
   list: {
     query: Joi.object({
       page: Joi.number().integer().min(1).default(1),
