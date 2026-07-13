@@ -40,6 +40,7 @@ const options = {
       { name: 'Travel Destinations', description: 'Travel destination endpoints' },
       { name: 'Maps', description: 'Map endpoints' },
       { name: 'Bookings', description: 'Customer booking endpoints. Requires Bearer token with role customer.' },
+      { name: 'Group Trips', description: 'Customer group trip membership, leader, settings, and email invitation endpoints.' },
       { name: 'Blogs', description: 'Travel blog endpoints' },
       { name: 'Blog Categories', description: 'Public blog category endpoints' },
       { name: 'Reviews', description: 'Location review endpoints' },

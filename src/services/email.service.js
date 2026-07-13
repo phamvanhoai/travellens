@@ -620,6 +620,51 @@ class EmailService {
         return this.sendMail({ to, subject, html, text });
     }
 
+    async sendGroupTripInvite({ to, name, groupTrip, acceptUrl, expiresAt }) {
+        const subject = `You're invited to join ${groupTrip.name}`;
+        const safeName = escapeHtml(name || 'Customer');
+        const safeTripName = escapeHtml(groupTrip.name || 'a group trip');
+        const safeTourName = groupTrip.tour_name ? escapeHtml(groupTrip.tour_name) : null;
+        const safeAcceptUrl = escapeHtml(acceptUrl);
+        const expiresText = formatDateTime(expiresAt);
+
+        const content = `
+      <p style="margin:0 0 16px; color:#0f172a; font-size:16px; line-height:1.7;">
+        Hi <strong>${safeName}</strong>,
+      </p>
+      <p style="margin:0 0 18px; color:#334155; font-size:15px; line-height:1.7;">
+        You have been invited to join the group trip <strong>${safeTripName}</strong>${safeTourName ? ` for <strong>${safeTourName}</strong>` : ''}.
+      </p>
+      <div style="margin:28px 0; text-align:center;">
+        <a href="${safeAcceptUrl}" style="display:inline-block; background:#2563eb; color:#ffffff; text-decoration:none; border-radius:10px; padding:13px 22px; font-size:15px; font-weight:700;">
+          Accept Invitation
+        </a>
+      </div>
+      <p style="margin:0; color:#64748b; font-size:14px; line-height:1.7;">
+        This invitation is linked to your TravelLens account email and ${expiresText ? `expires on <strong>${escapeHtml(expiresText)}</strong>.` : 'will expire soon.'}
+      </p>
+      <p style="margin:16px 0 0; color:#64748b; font-size:13px; line-height:1.7; word-break:break-all;">
+        If the button does not work, open this link: ${safeAcceptUrl}
+      </p>
+    `;
+
+        const html = this.getBaseTemplate({
+            title: 'Group trip invitation',
+            subtitle: 'Accept the invitation to join your travel group.',
+            content,
+            footerText: 'Only the invited account can accept this invitation. If you did not expect this email, you can ignore it.',
+        });
+
+        const text = `Hi ${name || 'Customer'}, you have been invited to join ${groupTrip.name}. Accept invitation: ${acceptUrl}${expiresText ? `. Expires: ${expiresText}.` : ''}`;
+
+        return this.sendMail({
+            to,
+            subject,
+            html,
+            text,
+        });
+    }
+
     async verifyConnection() {
         return this.transporter.verify();
     }

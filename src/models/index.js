@@ -25,4 +25,5 @@ module.exports = {
   statistics: require('./statistics.model'),
   mediaFile: require('./mediaFile.model'),
   refundRequest: require('./refundRequest.model'),
+  groupTrip: require('./groupTrip.model'),
 };
