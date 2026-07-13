@@ -2,6 +2,41 @@ const travelFeedService = require('../services/travelFeed.service');
 const asyncHandler = require('../utils/asyncHandler');
 const response = require('../utils/responseHandler');
 
+const adminList = asyncHandler(async (req, res) => {
+  const result = await travelFeedService.listForAdmin(req.query);
+  response.success(res, result, 'Travel posts retrieved successfully');
+});
+
+const adminRemove = asyncHandler(async (req, res) => {
+  const result = await travelFeedService.removeForAdmin(req.params.postId);
+  response.success(res, result, 'Travel post deleted successfully');
+});
+
+const adminListComments = asyncHandler(async (req, res) => {
+  const result = await travelFeedService.listCommentsForAdmin(req.query);
+  response.success(res, result, 'Travel post comments retrieved successfully');
+});
+
+const adminRemoveComment = asyncHandler(async (req, res) => {
+  const result = await travelFeedService.removeCommentForAdmin(req.params.commentId);
+  response.success(res, result, 'Travel post comment deleted successfully');
+});
+
+const adminListReports = asyncHandler(async (req, res) => {
+  const result = await travelFeedService.listReportsForAdmin(req.query);
+  response.success(res, result, 'Travel post reports retrieved successfully');
+});
+
+const adminReviewReport = asyncHandler(async (req, res) => {
+  const result = await travelFeedService.reviewReportForAdmin(req.params.reportId, req.body, req.user.sub);
+  response.success(res, result, 'Travel post report reviewed successfully');
+});
+
+const adminDeleteViolatedPost = asyncHandler(async (req, res) => {
+  const result = await travelFeedService.deleteViolatedPostForAdmin(req.params.reportId, req.user.sub);
+  response.success(res, result, 'Violated travel post deleted successfully');
+});
+
 const list = asyncHandler(async (req, res) => {
   const result = await travelFeedService.list(req.user ? req.user.sub : null, req.query);
   response.success(res, result, 'Travel feed retrieved successfully');
@@ -83,6 +118,13 @@ const getBlockStatus = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+  adminList,
+  adminRemove,
+  adminListComments,
+  adminRemoveComment,
+  adminListReports,
+  adminReviewReport,
+  adminDeleteViolatedPost,
   list,
   create,
   likePost,
