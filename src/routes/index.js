@@ -29,5 +29,7 @@ router.use('/travel-feed', require('./travelFeed.route'));
 router.use('/chat', require('./chat.route'));
 router.use('/suggestions', require('./suggestion.route'));
 router.use('/saved', require('./savedItem.route'));
+router.use('/group-trips', require('./groupTrip.route'));
+router.use('/group-trip-invites', require('./groupTripInvite.route'));
 
 module.exports = router;
