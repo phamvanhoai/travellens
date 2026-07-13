@@ -1,5 +1,21 @@
 const Joi = require('joi');
 
+const reportReasons = [
+  'spam',
+  'inappropriate_content',
+  'harassment',
+  'false_information',
+  'scam',
+  'other',
+];
+
+const sharePlatforms = [
+  'facebook',
+  'zalo',
+  'copy_link',
+  'other',
+];
+
 module.exports = {
   list: {
     query: Joi.object({
@@ -18,6 +34,83 @@ module.exports = {
       content: Joi.string().trim().max(5000).allow(''),
       destination_id: Joi.number().integer().positive(),
       location_id: Joi.number().integer().positive(),
+    }),
+  },
+
+  postAction: {
+    params: Joi.object({
+      postId: Joi.number().integer().positive().required(),
+    }),
+  },
+
+  report: {
+    params: Joi.object({
+      postId: Joi.number().integer().positive().required(),
+    }),
+    body: Joi.object({
+      reason: Joi.string().valid(...reportReasons).required(),
+      description: Joi.when('reason', {
+        is: 'other',
+        then: Joi.string().trim().min(5).max(1000).required(),
+        otherwise: Joi.string().trim().max(1000).allow('', null),
+      }),
+    }),
+  },
+
+  listComments: {
+    params: Joi.object({
+      postId: Joi.number().integer().positive().required(),
+    }),
+    query: Joi.object({
+      page: Joi.number().integer().min(1).default(1),
+      limit: Joi.number().integer().min(1).max(100).default(20),
+    }),
+  },
+
+  createComment: {
+    params: Joi.object({
+      postId: Joi.number().integer().positive().required(),
+    }),
+    body: Joi.object({
+      content: Joi.string().trim().min(1).max(2000).required(),
+      parent_comment_id: Joi.number().integer().positive(),
+    }),
+  },
+
+  commentAction: {
+    params: Joi.object({
+      commentId: Joi.number().integer().positive().required(),
+    }),
+  },
+
+  updateComment: {
+    params: Joi.object({
+      commentId: Joi.number().integer().positive().required(),
+    }),
+    body: Joi.object({
+      content: Joi.string().trim().min(1).max(2000).required(),
+    }),
+  },
+
+  share: {
+    params: Joi.object({
+      postId: Joi.number().integer().positive().required(),
+    }),
+    body: Joi.object({
+      platform: Joi.string().valid(...sharePlatforms).required(),
+    }),
+  },
+
+  userAction: {
+    params: Joi.object({
+      userId: Joi.number().integer().positive().required(),
+    }),
+  },
+
+  listBlockedUsers: {
+    query: Joi.object({
+      page: Joi.number().integer().min(1).default(1),
+      limit: Joi.number().integer().min(1).max(100).default(20),
     }),
   },
 };
