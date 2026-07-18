@@ -483,10 +483,11 @@ CREATE TABLE group_trip_invite (
     invited_email VARCHAR(255) NOT NULL,
     invited_by INT NOT NULL,
     token_hash VARCHAR(64) NOT NULL UNIQUE,
-    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'expired', 'canceled')),
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'expired', 'canceled', 'declined')),
     expires_at TIMESTAMP NOT NULL,
     accepted_at TIMESTAMP,
     canceled_at TIMESTAMP,
+    declined_at TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_group_trip_invite_trip
         FOREIGN KEY (group_trip_id)
