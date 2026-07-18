@@ -20,18 +20,18 @@ const TRIP_SELECT = `
   gt.group_trip_id,
   gt.booking_id,
   gt.name,
+  gt.description,
+  gt.destination_id,
+  COALESCE(td.name, gt.destination_name) AS destination_name,
+  gt.start_date,
+  gt.end_date,
+  gt.max_members,
   gt.visibility,
   gt.leader_id,
   gt.created_by,
   gt.status,
   gt.created_at,
-  gt.updated_at,
-  b.tour_id,
-  b.departure_at,
-  b.status AS booking_status,
-  b.payment_status,
-  t.name AS tour_name,
-  t.thumbnail AS tour_thumbnail
+  gt.updated_at
 `;
 
 module.exports = {
@@ -41,12 +41,19 @@ module.exports = {
 
   async create(payload, executor = db) {
     const result = await executor.query(
-      `INSERT INTO group_trip (booking_id, name, visibility, leader_id, created_by)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO group_trip
+         (name, description, destination_id, destination_name, start_date, end_date,
+          max_members, visibility, leader_id, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
       [
-        payload.booking_id,
         payload.name,
+        payload.description || null,
+        payload.destination_id || null,
+        payload.destination_name || null,
+        payload.start_date,
+        payload.end_date,
+        payload.max_members || null,
         payload.visibility || 'private',
         payload.leader_id,
         payload.created_by,
@@ -59,8 +66,7 @@ module.exports = {
     const result = await executor.query(
       `SELECT ${TRIP_SELECT}
        FROM group_trip gt
-       INNER JOIN booking b ON b.booking_id = gt.booking_id
-       INNER JOIN tour t ON t.tour_id = b.tour_id
+       LEFT JOIN travel_destination td ON td.destination_id = gt.destination_id
        WHERE gt.group_trip_id = $1`,
       [id]
     );
@@ -101,15 +107,14 @@ module.exports = {
 
     if (query.search) {
       values.push(`%${query.search}%`);
-      clauses.push(`(gt.name ILIKE $${values.length} OR t.name ILIKE $${values.length})`);
+      clauses.push(`(gt.name ILIKE $${values.length} OR gt.destination_name ILIKE $${values.length} OR td.name ILIKE $${values.length})`);
     }
 
     const where = `WHERE ${clauses.join(' AND ')}`;
     const countResult = await executor.query(
       `SELECT COUNT(*)::int AS total
        FROM group_trip gt
-       INNER JOIN booking b ON b.booking_id = gt.booking_id
-       INNER JOIN tour t ON t.tour_id = b.tour_id
+       LEFT JOIN travel_destination td ON td.destination_id = gt.destination_id
        ${where}`,
       values
     );
@@ -124,8 +129,7 @@ module.exports = {
                   AND member_count.status = 'active'
               ) AS member_count
        FROM group_trip gt
-       INNER JOIN booking b ON b.booking_id = gt.booking_id
-       INNER JOIN tour t ON t.tour_id = b.tour_id
+       LEFT JOIN travel_destination td ON td.destination_id = gt.destination_id
        ${where}
        ORDER BY gt.updated_at DESC, gt.group_trip_id DESC
        LIMIT $${listValues.length - 1} OFFSET $${listValues.length}`,
@@ -145,7 +149,10 @@ module.exports = {
   },
 
   async updateSettings(id, payload, executor = db) {
-    const fields = ['name', 'visibility'].filter((field) => payload[field] !== undefined);
+    const fields = [
+      'name', 'description', 'destination_id', 'destination_name',
+      'start_date', 'end_date', 'max_members', 'visibility',
+    ].filter((field) => payload[field] !== undefined);
     if (!fields.length) return this.findById(id, executor);
 
     const values = fields.map((field) => payload[field]);
@@ -159,6 +166,32 @@ module.exports = {
       values
     );
     return result.rows[0] || null;
+  },
+
+  async archive(id, executor = db) {
+    const result = await executor.query(
+      `UPDATE group_trip
+       SET status = 'archived',
+           updated_at = CURRENT_TIMESTAMP
+       WHERE group_trip_id = $1
+         AND status = 'active'
+       RETURNING *`,
+      [id]
+    );
+    return result.rows[0] || null;
+  },
+
+  async cancelPendingInvites(groupTripId, executor = db) {
+    const result = await executor.query(
+      `UPDATE group_trip_invite
+       SET status = 'canceled',
+           canceled_at = CURRENT_TIMESTAMP
+       WHERE group_trip_id = $1
+         AND status = 'pending'
+       RETURNING group_trip_invite_id`,
+      [groupTripId]
+    );
+    return result.rows;
   },
 
   async updateLeader(id, leaderId, executor = db) {
@@ -311,6 +344,74 @@ module.exports = {
     return result.rows[0] || null;
   },
 
+  async listItinerary(groupTripId, executor = db) {
+    const result = await executor.query(
+      `SELECT gtii.*,
+              gtii.latitude::float8 AS latitude,
+              gtii.longitude::float8 AS longitude,
+              l.name AS location_name
+       FROM group_trip_itinerary_item gtii
+       LEFT JOIN location l ON l.location_id = gtii.location_id
+       WHERE gtii.group_trip_id = $1
+       ORDER BY gtii.itinerary_date ASC, gtii.order_index ASC, gtii.start_time ASC NULLS LAST,
+                gtii.itinerary_item_id ASC`,
+      [groupTripId]
+    );
+    return result.rows;
+  },
+
+  async createItineraryItem(groupTripId, payload, executor = db) {
+    const result = await executor.query(
+      `INSERT INTO group_trip_itinerary_item
+         (group_trip_id, itinerary_date, start_time, title, description, location_id,
+          custom_location, latitude, longitude, order_index)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING *`,
+      [groupTripId, payload.itinerary_date, payload.start_time || null, payload.title,
+        payload.description || null, payload.location_id || null, payload.custom_location || null,
+        payload.latitude ?? null, payload.longitude ?? null, payload.order_index || 0]
+    );
+    return result.rows[0];
+  },
+
+  async findItineraryItemForUpdate(groupTripId, itemId, executor) {
+    const result = await executor.query(
+      `SELECT * FROM group_trip_itinerary_item
+       WHERE group_trip_id = $1 AND itinerary_item_id = $2
+       FOR UPDATE`,
+      [groupTripId, itemId]
+    );
+    return result.rows[0] || null;
+  },
+
+  async updateItineraryItem(itemId, payload, executor = db) {
+    const fields = [
+      'itinerary_date', 'start_time', 'title', 'description',
+      'location_id', 'custom_location', 'latitude', 'longitude', 'order_index',
+    ].filter((field) => payload[field] !== undefined);
+    const values = fields.map((field) => payload[field]);
+    const assignments = fields.map((field, index) => `${field} = $${index + 1}`);
+    values.push(itemId);
+    const result = await executor.query(
+      `UPDATE group_trip_itinerary_item
+       SET ${assignments.join(', ')}, updated_at = CURRENT_TIMESTAMP
+       WHERE itinerary_item_id = $${values.length}
+       RETURNING *`,
+      values
+    );
+    return result.rows[0] || null;
+  },
+
+  async deleteItineraryItem(itemId, executor = db) {
+    const result = await executor.query(
+      `DELETE FROM group_trip_itinerary_item
+       WHERE itinerary_item_id = $1
+       RETURNING itinerary_item_id, group_trip_id`,
+      [itemId]
+    );
+    return result.rows[0] || null;
+  },
+
   async createInvite(payload, executor = db) {
     const result = await executor.query(
       `INSERT INTO group_trip_invite
@@ -345,7 +446,8 @@ module.exports = {
 
   async findInviteByTokenHashForUpdate(tokenHash, executor) {
     const result = await executor.query(
-      `SELECT gti.*, gt.name AS group_trip_name, gt.visibility, gt.leader_id
+      `SELECT gti.*, gt.name AS group_trip_name, gt.visibility, gt.leader_id,
+              gt.status AS group_trip_status, gt.max_members
        FROM group_trip_invite gti
        INNER JOIN group_trip gt ON gt.group_trip_id = gti.group_trip_id
        WHERE gti.token_hash = $1
