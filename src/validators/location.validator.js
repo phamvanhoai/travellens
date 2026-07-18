@@ -43,6 +43,7 @@ module.exports = {
       id: id.required(),
     }),
     body: Joi.object({
+      travel_destination_id: id,
       name: Joi.string().trim().max(255),
       description: optionalText,
       latitude: Joi.number().allow(null),

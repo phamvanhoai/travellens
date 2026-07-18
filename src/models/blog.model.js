@@ -6,42 +6,100 @@ class BlogModel extends BaseModel {
     super({
       table: 'blog',
       primaryKey: 'blog_id',
-      fields: ['user_id', 'title', 'content', 'date_created', 'views'],
+      fields: ['user_id', 'title', 'slug', 'thumbnail', 'content', 'status', 'published_at', 'date_created', 'views'],
       searchable: ['title', 'content'],
       filters: ['user_id'],
     });
   }
 
   async listBlogs(query = {}) {
-    let sql = `SELECT * FROM blog`;
+    let sql = `SELECT b.*,
+        ARRAY(
+          SELECT bl.location_id
+          FROM blog_location bl
+          WHERE bl.blog_id = b.blog_id
+          ORDER BY bl.location_id
+        ) AS location_ids,
+        COALESCE((
+          SELECT json_agg(json_build_object(
+            'location_id', l.location_id,
+            'name', l.name,
+            'thumbnail', l.thumbnail,
+            'latitude', l.latitude,
+            'longitude', l.longitude,
+            'destination_id', l.destination_id,
+            'travel_destination_id', l.destination_id
+          ) ORDER BY l.name)
+          FROM blog_location bl
+          JOIN location l ON l.location_id = bl.location_id
+          WHERE bl.blog_id = b.blog_id
+        ), '[]'::json) AS locations,
+        ARRAY(
+          SELECT bbc.blog_category_id
+          FROM blog_blog_category bbc
+          WHERE bbc.blog_id = b.blog_id
+          ORDER BY bbc.blog_category_id
+        ) AS category_ids,
+        COALESCE((
+          SELECT json_agg(json_build_object(
+            'blog_category_id', bc.blog_category_id,
+            'name', bc.name,
+            'description', bc.description
+          ) ORDER BY bc.name)
+          FROM blog_blog_category bbc
+          JOIN blog_category bc ON bc.blog_category_id = bbc.blog_category_id
+          WHERE bbc.blog_id = b.blog_id
+        ), '[]'::json) AS categories
+      FROM blog b`;
     const values = [];
+    const clauses = [];
 
     // SEARCH
     if (query.search) {
-      sql += ` WHERE title ILIKE $1 OR content ILIKE $1`;
       values.push(`%${query.search}%`);
+      clauses.push(`(b.title ILIKE $${values.length} OR b.content ILIKE $${values.length})`);
+    }
+
+    if (query.blog_category_id) {
+      values.push(query.blog_category_id);
+      clauses.push(`EXISTS (
+        SELECT 1 FROM blog_blog_category bbc
+        WHERE bbc.blog_id = b.blog_id
+          AND bbc.blog_category_id = $${values.length}
+      )`);
+    }
+
+    if (query.public_only) {
+      clauses.push(`b.status = 'published' AND (b.published_at IS NULL OR b.published_at <= CURRENT_TIMESTAMP)`);
+    } else if (query.status) {
+      values.push(query.status);
+      clauses.push(`b.status = $${values.length}`);
+    }
+
+    if (clauses.length) {
+      sql += ` WHERE ${clauses.join(' AND ')}`;
     }
 
     // SORT
     switch (query.sort) {
       case 'newest':
-        sql += ` ORDER BY date_created DESC`;
+        sql += ` ORDER BY b.date_created DESC`;
         break;
 
       case 'oldest':
-        sql += ` ORDER BY date_created ASC`;
+        sql += ` ORDER BY b.date_created ASC`;
         break;
 
       case 'az':
-        sql += ` ORDER BY title ASC`;
+        sql += ` ORDER BY b.title ASC`;
         break;
 
       case 'popular':
-        sql += ` ORDER BY views DESC`;
+        sql += ` ORDER BY b.views DESC`;
         break;
 
       default:
-        sql += ` ORDER BY blog_id DESC`;
+        sql += ` ORDER BY b.blog_id DESC`;
     }
 
     const page = Math.max(parseInt(query.page) || 1, 1);
@@ -56,13 +114,70 @@ class BlogModel extends BaseModel {
   }
   async findById(blogId) {
     const result = await db.query(
-      `SELECT *
-     FROM blog
-     WHERE blog_id = $1`,
+      `SELECT b.*,
+         ARRAY(
+           SELECT bl.location_id
+           FROM blog_location bl
+           WHERE bl.blog_id = b.blog_id
+           ORDER BY bl.location_id
+         ) AS location_ids,
+         COALESCE((
+           SELECT json_agg(json_build_object(
+             'location_id', l.location_id,
+             'name', l.name,
+             'thumbnail', l.thumbnail,
+             'latitude', l.latitude,
+             'longitude', l.longitude,
+             'destination_id', l.destination_id,
+             'travel_destination_id', l.destination_id
+           ) ORDER BY l.name)
+           FROM blog_location bl
+           JOIN location l ON l.location_id = bl.location_id
+           WHERE bl.blog_id = b.blog_id
+         ), '[]'::json) AS locations,
+         ARRAY(
+           SELECT bbc.blog_category_id
+           FROM blog_blog_category bbc
+           WHERE bbc.blog_id = b.blog_id
+           ORDER BY bbc.blog_category_id
+         ) AS category_ids,
+         COALESCE((
+           SELECT json_agg(json_build_object(
+             'blog_category_id', bc.blog_category_id,
+             'name', bc.name,
+             'description', bc.description
+           ) ORDER BY bc.name)
+           FROM blog_blog_category bbc
+           JOIN blog_category bc ON bc.blog_category_id = bbc.blog_category_id
+           WHERE bbc.blog_id = b.blog_id
+         ), '[]'::json) AS categories
+       FROM blog b
+       WHERE b.blog_id = $1`,
       [blogId]
     );
 
     return result.rows[0];
+  }
+
+  async findBySlug(slug, publicOnly = false) {
+    const result = await db.query(
+      `SELECT b.* FROM blog b
+       WHERE LOWER(b.slug) = LOWER($1)
+         ${publicOnly ? "AND b.status = 'published' AND (b.published_at IS NULL OR b.published_at <= CURRENT_TIMESTAMP)" : ''}`,
+      [slug]
+    );
+    return result.rows[0] || null;
+  }
+
+  async slugExists(slug, excludeId = null, executor = db) {
+    const result = await executor.query(
+      `SELECT 1 FROM blog
+       WHERE LOWER(slug) = LOWER($1)
+         AND ($2::int IS NULL OR blog_id <> $2)
+       LIMIT 1`,
+      [slug, excludeId]
+    );
+    return result.rowCount > 0;
   }
 
   async findForUpdate(blogId, executor = db) {
@@ -75,16 +190,18 @@ class BlogModel extends BaseModel {
 
   async createBlog(payload, executor = db) {
     const result = await executor.query(
-      `INSERT INTO blog (user_id, title, content)
-       VALUES ($1, $2, $3)
+      `INSERT INTO blog (user_id, title, slug, thumbnail, content, status, published_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [payload.user_id, payload.title, payload.content]
+      [payload.user_id, payload.title, payload.slug, payload.thumbnail, payload.content,
+        payload.status, payload.published_at]
     );
     return result.rows[0];
   }
 
   async updateBlog(id, payload, executor = db) {
-    const fields = ['title', 'content'].filter((field) => payload[field] !== undefined);
+    const fields = ['title', 'slug', 'thumbnail', 'content', 'status', 'published_at']
+      .filter((field) => payload[field] !== undefined);
     if (!fields.length) return this.findForUpdate(id, executor);
     const values = fields.map((field) => payload[field]);
     const assignments = fields.map((field, index) => `${field} = $${index + 1}`);

@@ -5,11 +5,21 @@
 
 DROP TABLE IF EXISTS statistics CASCADE;
 DROP TABLE IF EXISTS revoked_tokens CASCADE;
+DROP TABLE IF EXISTS user_block CASCADE;
 DROP TABLE IF EXISTS review_photo CASCADE;
 DROP TABLE IF EXISTS review CASCADE;
+DROP TABLE IF EXISTS travel_post_share CASCADE;
+DROP TABLE IF EXISTS travel_post_report CASCADE;
+DROP TABLE IF EXISTS travel_post_comment CASCADE;
+DROP TABLE IF EXISTS travel_post_like CASCADE;
+DROP TABLE IF EXISTS travel_post_photo CASCADE;
+DROP TABLE IF EXISTS travel_post CASCADE;
+DROP TABLE IF EXISTS blog_comment CASCADE;
 DROP TABLE IF EXISTS blog_location CASCADE;
+DROP TABLE IF EXISTS blog_blog_category CASCADE;
 DROP TABLE IF EXISTS media_file CASCADE;
 DROP TABLE IF EXISTS blog CASCADE;
+DROP TABLE IF EXISTS blog_category CASCADE;
 DROP TABLE IF EXISTS refund_request CASCADE;
 DROP TABLE IF EXISTS payment CASCADE;
 DROP TABLE IF EXISTS coupon CASCADE;
@@ -47,6 +57,23 @@ CREATE TABLE users (
     date_of_birth DATE,
     gender VARCHAR(20),
     address TEXT
+);
+
+CREATE TABLE user_block (
+    blocker_id INT NOT NULL,
+    blocked_id INT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (blocker_id, blocked_id),
+    CONSTRAINT fk_user_block_blocker
+        FOREIGN KEY (blocker_id)
+        REFERENCES users(user_id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_user_block_blocked
+        FOREIGN KEY (blocked_id)
+        REFERENCES users(user_id)
+        ON DELETE CASCADE,
+    CONSTRAINT chk_user_block_not_self
+        CHECK (blocker_id <> blocked_id)
 );
 
 -- =========================================================
@@ -243,6 +270,36 @@ CREATE TABLE view360_image (
 );
 
 -- =========================================================
+-- View360Hotspot
+-- =========================================================
+CREATE TABLE view360_hotspot (
+    hotspot_id SERIAL PRIMARY KEY,
+    view360_id INT NOT NULL,
+    type VARCHAR(50) NOT NULL DEFAULT 'info' CHECK (type IN ('info', 'navigation', 'link', 'location')),
+    title VARCHAR(255),
+    description TEXT,
+    yaw NUMERIC(10,4) NOT NULL,
+    pitch NUMERIC(10,4) NOT NULL,
+    target_view360_id INT,
+    target_url TEXT,
+    order_index INT DEFAULT 0 CHECK (order_index IS NULL OR order_index >= 0),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
+    CONSTRAINT fk_view360_hotspot_view360
+        FOREIGN KEY (view360_id)
+        REFERENCES view360(view_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_view360_hotspot_target_view360
+        FOREIGN KEY (target_view360_id)
+        REFERENCES view360(view_id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL
+);
+
+-- =========================================================
 -- Booking
 -- =========================================================
 CREATE TABLE booking (
@@ -321,6 +378,146 @@ CREATE TABLE booking_detail (
         ON UPDATE CASCADE
         ON DELETE CASCADE
 );
+
+-- =========================================================
+-- GroupTrip
+-- =========================================================
+CREATE TABLE group_trip (
+    group_trip_id SERIAL PRIMARY KEY,
+    booking_id INT,
+    name VARCHAR(150) NOT NULL,
+    description TEXT,
+    destination_id INT,
+    destination_name VARCHAR(200),
+    start_date DATE,
+    end_date DATE,
+    max_members INT,
+    visibility VARCHAR(20) NOT NULL DEFAULT 'private' CHECK (visibility IN ('public', 'private')),
+    leader_id INT NOT NULL,
+    created_by INT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived')),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_group_trip_booking
+        FOREIGN KEY (booking_id)
+        REFERENCES booking(booking_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_group_trip_leader
+        FOREIGN KEY (leader_id)
+        REFERENCES users(user_id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_group_trip_created_by
+        FOREIGN KEY (created_by)
+        REFERENCES users(user_id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_group_trip_destination
+        FOREIGN KEY (destination_id)
+        REFERENCES travel_destination(destination_id)
+        ON DELETE SET NULL,
+    CONSTRAINT chk_group_trip_dates
+        CHECK (end_date IS NULL OR start_date IS NULL OR end_date >= start_date),
+    CONSTRAINT chk_group_trip_max_members
+        CHECK (max_members IS NULL OR max_members >= 2)
+);
+
+CREATE TABLE group_trip_itinerary_item (
+    itinerary_item_id SERIAL PRIMARY KEY,
+    group_trip_id INT NOT NULL,
+    itinerary_date DATE NOT NULL,
+    start_time TIME,
+    title VARCHAR(200) NOT NULL,
+    description TEXT,
+    location_id INT,
+    custom_location VARCHAR(255),
+    latitude DECIMAL(10,7),
+    longitude DECIMAL(10,7),
+    order_index INT NOT NULL DEFAULT 0 CHECK (order_index >= 0),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_group_trip_itinerary_trip FOREIGN KEY (group_trip_id)
+        REFERENCES group_trip(group_trip_id) ON DELETE CASCADE,
+    CONSTRAINT fk_group_trip_itinerary_location FOREIGN KEY (location_id)
+        REFERENCES location(location_id) ON DELETE SET NULL,
+    CONSTRAINT chk_group_trip_itinerary_latitude
+        CHECK (latitude IS NULL OR latitude BETWEEN -90 AND 90),
+    CONSTRAINT chk_group_trip_itinerary_longitude
+        CHECK (longitude IS NULL OR longitude BETWEEN -180 AND 180)
+);
+
+CREATE TABLE group_trip_member (
+    group_trip_member_id SERIAL PRIMARY KEY,
+    group_trip_id INT NOT NULL,
+    user_id INT NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'member' CHECK (role IN ('leader', 'member')),
+    status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'left', 'removed')),
+    joined_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    left_at TIMESTAMP,
+    removed_at TIMESTAMP,
+    removed_by INT,
+    CONSTRAINT fk_group_trip_member_trip
+        FOREIGN KEY (group_trip_id)
+        REFERENCES group_trip(group_trip_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_group_trip_member_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(user_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_group_trip_member_removed_by
+        FOREIGN KEY (removed_by)
+        REFERENCES users(user_id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL,
+    CONSTRAINT uq_group_trip_member_user
+        UNIQUE (group_trip_id, user_id)
+);
+
+CREATE TABLE group_trip_invite (
+    group_trip_invite_id SERIAL PRIMARY KEY,
+    group_trip_id INT NOT NULL,
+    invited_user_id INT NOT NULL,
+    invited_email VARCHAR(255) NOT NULL,
+    invited_by INT NOT NULL,
+    token_hash VARCHAR(64) NOT NULL UNIQUE,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'expired', 'canceled')),
+    expires_at TIMESTAMP NOT NULL,
+    accepted_at TIMESTAMP,
+    canceled_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_group_trip_invite_trip
+        FOREIGN KEY (group_trip_id)
+        REFERENCES group_trip(group_trip_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_group_trip_invite_user
+        FOREIGN KEY (invited_user_id)
+        REFERENCES users(user_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_group_trip_invite_by
+        FOREIGN KEY (invited_by)
+        REFERENCES users(user_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX uq_group_trip_active_leader
+    ON group_trip_member (group_trip_id)
+    WHERE role = 'leader' AND status = 'active';
+
+CREATE UNIQUE INDEX uq_group_trip_pending_invite
+    ON group_trip_invite (group_trip_id, invited_user_id)
+    WHERE status = 'pending';
+
+CREATE INDEX idx_group_trip_member_user_status
+    ON group_trip_member (user_id, status);
+
+CREATE INDEX idx_group_trip_invite_user_status
+    ON group_trip_invite (invited_user_id, status);
 
 -- =========================================================
 -- Payment
@@ -449,19 +646,85 @@ ALTER TABLE booking
     ON DELETE SET NULL;
 
 -- =========================================================
+-- Blog Category
+-- =========================================================
+CREATE TABLE blog_category (
+    blog_category_id SERIAL PRIMARY KEY,
+    name VARCHAR(150) NOT NULL UNIQUE,
+    description TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =========================================================
 -- Blog
 -- =========================================================
 CREATE TABLE blog (
     blog_id SERIAL PRIMARY KEY,
     user_id INT NOT NULL,
     title VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) NOT NULL UNIQUE,
+    thumbnail TEXT,
     content TEXT,
+    status VARCHAR(20) NOT NULL DEFAULT 'published' CHECK (status IN ('draft', 'published', 'archived')),
+    published_at TIMESTAMP,
     date_created DATE NOT NULL DEFAULT CURRENT_DATE,
     CONSTRAINT fk_blog_user
         FOREIGN KEY (user_id)
         REFERENCES users(user_id)
         ON UPDATE CASCADE
         ON DELETE CASCADE
+);
+
+-- =========================================================
+-- Blog Categories (many-to-many)
+-- =========================================================
+CREATE TABLE blog_blog_category (
+    blog_id INT NOT NULL,
+    blog_category_id INT NOT NULL,
+    PRIMARY KEY (blog_id, blog_category_id),
+    CONSTRAINT fk_blog_blog_category_blog
+        FOREIGN KEY (blog_id)
+        REFERENCES blog(blog_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_blog_blog_category_category
+        FOREIGN KEY (blog_category_id)
+        REFERENCES blog_category(blog_category_id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+);
+
+-- =========================================================
+-- Blog_Comment
+-- =========================================================
+CREATE TABLE blog_comment (
+    comment_id SERIAL PRIMARY KEY,
+    blog_id INT NOT NULL,
+    user_id INT NOT NULL,
+    parent_comment_id INT,
+    content TEXT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'approved',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
+    CONSTRAINT fk_blog_comment_blog
+        FOREIGN KEY (blog_id)
+        REFERENCES blog(blog_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_blog_comment_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(user_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_blog_comment_parent
+        FOREIGN KEY (parent_comment_id)
+        REFERENCES blog_comment(comment_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT chk_blog_comment_status
+        CHECK (status IN ('pending', 'approved', 'rejected'))
 );
 
 -- =========================================================
@@ -510,7 +773,9 @@ CREATE TABLE media_file (
 CREATE TABLE review (
     review_id SERIAL PRIMARY KEY,
     user_id INT NOT NULL,
-    location_id INT NOT NULL,
+    location_id INT,
+    booking_id INT,
+    tour_id INT,
     rating INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
     comment TEXT,
     images TEXT,
@@ -527,6 +792,16 @@ CREATE TABLE review (
     CONSTRAINT fk_review_location
         FOREIGN KEY (location_id)
         REFERENCES location(location_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_review_booking
+        FOREIGN KEY (booking_id)
+        REFERENCES booking(booking_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_review_tour
+        FOREIGN KEY (tour_id)
+        REFERENCES tour(tour_id)
         ON UPDATE CASCADE
         ON DELETE CASCADE
 );
@@ -551,6 +826,159 @@ CREATE TABLE review_photo (
 );
 
 -- =========================================================
+-- Travel Feed
+-- =========================================================
+CREATE TABLE travel_post (
+    post_id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL,
+    content TEXT,
+    destination_id INT,
+    location_id INT,
+    status VARCHAR(30) NOT NULL DEFAULT 'published',
+    visibility VARCHAR(30) NOT NULL DEFAULT 'public',
+    like_count INT NOT NULL DEFAULT 0,
+    comment_count INT NOT NULL DEFAULT 0,
+    report_count INT NOT NULL DEFAULT 0,
+    share_count INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
+    previous_status VARCHAR(30),
+    deleted_by INT,
+    restored_at TIMESTAMP,
+    restored_by INT,
+    CONSTRAINT fk_travel_post_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(user_id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_travel_post_destination
+        FOREIGN KEY (destination_id)
+        REFERENCES travel_destination(destination_id)
+        ON DELETE SET NULL,
+    CONSTRAINT fk_travel_post_location
+        FOREIGN KEY (location_id)
+        REFERENCES location(location_id)
+        ON DELETE SET NULL,
+    CONSTRAINT fk_travel_post_deleted_by
+        FOREIGN KEY (deleted_by)
+        REFERENCES users(user_id)
+        ON DELETE SET NULL,
+    CONSTRAINT fk_travel_post_restored_by
+        FOREIGN KEY (restored_by)
+        REFERENCES users(user_id)
+        ON DELETE SET NULL,
+    CONSTRAINT chk_travel_post_status
+        CHECK (status IN ('draft', 'published', 'hidden', 'deleted')),
+    CONSTRAINT chk_travel_post_visibility
+        CHECK (visibility IN ('public', 'private')),
+    CONSTRAINT chk_travel_post_previous_status
+        CHECK (previous_status IS NULL OR previous_status IN ('draft', 'published', 'hidden')),
+    CONSTRAINT chk_travel_post_counts
+        CHECK (like_count >= 0 AND comment_count >= 0 AND report_count >= 0 AND share_count >= 0)
+);
+
+CREATE TABLE travel_post_photo (
+    photo_id SERIAL PRIMARY KEY,
+    post_id INT NOT NULL,
+    image_url VARCHAR(500) NOT NULL,
+    display_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
+    CONSTRAINT fk_travel_post_photo_post
+        FOREIGN KEY (post_id)
+        REFERENCES travel_post(post_id)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE travel_post_like (
+    post_id INT NOT NULL,
+    user_id INT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (post_id, user_id),
+    CONSTRAINT fk_travel_post_like_post
+        FOREIGN KEY (post_id)
+        REFERENCES travel_post(post_id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_travel_post_like_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(user_id)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE travel_post_comment (
+    comment_id SERIAL PRIMARY KEY,
+    post_id INT NOT NULL,
+    user_id INT NOT NULL,
+    parent_comment_id INT,
+    content TEXT NOT NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'published',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
+    CONSTRAINT fk_travel_post_comment_post
+        FOREIGN KEY (post_id)
+        REFERENCES travel_post(post_id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_travel_post_comment_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(user_id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_travel_post_comment_parent
+        FOREIGN KEY (parent_comment_id)
+        REFERENCES travel_post_comment(comment_id)
+        ON DELETE CASCADE,
+    CONSTRAINT chk_travel_post_comment_status
+        CHECK (status IN ('published', 'hidden', 'deleted'))
+);
+
+CREATE TABLE travel_post_report (
+    report_id SERIAL PRIMARY KEY,
+    post_id INT NOT NULL,
+    user_id INT NOT NULL,
+    reason VARCHAR(100) NOT NULL,
+    description TEXT,
+    status VARCHAR(30) NOT NULL DEFAULT 'pending',
+    reviewed_by INT,
+    reviewed_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_travel_post_report_post
+        FOREIGN KEY (post_id)
+        REFERENCES travel_post(post_id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_travel_post_report_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(user_id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_travel_post_report_reviewed_by
+        FOREIGN KEY (reviewed_by)
+        REFERENCES users(user_id)
+        ON DELETE SET NULL,
+    CONSTRAINT chk_travel_post_report_status
+        CHECK (status IN ('pending', 'dismissed', 'resolved')),
+    CONSTRAINT uq_travel_post_report_user_post
+        UNIQUE (post_id, user_id)
+);
+
+CREATE TABLE travel_post_share (
+    share_id SERIAL PRIMARY KEY,
+    post_id INT NOT NULL,
+    user_id INT NOT NULL,
+    platform VARCHAR(30) NOT NULL,
+    counted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_travel_post_share_post
+        FOREIGN KEY (post_id)
+        REFERENCES travel_post(post_id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_travel_post_share_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(user_id)
+        ON DELETE CASCADE,
+    CONSTRAINT chk_travel_post_share_platform
+        CHECK (platform IN ('facebook', 'zalo', 'copy_link', 'other'))
+);
+
+-- =========================================================
 -- Statistics
 -- =========================================================
 CREATE TABLE statistics (
@@ -564,6 +992,7 @@ CREATE TABLE statistics (
 -- Indexes for foreign keys
 -- =========================================================
 CREATE INDEX idx_travel_destination_destination_category_id ON travel_destination(destination_category_id);
+CREATE INDEX idx_user_block_blocked_id ON user_block(blocked_id);
 CREATE INDEX idx_destination_category_name ON destination_category(name);
 CREATE INDEX idx_tour_category_name ON tour_category(name);
 CREATE UNIQUE INDEX idx_travel_destination_name_unique ON travel_destination(name) WHERE deleted_at IS NULL;
@@ -585,6 +1014,9 @@ CREATE INDEX idx_view360_location_id ON view360(location_id);
 CREATE INDEX idx_view360_image_view_id ON view360_image(view_id);
 CREATE INDEX idx_view360_deleted_at ON view360(deleted_at);
 CREATE INDEX idx_view360_image_deleted_at ON view360_image(deleted_at);
+CREATE INDEX idx_view360_hotspot_view360_id ON view360_hotspot(view360_id);
+CREATE INDEX idx_view360_hotspot_target_view360_id ON view360_hotspot(target_view360_id);
+CREATE INDEX idx_view360_hotspot_deleted_at ON view360_hotspot(deleted_at);
 CREATE INDEX idx_booking_user_id ON booking(user_id);
 CREATE INDEX idx_booking_tour_id ON booking(tour_id);
 CREATE INDEX idx_booking_coupon_id ON booking(coupon_id);
@@ -605,6 +1037,11 @@ CREATE INDEX idx_refund_request_payment_id ON refund_request(payment_id);
 CREATE INDEX idx_refund_request_requested_by ON refund_request(requested_by);
 CREATE INDEX idx_refund_request_reviewed_by ON refund_request(reviewed_by);
 CREATE INDEX idx_review_location_id ON review(location_id);
+CREATE INDEX idx_review_booking_id ON review(booking_id);
+CREATE INDEX idx_review_tour_id ON review(tour_id);
+CREATE UNIQUE INDEX uq_review_active_booking
+    ON review(booking_id)
+    WHERE booking_id IS NOT NULL AND deleted_at IS NULL;
 CREATE INDEX idx_review_user_id ON review(user_id);
 CREATE UNIQUE INDEX idx_review_user_location_unique
     ON review(user_id, location_id)
@@ -612,11 +1049,39 @@ CREATE UNIQUE INDEX idx_review_user_location_unique
 CREATE INDEX idx_review_deleted_at ON review(deleted_at);
 CREATE INDEX idx_review_photo_review_id ON review_photo(review_id);
 CREATE INDEX idx_review_photo_deleted_at ON review_photo(deleted_at);
+CREATE INDEX idx_travel_post_user_id ON travel_post(user_id);
+CREATE INDEX idx_travel_post_status_created_at ON travel_post(status, created_at DESC);
+CREATE INDEX idx_travel_post_visibility ON travel_post(visibility);
+CREATE INDEX idx_travel_post_destination_id ON travel_post(destination_id);
+CREATE INDEX idx_travel_post_location_id ON travel_post(location_id);
+CREATE INDEX idx_travel_post_deleted_at ON travel_post(deleted_at);
+CREATE INDEX idx_travel_post_photo_post_id ON travel_post_photo(post_id);
+CREATE INDEX idx_travel_post_photo_deleted_at ON travel_post_photo(deleted_at);
+CREATE INDEX idx_travel_post_like_user_id ON travel_post_like(user_id);
+CREATE INDEX idx_travel_post_comment_post_id ON travel_post_comment(post_id);
+CREATE INDEX idx_travel_post_comment_user_id ON travel_post_comment(user_id);
+CREATE INDEX idx_travel_post_comment_parent_id ON travel_post_comment(parent_comment_id);
+CREATE INDEX idx_travel_post_comment_deleted_at ON travel_post_comment(deleted_at);
+CREATE INDEX idx_travel_post_report_post_id ON travel_post_report(post_id);
+CREATE INDEX idx_travel_post_report_user_id ON travel_post_report(user_id);
+CREATE INDEX idx_travel_post_report_status ON travel_post_report(status);
+CREATE INDEX idx_travel_post_share_post_id ON travel_post_share(post_id);
+CREATE INDEX idx_travel_post_share_user_id ON travel_post_share(user_id);
+CREATE INDEX idx_travel_post_share_platform ON travel_post_share(platform);
+CREATE INDEX idx_travel_post_share_recent ON travel_post_share(post_id, user_id, platform, created_at DESC);
 CREATE INDEX idx_coupon_code ON coupon(code);
 CREATE UNIQUE INDEX uq_coupon_active_code ON coupon(UPPER(code)) WHERE deleted_at IS NULL;
 CREATE INDEX idx_coupon_status ON coupon(status);
 CREATE INDEX idx_coupon_deleted_at ON coupon(deleted_at);
 CREATE INDEX idx_blog_user_id ON blog(user_id);
+CREATE UNIQUE INDEX idx_blog_slug_unique ON blog(LOWER(slug));
+CREATE INDEX idx_blog_status_published_at ON blog(status, published_at DESC);
+CREATE INDEX idx_blog_blog_category_category_id ON blog_blog_category(blog_category_id);
+CREATE INDEX idx_blog_comment_blog_id ON blog_comment(blog_id);
+CREATE INDEX idx_blog_comment_user_id ON blog_comment(user_id);
+CREATE INDEX idx_blog_comment_parent_comment_id ON blog_comment(parent_comment_id);
+CREATE INDEX idx_blog_comment_status ON blog_comment(status);
+CREATE INDEX idx_blog_comment_deleted_at ON blog_comment(deleted_at);
 CREATE INDEX idx_blog_location_blog_id ON blog_location(blog_id);
 CREATE INDEX idx_blog_location_location_id ON blog_location(location_id);
 CREATE INDEX idx_media_file_created_at ON media_file(created_at DESC);

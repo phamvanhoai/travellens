@@ -1,5 +1,8 @@
 const nodemailer = require('nodemailer');
+const logger = require('../config/logger');
 const userModel = require('../models/user.model');
+const paymentModel = require('../models/payment.model');
+const bookingModel = require('../models/booking.model');
 
 const escapeHtml = (value) => String(value)
     .replace(/&/g, '&amp;')
@@ -7,6 +10,21 @@ const escapeHtml = (value) => String(value)
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+
+const formatDateTime = (value) => {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+};
+
+const formatMoney = (value) => `${Number(value || 0).toLocaleString('vi-VN')} VND`;
+const extractContactPhone = (booking) => {
+    if (booking?.contact_phone) return booking.contact_phone;
+
+    const match = String(booking?.contact_phone_note || '').match(/Contact phone:\s*([^\r\n]+)/i);
+    return match ? match[1].trim() : null;
+};
 
 class EmailService {
     constructor() {
@@ -265,12 +283,207 @@ class EmailService {
         });
     }
 
+    async sendPaymentPaid(payment) {
+        if (!payment?.payment_id) return null;
+
+        const notification = await paymentModel.findNotificationContext(payment.payment_id);
+        if (!notification?.customer_email) return null;
+
+        const amount = Number(notification.amount || 0).toLocaleString('vi-VN');
+        const currency = notification.currency || 'VND';
+        const paidAt = formatDateTime(notification.paid_at);
+        const departureAt = formatDateTime(notification.departure_at);
+        const originalAmount = formatMoney(notification.original_amount);
+        const discountAmount = formatMoney(notification.discount_amount);
+        const finalAmount = formatMoney(notification.final_amount);
+        const subject = `Payment confirmed for booking #${notification.booking_id}`;
+        const safeName = escapeHtml(notification.customer_name || 'Customer');
+
+        const details = [
+            ['Booking', `#${notification.booking_id}`],
+            ['Tour', notification.tour_name],
+            ['Departure', departureAt],
+            ['Passengers', notification.passenger_count],
+            ['Original amount', originalAmount],
+            Number(notification.discount_amount || 0) > 0 ? ['Discount', `-${discountAmount}`] : null,
+            notification.coupon_code ? ['Coupon', notification.coupon_code] : null,
+            ['Amount due', finalAmount],
+            ['Payment code', notification.payment_code],
+            ['Paid amount', `${amount} ${currency}`],
+            ['Transaction code', notification.transaction_code],
+            ['Paid at', paidAt],
+        ].filter((row) => row && row[1]);
+
+        const detailRows = details.map(([label, value]) => `
+          <tr>
+            <td style="padding:8px 12px; color:#64748b; border-bottom:1px solid #e5e7eb;">${escapeHtml(label)}</td>
+            <td style="padding:8px 12px; color:#0f172a; font-weight:600; border-bottom:1px solid #e5e7eb;">${escapeHtml(value)}</td>
+          </tr>
+        `).join('');
+
+        const content = `
+      <p style="margin:0 0 16px; color:#0f172a; font-size:16px; line-height:1.7;">
+        Hi <strong>${safeName}</strong>,
+      </p>
+      <p style="margin:0 0 20px; color:#334155; font-size:15px; line-height:1.7;">
+        Your payment was successful and your booking has been confirmed.
+      </p>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e5e7eb; border-radius:8px; border-collapse:separate; overflow:hidden;">
+        ${detailRows}
+      </table>
+    `;
+
+        const html = this.getBaseTemplate({
+            title: 'Payment successful',
+            subtitle: `Booking #${notification.booking_id} is confirmed.`,
+            content,
+            footerText: 'Please keep this email as your payment confirmation.',
+        });
+        const text = `Hi ${notification.customer_name || 'Customer'}, payment for booking #${notification.booking_id} was successful. Payment code: ${notification.payment_code}. Original amount: ${originalAmount}. Discount: ${discountAmount}${notification.coupon_code ? `. Coupon: ${notification.coupon_code}` : ''}. Amount due: ${finalAmount}. Paid amount: ${amount} ${currency}.${notification.tour_name ? ` Tour: ${notification.tour_name}.` : ''}`;
+
+        return this.sendMail({
+            to: notification.customer_email,
+            subject,
+            html,
+            text,
+        });
+    }
+
+    async sendBookingPaymentStatus({ bookingId, status, booking: bookingContext }) {
+        const booking = bookingContext || await bookingModel.findNotificationContext(bookingId);
+        if (!booking?.customer_email) {
+            logger.warn('Skipped booking payment status email because customer email is missing', {
+                booking_id: bookingId,
+                status,
+            });
+            return null;
+        }
+
+        const statusConfig = {
+            free_confirmed: {
+                title: 'Booking confirmed',
+                subject: `Booking #${booking.booking_id} confirmed`,
+                message: 'Your booking costs 0 VND, so it has been confirmed automatically. No payment is required.',
+            },
+            manual_pending: {
+                title: 'Waiting for payment confirmation',
+                subject: `Booking #${booking.booking_id} is waiting for confirmation`,
+                message: 'Your booking amount requires manual confirmation. Our staff will review it and notify you when it is confirmed.',
+            },
+            payment_required: {
+                title: 'Booking created',
+                subject: `Booking #${booking.booking_id} created`,
+                message: 'Your booking has been created. Please create a bank transfer payment and complete it before the payment expires.',
+            },
+        };
+        const config = statusConfig[status] || statusConfig.payment_required;
+        const safeName = escapeHtml(booking.customer_name || 'Customer');
+        const departureAt = formatDateTime(booking.departure_at);
+        const originalAmount = formatMoney(booking.original_amount);
+        const discountAmount = formatMoney(booking.discount_amount);
+        const finalAmount = formatMoney(booking.final_amount);
+        const contactPhone = extractContactPhone(booking) || booking.customer_phone;
+
+        const details = [
+            ['Booking', `#${booking.booking_id}`],
+            ['Customer account', booking.customer_name],
+            contactPhone ? ['Contact phone', contactPhone] : null,
+            ['Tour', booking.tour_name || 'Tour'],
+            ['Departure', departureAt],
+            ['Passengers', booking.passenger_count],
+            ['Original amount', originalAmount],
+            Number(booking.discount_amount || 0) > 0 ? ['Discount', `-${discountAmount}`] : null,
+            booking.coupon_code ? ['Coupon', booking.coupon_code] : null,
+            ['Amount due', finalAmount],
+        ].filter((row) => row && row[1] !== null && row[1] !== undefined);
+        const detailRows = details.map(([label, value]) => `
+          <tr>
+            <td style="padding:8px 12px; color:#64748b; border-bottom:1px solid #e5e7eb;">${escapeHtml(label)}</td>
+            <td style="padding:8px 12px; color:#0f172a; font-weight:600; border-bottom:1px solid #e5e7eb;">${escapeHtml(value)}</td>
+          </tr>
+        `).join('');
+
+        const content = `
+      <p style="margin:0 0 16px; color:#0f172a; font-size:16px; line-height:1.7;">
+        Hi <strong>${safeName}</strong>,
+      </p>
+      <p style="margin:0 0 18px; color:#334155; font-size:15px; line-height:1.7;">
+        ${config.message}
+      </p>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e5e7eb; border-radius:8px; border-collapse:separate; overflow:hidden;">
+        ${detailRows}
+      </table>
+    `;
+
+        const html = this.getBaseTemplate({
+            title: config.title,
+            subtitle: `Booking #${booking.booking_id}`,
+            content,
+        });
+        const text = `Hi ${booking.customer_name || 'Customer'}, ${config.message} Booking #${booking.booking_id}, tour: ${booking.tour_name || 'Tour'}, departure: ${departureAt || 'not specified'}, passengers: ${booking.passenger_count || 0}, original amount: ${originalAmount}, discount: ${discountAmount}${booking.coupon_code ? `, coupon: ${booking.coupon_code}` : ''}, amount due: ${finalAmount}.`;
+
+        return this.sendMail({
+            to: booking.customer_email,
+            subject: config.subject,
+            html,
+            text,
+        });
+    }
+
+    async sendCancellationRequested({ booking, refundRequest }) {
+        if (!booking?.customer_email) return null;
+
+        const amount = Number(refundRequest.refund_amount || 0).toLocaleString('vi-VN');
+        const departureAt = formatDateTime(booking.departure_at);
+        const originalAmount = formatMoney(booking.original_amount);
+        const discountAmount = formatMoney(booking.discount_amount);
+        const finalAmount = formatMoney(booking.final_amount);
+        const subject = `Cancellation request received for booking #${booking.booking_id}`;
+        const content = `
+      <p style="margin:0 0 16px; color:#0f172a; font-size:16px; line-height:1.7;">
+        Hi <strong>${escapeHtml(booking.customer_name || 'Customer')}</strong>,
+      </p>
+      <p style="margin:0 0 16px; color:#334155; font-size:15px; line-height:1.7;">
+        We received your cancellation request. Your booking is waiting for staff review and is not canceled yet.
+      </p>
+      <ul style="margin:0; padding-left:18px; color:#334155; font-size:15px; line-height:1.8;">
+        <li>Booking: <strong>#${booking.booking_id}</strong></li>
+        ${booking.tour_name ? `<li>Tour: <strong>${escapeHtml(booking.tour_name)}</strong></li>` : ''}
+        ${departureAt ? `<li>Departure: <strong>${escapeHtml(departureAt)}</strong></li>` : ''}
+        <li>Original amount: <strong>${originalAmount}</strong></li>
+        ${Number(booking.discount_amount || 0) > 0 ? `<li>Discount: <strong>-${discountAmount}</strong></li>` : ''}
+        ${booking.coupon_code ? `<li>Coupon: <strong>${escapeHtml(booking.coupon_code)}</strong></li>` : ''}
+        <li>Amount due: <strong>${finalAmount}</strong></li>
+        <li>Expected refund: <strong>${amount} VND</strong></li>
+        ${refundRequest.reason ? `<li>Reason: <strong>${escapeHtml(refundRequest.reason)}</strong></li>` : ''}
+      </ul>
+    `;
+        const html = this.getBaseTemplate({
+            title: 'Cancellation request received',
+            subtitle: `Booking #${booking.booking_id} is waiting for review.`,
+            content,
+        });
+        const text = `Hi ${booking.customer_name || 'Customer'}, we received your cancellation request for booking #${booking.booking_id}. It is waiting for staff review and is not canceled yet. Expected refund: ${amount} VND.`;
+
+        return this.sendMail({
+            to: booking.customer_email,
+            subject,
+            html,
+            text,
+        });
+    }
+
     async sendBookingCanceled({ to, name, booking, refundRequest }) {
         const subject = `Booking #${booking.booking_id} has been canceled`;
         const safeName = escapeHtml(name || 'Customer');
         const refundText = refundRequest
             ? `A manual refund request for ${Number(refundRequest.refund_amount || 0).toLocaleString('vi-VN')} VND has been created and is waiting for staff processing.`
             : 'No manual refund is required for this cancellation.';
+        const departureAt = formatDateTime(booking.departure_at);
+        const reason = booking.cancel_reason || refundRequest?.reason;
+        const originalAmount = formatMoney(booking.original_amount);
+        const discountAmount = formatMoney(booking.discount_amount);
+        const finalAmount = formatMoney(booking.final_amount);
 
         const content = `
       <p style="margin:0 0 16px; color:#0f172a; font-size:16px; line-height:1.7;">
@@ -282,6 +495,15 @@ class EmailService {
       <p style="margin:0; color:#334155; font-size:15px; line-height:1.7;">
         ${escapeHtml(refundText)}
       </p>
+      <ul style="margin:16px 0 0; padding-left:18px; color:#334155; font-size:15px; line-height:1.8;">
+        ${booking.tour_name ? `<li>Tour: <strong>${escapeHtml(booking.tour_name)}</strong></li>` : ''}
+        ${departureAt ? `<li>Departure: <strong>${escapeHtml(departureAt)}</strong></li>` : ''}
+        <li>Original amount: <strong>${originalAmount}</strong></li>
+        ${Number(booking.discount_amount || 0) > 0 ? `<li>Discount: <strong>-${discountAmount}</strong></li>` : ''}
+        ${booking.coupon_code ? `<li>Coupon: <strong>${escapeHtml(booking.coupon_code)}</strong></li>` : ''}
+        <li>Amount due: <strong>${finalAmount}</strong></li>
+        ${reason ? `<li>Reason: <strong>${escapeHtml(reason)}</strong></li>` : ''}
+      </ul>
     `;
 
         const html = this.getBaseTemplate({
@@ -290,7 +512,7 @@ class EmailService {
             content,
         });
 
-        const text = `Hi ${name || 'Customer'}, booking #${booking.booking_id} has been canceled. ${refundText}`;
+        const text = `Hi ${name || 'Customer'}, booking #${booking.booking_id} has been canceled. ${refundText}${booking.tour_name ? ` Tour: ${booking.tour_name}.` : ''}${departureAt ? ` Departure: ${departureAt}.` : ''} Original amount: ${originalAmount}. Discount: ${discountAmount}${booking.coupon_code ? `. Coupon: ${booking.coupon_code}` : ''}. Amount due: ${finalAmount}.${reason ? ` Reason: ${reason}.` : ''}`;
 
         return this.sendMail({ to, subject, html, text });
     }
@@ -300,6 +522,10 @@ class EmailService {
         if (!emails.length) return null;
 
         const subject = `New manual refund request for booking #${booking.booking_id}`;
+        const departureAt = formatDateTime(booking.departure_at);
+        const originalAmount = formatMoney(booking.original_amount);
+        const discountAmount = formatMoney(booking.discount_amount);
+        const finalAmount = formatMoney(booking.final_amount);
         const content = `
       <p style="margin:0 0 16px; color:#334155; font-size:15px; line-height:1.7;">
         A paid booking was canceled and needs manual refund processing.
@@ -307,7 +533,16 @@ class EmailService {
       <ul style="margin:0; padding-left:18px; color:#334155; font-size:15px; line-height:1.8;">
         <li>Booking ID: <strong>#${booking.booking_id}</strong></li>
         <li>Refund request ID: <strong>#${refundRequest.refund_request_id}</strong></li>
+        ${booking.tour_name ? `<li>Tour: <strong>${escapeHtml(booking.tour_name)}</strong></li>` : ''}
+        ${departureAt ? `<li>Departure: <strong>${escapeHtml(departureAt)}</strong></li>` : ''}
+        ${booking.customer_name ? `<li>Customer: <strong>${escapeHtml(booking.customer_name)}</strong></li>` : ''}
+        ${booking.customer_phone ? `<li>Phone: <strong>${escapeHtml(booking.customer_phone)}</strong></li>` : ''}
+        <li>Original amount: <strong>${originalAmount}</strong></li>
+        ${Number(booking.discount_amount || 0) > 0 ? `<li>Discount: <strong>-${discountAmount}</strong></li>` : ''}
+        ${booking.coupon_code ? `<li>Coupon: <strong>${escapeHtml(booking.coupon_code)}</strong></li>` : ''}
+        <li>Amount due: <strong>${finalAmount}</strong></li>
         <li>Refund amount: <strong>${Number(refundRequest.refund_amount || 0).toLocaleString('vi-VN')} VND</strong></li>
+        ${refundRequest.reason ? `<li>Reason: <strong>${escapeHtml(refundRequest.reason)}</strong></li>` : ''}
       </ul>
     `;
 
@@ -383,6 +618,51 @@ class EmailService {
         const text = `Hi ${name || 'Customer'}, your cancellation/refund request for booking #${booking.booking_id} has been rejected. Your booking remains confirmed.${refundRequest.staff_note ? ` Staff note: ${refundRequest.staff_note}` : ''}`;
 
         return this.sendMail({ to, subject, html, text });
+    }
+
+    async sendGroupTripInvite({ to, name, groupTrip, acceptUrl, expiresAt }) {
+        const subject = `You're invited to join ${groupTrip.name}`;
+        const safeName = escapeHtml(name || 'Customer');
+        const safeTripName = escapeHtml(groupTrip.name || 'a group trip');
+        const safeTourName = groupTrip.tour_name ? escapeHtml(groupTrip.tour_name) : null;
+        const safeAcceptUrl = escapeHtml(acceptUrl);
+        const expiresText = formatDateTime(expiresAt);
+
+        const content = `
+      <p style="margin:0 0 16px; color:#0f172a; font-size:16px; line-height:1.7;">
+        Hi <strong>${safeName}</strong>,
+      </p>
+      <p style="margin:0 0 18px; color:#334155; font-size:15px; line-height:1.7;">
+        You have been invited to join the group trip <strong>${safeTripName}</strong>${safeTourName ? ` for <strong>${safeTourName}</strong>` : ''}.
+      </p>
+      <div style="margin:28px 0; text-align:center;">
+        <a href="${safeAcceptUrl}" style="display:inline-block; background:#2563eb; color:#ffffff; text-decoration:none; border-radius:10px; padding:13px 22px; font-size:15px; font-weight:700;">
+          Accept Invitation
+        </a>
+      </div>
+      <p style="margin:0; color:#64748b; font-size:14px; line-height:1.7;">
+        This invitation is linked to your TravelLens account email and ${expiresText ? `expires on <strong>${escapeHtml(expiresText)}</strong>.` : 'will expire soon.'}
+      </p>
+      <p style="margin:16px 0 0; color:#64748b; font-size:13px; line-height:1.7; word-break:break-all;">
+        If the button does not work, open this link: ${safeAcceptUrl}
+      </p>
+    `;
+
+        const html = this.getBaseTemplate({
+            title: 'Group trip invitation',
+            subtitle: 'Accept the invitation to join your travel group.',
+            content,
+            footerText: 'Only the invited account can accept this invitation. If you did not expect this email, you can ignore it.',
+        });
+
+        const text = `Hi ${name || 'Customer'}, you have been invited to join ${groupTrip.name}. Accept invitation: ${acceptUrl}${expiresText ? `. Expires: ${expiresText}.` : ''}`;
+
+        return this.sendMail({
+            to,
+            subject,
+            html,
+            text,
+        });
     }
 
     async verifyConnection() {

@@ -3,6 +3,9 @@ const Joi = require('joi');
 const optionalText = Joi.string().allow(null, '');
 const id = Joi.number().integer().positive();
 const money = Joi.number().min(0);
+const fullNamePattern = /^[\p{L}]+(?:\s+[\p{L}]+)+$/u;
+const fullNameMessage = 'Name must contain at least 2 words and use letters/spaces only, for example: Nguyen Van A or Le Minh';
+const vietnamPhonePattern = /^0(?:3|5|7|8|9)\d{8}$/;
 const uploadedOrRemoteImage = (folder) => Joi.string().trim().custom((value, helpers) => {
   if (!value || value.startsWith(`/public/${folder}/`)) {
     return value;
@@ -32,6 +35,10 @@ module.exports = {
     description: optionalText,
   }),
   tourCategory: Joi.object({
+    name: Joi.string().trim().max(150).required(),
+    description: optionalText,
+  }),
+  blogCategory: Joi.object({
     name: Joi.string().trim().max(150).required(),
     description: optionalText,
   }),
@@ -72,6 +79,12 @@ module.exports = {
   booking: Joi.object({
     user_id: id,
     tour_id: id.required(),
+    contact_phone: Joi.string().trim().pattern(vietnamPhonePattern).required().messages({
+      'string.base': 'contact_phone must be a string',
+      'string.empty': 'contact_phone is required',
+      'string.pattern.base': 'contact_phone must be a valid Vietnamese mobile number with 10 digits, for example: 0901234567',
+      'any.required': 'contact_phone is required',
+    }),
     departure_at: Joi.date(),
     travel_date: Joi.date(),
     coupon_id: id.allow(null),
@@ -88,7 +101,13 @@ module.exports = {
     status: Joi.string().valid('confirmed', 'canceled', 'pending', 'waiting_manual_confirmation', 'cancel_pending').default('pending'),
     payment_status: Joi.string().valid('unpaid', 'paid', 'failed', 'refunded', 'pending').default('unpaid'),
     passengers: Joi.array().items(Joi.object({
-      passenger_name: Joi.string().max(150).required(),
+      passenger_name: Joi.string().trim().max(150).pattern(fullNamePattern).required().messages({
+        'string.base': fullNameMessage,
+        'string.empty': fullNameMessage,
+        'string.max': 'passenger_name must not exceed 150 characters',
+        'string.pattern.base': fullNameMessage,
+        'any.required': 'passenger_name is required',
+      }),
       age_category: Joi.string().valid('adult', 'child', 'infant').required(),
       price: Joi.forbidden().messages({
         'any.unknown': 'passenger price is calculated by server from tour price',
@@ -106,7 +125,13 @@ module.exports = {
   }),
   bookingDetail: Joi.object({
     booking_id: id.required(),
-    passenger_name: Joi.string().max(150).required(),
+    passenger_name: Joi.string().trim().max(150).pattern(fullNamePattern).required().messages({
+      'string.base': fullNameMessage,
+      'string.empty': fullNameMessage,
+      'string.max': 'passenger_name must not exceed 150 characters',
+      'string.pattern.base': fullNameMessage,
+      'any.required': 'passenger_name is required',
+    }),
     age_category: Joi.string().valid('adult', 'child', 'infant').required(),
     price: money.required(),
     seat_number: optionalText,
@@ -143,18 +168,30 @@ module.exports = {
   blog: Joi.object({
     user_id: id,
     title: Joi.string().max(255).required(),
+    slug: Joi.string().trim().lowercase().max(255).pattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    thumbnail: uploadedOrRemoteImage('blogs'),
     content: optionalText,
+    status: Joi.string().valid('draft', 'published', 'archived').default('published'),
+    published_at: Joi.date().iso().allow(null),
+    category_ids: Joi.array().items(id).default([]),
     location_ids: Joi.array().items(id).default([]),
   }),
   blogUpdate: Joi.object({
     title: Joi.string().max(255),
+    slug: Joi.string().trim().lowercase().max(255).pattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    thumbnail: uploadedOrRemoteImage('blogs'),
     content: optionalText,
+    status: Joi.string().valid('draft', 'published', 'archived'),
+    published_at: Joi.date().iso().allow(null),
+    category_ids: Joi.array().items(id),
     location_ids: Joi.array().items(id),
   }).min(1),
   blogLocation: Joi.object({ blog_id: id.required(), location_id: id.required() }),
   review: Joi.object({
     user_id: id.required(),
-    location_id: id.required(),
+    location_id: id,
+    booking_id: id,
+    tour_id: id,
     rating: Joi.number().integer().min(1).max(5).required(),
     comment: Joi.string().trim().max(1000).allow(null, ''),
     images: optionalText,

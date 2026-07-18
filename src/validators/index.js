@@ -14,9 +14,13 @@ module.exports = {
   mapFilter: require('./mapFilter.validator'),
   navigation: require('./navigation.validator'),
   view360: require('./view360.validator'),
+  view360Hotspot: require('./view360Hotspot.validator'),
   view360Image: require('./view360Image.validator'),
   review: require('./review.validator'),
   reviewPhoto: require('./reviewPhoto.validator'),
+  blogComment: require('./blogComment.validator'),
   media: require('./media.validator'),
   refundRequest: require('./refundRequest.validator'),
+  travelFeed: require('./travelFeed.validator'),
+  groupTrip: require('./groupTrip.validator'),
 };

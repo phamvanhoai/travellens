@@ -8,12 +8,12 @@ const router = express.Router();
 
 router
   .route('/')
-  .get(validate({ query: common.paginationQuery }), controller.list)
-  .post(validate({ body: entity.booking }), controller.create);
+  .get(validate({ query: common.paginationQuery }), controller.staffList)
+  .post(validate({ body: entity.booking }), controller.staffCreate);
 
 router
   .route('/:id')
-  .get(validate({ params: common.idParam }), controller.get);
+  .get(validate({ params: common.idParam }), controller.staffGet);
 
 router.get('/:id/history', validate({ params: common.idParam }), controller.history);
 

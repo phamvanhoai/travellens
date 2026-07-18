@@ -17,7 +17,9 @@ const uploadDirs = {
   users: path.join(__dirname, '..', '..', 'public', 'users'),
   tours: path.join(__dirname, '..', '..', 'public', 'tours'),
   reviews: path.join(__dirname, '..', '..', 'public', 'reviews'),
+  travelFeed: path.join(__dirname, '..', '..', 'public', 'travel-feed'),
   media: path.join(__dirname, '..', '..', 'public', 'media'),
+  blogs: path.join(__dirname, '..', '..', 'public', 'blogs'),
 };
 
 const allowedMapExtensions = new Set(['.jpg', '.jpeg', '.png', '.webp', '.svg']);
@@ -143,11 +145,28 @@ const uploadReviewPhotos = createUploader({
   },
 });
 
+const uploadTravelPostPhotos = createUploader({
+  uploadDir: uploadDirs.travelFeed,
+  fallbackName: 'travel-post-photo',
+  fileFilter: imageFileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+    files: 10,
+  },
+});
+
 const uploadMedia = createUploader({
   uploadDir: uploadDirs.media,
   fallbackName: 'media-image',
   fileFilter: imageFileFilter,
   limits: { fileSize: 10 * 1024 * 1024 },
+});
+
+const uploadBlogThumbnail = createUploader({
+  uploadDir: uploadDirs.blogs,
+  fallbackName: 'blog-thumbnail',
+  fileFilter: imageFileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 },
 });
 
 const uploadUnavailableOnVercel = () => new ApiError(
@@ -293,6 +312,27 @@ const handleMediaUpload = handleSingleUpload({
   fallbackName: 'media-image',
 });
 
+const parseBlogArrays = (req) => {
+  for (const field of ['category_ids', 'location_ids']) {
+    if (typeof req.body[field] !== 'string') continue;
+    try {
+      req.body[field] = JSON.parse(req.body[field]);
+    } catch (error) {
+      throw new ApiError(httpStatus.BAD_REQUEST, `${field} must be valid JSON`);
+    }
+  }
+};
+
+const handleBlogThumbnailUpload = handleSingleUpload({
+  uploader: uploadBlogThumbnail,
+  fieldName: 'thumbnail_file',
+  bodyField: 'thumbnail',
+  folder: 'blogs',
+  localPrefix: '/public/blogs',
+  fallbackName: 'blog-thumbnail',
+  afterUpload: parseBlogArrays,
+});
+
 const handleUserAvatarUpload = (req, res, next) => {
   if (isVercel && !useObjectStorage) {
     next(uploadUnavailableOnVercel());
@@ -370,6 +410,48 @@ const handleReviewPhotoUpload = (req, res, next) => {
   });
 };
 
+const handleTravelPostPhotoUpload = (req, res, next) => {
+  if (isVercel && !useObjectStorage) {
+    next(uploadUnavailableOnVercel());
+    return;
+  }
+
+  uploadTravelPostPhotos.array('photos', 10)(req, res, async (error) => {
+    if (error) {
+      next(processMulterError(error));
+      return;
+    }
+
+    try {
+      if (useObjectStorage && req.files?.length) {
+        const uploadedFiles = await Promise.all(req.files.map(async (file) => {
+          const uploaded = await objectStorage.uploadFile({
+            file,
+            folder: 'travel-feed',
+            fallbackName: 'travel-post-photo',
+          });
+
+          return {
+            ...file,
+            url: uploaded.url,
+          };
+        }));
+
+        req.files = uploadedFiles;
+      } else if (req.files?.length) {
+        req.files = req.files.map((file) => ({
+          ...file,
+          url: `/public/travel-feed/${file.filename}`,
+        }));
+      }
+
+      next();
+    } catch (uploadError) {
+      next(uploadError);
+    }
+  });
+};
+
 module.exports = {
   handleMapUpload,
   handleLocationThumbnailUpload,
@@ -379,5 +461,7 @@ module.exports = {
   handleUserAvatarUpload,
   handleTourThumbnailUpload,
   handleReviewPhotoUpload,
+  handleTravelPostPhotoUpload,
   handleMediaUpload,
+  handleBlogThumbnailUpload,
 };
