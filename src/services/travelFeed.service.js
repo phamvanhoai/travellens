@@ -527,7 +527,11 @@ class TravelFeedService {
       throw new ApiError(httpStatus.FORBIDDEN, 'You can only update your own comment');
     }
 
-    await travelPostModel.updateComment(commentId, payload.content);
+    const updated = await travelPostModel.updateComment(commentId, payload.content);
+
+    if (!updated) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Comment or travel post not found');
+    }
 
     return travelPostModel.findCommentWithAuthor(commentId);
   }
@@ -550,9 +554,11 @@ class TravelFeedService {
 
       const deleted = await travelPostModel.softDeleteComment(commentId, client);
 
-      if (deleted) {
-        await travelPostModel.decrementCommentCount(comment.post_id, client);
+      if (!deleted) {
+        throw new ApiError(httpStatus.NOT_FOUND, 'Comment or travel post not found');
       }
+
+      await travelPostModel.decrementCommentCount(comment.post_id, client);
 
       await client.query('COMMIT');
 

@@ -903,11 +903,23 @@ class TravelPostModel {
 
   async findActiveCommentById(commentId, executor = db) {
     const result = await executor.query(
-      `SELECT comment_id, post_id, user_id, parent_comment_id, content, status, created_at, updated_at
-       FROM travel_post_comment
-       WHERE comment_id = $1
-         AND status = 'published'
-         AND deleted_at IS NULL`,
+      `SELECT
+         tpc.comment_id,
+         tpc.post_id,
+         tpc.user_id,
+         tpc.parent_comment_id,
+         tpc.content,
+         tpc.status,
+         tpc.created_at,
+         tpc.updated_at
+       FROM travel_post_comment tpc
+       JOIN travel_post tp ON tp.post_id = tpc.post_id
+       WHERE tpc.comment_id = $1
+         AND tpc.status = 'published'
+         AND tpc.deleted_at IS NULL
+         AND tp.status = 'published'
+         AND tp.visibility = 'public'
+         AND tp.deleted_at IS NULL`,
       [commentId]
     );
 
@@ -954,13 +966,21 @@ class TravelPostModel {
 
   async updateComment(commentId, content, executor = db) {
     const result = await executor.query(
-      `UPDATE travel_post_comment
+      `UPDATE travel_post_comment tpc
        SET content = $2,
            updated_at = CURRENT_TIMESTAMP
-       WHERE comment_id = $1
-         AND status = 'published'
-         AND deleted_at IS NULL
-       RETURNING comment_id, post_id, user_id, parent_comment_id, content, status, created_at, updated_at`,
+       WHERE tpc.comment_id = $1
+         AND tpc.status = 'published'
+         AND tpc.deleted_at IS NULL
+         AND EXISTS (
+           SELECT 1
+           FROM travel_post tp
+           WHERE tp.post_id = tpc.post_id
+             AND tp.status = 'published'
+             AND tp.visibility = 'public'
+             AND tp.deleted_at IS NULL
+         )
+       RETURNING tpc.comment_id, tpc.post_id, tpc.user_id, tpc.parent_comment_id, tpc.content, tpc.status, tpc.created_at, tpc.updated_at`,
       [commentId, content]
     );
 
@@ -969,14 +989,22 @@ class TravelPostModel {
 
   async softDeleteComment(commentId, executor = db) {
     const result = await executor.query(
-      `UPDATE travel_post_comment
+      `UPDATE travel_post_comment tpc
        SET status = 'deleted',
            deleted_at = CURRENT_TIMESTAMP,
            updated_at = CURRENT_TIMESTAMP
-       WHERE comment_id = $1
-         AND status = 'published'
-         AND deleted_at IS NULL
-       RETURNING comment_id, post_id, user_id, parent_comment_id, content, status, created_at, updated_at`,
+       WHERE tpc.comment_id = $1
+         AND tpc.status = 'published'
+         AND tpc.deleted_at IS NULL
+         AND EXISTS (
+           SELECT 1
+           FROM travel_post tp
+           WHERE tp.post_id = tpc.post_id
+             AND tp.status = 'published'
+             AND tp.visibility = 'public'
+             AND tp.deleted_at IS NULL
+         )
+       RETURNING tpc.comment_id, tpc.post_id, tpc.user_id, tpc.parent_comment_id, tpc.content, tpc.status, tpc.created_at, tpc.updated_at`,
       [commentId]
     );
 
