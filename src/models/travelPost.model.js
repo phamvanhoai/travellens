@@ -381,13 +381,21 @@ class TravelPostModel {
     };
   }
 
-  async softDeletePost(postId, executor = db) {
+  async softDeletePost(postId, deletedBy = null, executor = db) {
     const result = await executor.query(
       `UPDATE travel_post
-       SET status = 'deleted',
+       SET previous_status = CASE
+             WHEN status IN ('draft', 'published', 'hidden') THEN status
+             ELSE previous_status
+           END,
+           status = 'deleted',
            deleted_at = CURRENT_TIMESTAMP,
+           deleted_by = $2,
+           restored_at = NULL,
+           restored_by = NULL,
            updated_at = CURRENT_TIMESTAMP
        WHERE post_id = $1
+         AND status <> 'deleted'
          AND deleted_at IS NULL
        RETURNING
          post_id,
@@ -404,7 +412,38 @@ class TravelPostModel {
          created_at,
          updated_at,
          deleted_at`,
-      [postId]
+      [postId, deletedBy]
+    );
+
+    return result.rows[0] || null;
+  }
+
+  async restorePostForAdmin(postId, restoredBy, executor = db) {
+    const result = await executor.query(
+      `UPDATE travel_post
+       SET status = COALESCE(previous_status, 'published'),
+           deleted_at = NULL,
+           deleted_by = NULL,
+           restored_at = CURRENT_TIMESTAMP,
+           restored_by = $2,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE post_id = $1
+         AND status = 'deleted'
+         AND deleted_at IS NOT NULL
+       RETURNING
+         post_id,
+         user_id,
+         content,
+         status,
+         visibility,
+         previous_status,
+         deleted_at,
+         deleted_by,
+         restored_at,
+         restored_by,
+         created_at,
+         updated_at`,
+      [postId, restoredBy]
     );
 
     return result.rows[0] || null;
@@ -613,15 +652,16 @@ class TravelPostModel {
     return result.rows[0] || null;
   }
 
-  async reviewReportForAdmin(reportId, payload, reviewedBy, executor = db) {
+  async reviewReportForAdmin(reportId, _payload, reviewedBy, executor = db) {
     const result = await executor.query(
       `UPDATE travel_post_report
-       SET status = $2,
-           reviewed_by = $3,
+       SET status = 'dismissed',
+           reviewed_by = $2,
            reviewed_at = CURRENT_TIMESTAMP
        WHERE report_id = $1
+         AND status = 'pending'
        RETURNING report_id, post_id, user_id, reason, description, status, reviewed_by, reviewed_at, created_at`,
-      [reportId, payload.status, reviewedBy]
+      [reportId, reviewedBy]
     );
 
     return result.rows[0] || null;
@@ -903,11 +943,23 @@ class TravelPostModel {
 
   async findActiveCommentById(commentId, executor = db) {
     const result = await executor.query(
-      `SELECT comment_id, post_id, user_id, parent_comment_id, content, status, created_at, updated_at
-       FROM travel_post_comment
-       WHERE comment_id = $1
-         AND status = 'published'
-         AND deleted_at IS NULL`,
+      `SELECT
+         tpc.comment_id,
+         tpc.post_id,
+         tpc.user_id,
+         tpc.parent_comment_id,
+         tpc.content,
+         tpc.status,
+         tpc.created_at,
+         tpc.updated_at
+       FROM travel_post_comment tpc
+       JOIN travel_post tp ON tp.post_id = tpc.post_id
+       WHERE tpc.comment_id = $1
+         AND tpc.status = 'published'
+         AND tpc.deleted_at IS NULL
+         AND tp.status = 'published'
+         AND tp.visibility = 'public'
+         AND tp.deleted_at IS NULL`,
       [commentId]
     );
 
@@ -954,13 +1006,21 @@ class TravelPostModel {
 
   async updateComment(commentId, content, executor = db) {
     const result = await executor.query(
-      `UPDATE travel_post_comment
+      `UPDATE travel_post_comment tpc
        SET content = $2,
            updated_at = CURRENT_TIMESTAMP
-       WHERE comment_id = $1
-         AND status = 'published'
-         AND deleted_at IS NULL
-       RETURNING comment_id, post_id, user_id, parent_comment_id, content, status, created_at, updated_at`,
+       WHERE tpc.comment_id = $1
+         AND tpc.status = 'published'
+         AND tpc.deleted_at IS NULL
+         AND EXISTS (
+           SELECT 1
+           FROM travel_post tp
+           WHERE tp.post_id = tpc.post_id
+             AND tp.status = 'published'
+             AND tp.visibility = 'public'
+             AND tp.deleted_at IS NULL
+         )
+       RETURNING tpc.comment_id, tpc.post_id, tpc.user_id, tpc.parent_comment_id, tpc.content, tpc.status, tpc.created_at, tpc.updated_at`,
       [commentId, content]
     );
 
@@ -969,14 +1029,22 @@ class TravelPostModel {
 
   async softDeleteComment(commentId, executor = db) {
     const result = await executor.query(
-      `UPDATE travel_post_comment
+      `UPDATE travel_post_comment tpc
        SET status = 'deleted',
            deleted_at = CURRENT_TIMESTAMP,
            updated_at = CURRENT_TIMESTAMP
-       WHERE comment_id = $1
-         AND status = 'published'
-         AND deleted_at IS NULL
-       RETURNING comment_id, post_id, user_id, parent_comment_id, content, status, created_at, updated_at`,
+       WHERE tpc.comment_id = $1
+         AND tpc.status = 'published'
+         AND tpc.deleted_at IS NULL
+         AND EXISTS (
+           SELECT 1
+           FROM travel_post tp
+           WHERE tp.post_id = tpc.post_id
+             AND tp.status = 'published'
+             AND tp.visibility = 'public'
+             AND tp.deleted_at IS NULL
+         )
+       RETURNING tpc.comment_id, tpc.post_id, tpc.user_id, tpc.parent_comment_id, tpc.content, tpc.status, tpc.created_at, tpc.updated_at`,
       [commentId]
     );
 

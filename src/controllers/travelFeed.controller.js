@@ -8,7 +8,7 @@ const adminList = asyncHandler(async (req, res) => {
 });
 
 const adminRemove = asyncHandler(async (req, res) => {
-  const result = await travelFeedService.removeForAdmin(req.params.postId);
+  const result = await travelFeedService.removeForAdmin(req.params.postId, req.user.sub);
   response.success(res, result, 'Travel post deleted successfully');
 });
 
@@ -29,12 +29,17 @@ const adminListReports = asyncHandler(async (req, res) => {
 
 const adminReviewReport = asyncHandler(async (req, res) => {
   const result = await travelFeedService.reviewReportForAdmin(req.params.reportId, req.body, req.user.sub);
-  response.success(res, result, 'Travel post report reviewed successfully');
+  response.success(res, result, 'Travel post report processed successfully');
 });
 
 const adminDeleteViolatedPost = asyncHandler(async (req, res) => {
   const result = await travelFeedService.deleteViolatedPostForAdmin(req.params.reportId, req.user.sub);
   response.success(res, result, 'Violated travel post deleted successfully');
+});
+
+const adminRestorePost = asyncHandler(async (req, res) => {
+  const result = await travelFeedService.restorePostForAdmin(req.params.postId, req.user.sub);
+  response.success(res, result, 'Travel post restored successfully');
 });
 
 const list = asyncHandler(async (req, res) => {
@@ -125,6 +130,7 @@ module.exports = {
   adminListReports,
   adminReviewReport,
   adminDeleteViolatedPost,
+  adminRestorePost,
   list,
   create,
   likePost,

@@ -214,7 +214,7 @@ router.delete('/comments/:commentId', validate(travelFeed.adminCommentAction), c
  *         name: status
  *         schema:
  *           type: string
- *           enum: [pending, reviewed, dismissed, resolved]
+ *           enum: [pending, dismissed, resolved]
  *       - in: query
  *         name: reason
  *         schema:
@@ -243,10 +243,10 @@ router.get('/reports', validate(travelFeed.adminListReports), controller.adminLi
 
 /**
  * @swagger
- * /admin/travel-feed/reports/{reportId}/review:
+ * /admin/travel-feed/reports/{reportId}:
  *   patch:
- *     summary: Admin review reported post
- *     description: Admin marks a travel post report as reviewed, dismissed, or resolved.
+ *     summary: Admin process a travel post report
+ *     description: Admin dismisses an invalid pending report without changing the post. Resolved is set only when the violated post is deleted.
  *     tags: [Admin Travel Feed]
  *     security:
  *       - bearerAuth: []
@@ -266,10 +266,10 @@ router.get('/reports', validate(travelFeed.adminListReports), controller.adminLi
  *             properties:
  *               status:
  *                 type: string
- *                 enum: [reviewed, dismissed, resolved]
+ *                 enum: [dismissed]
  *     responses:
  *       200:
- *         description: Travel post report reviewed successfully
+ *         description: Travel post report processed successfully
  *       400:
  *         description: Validation error
  *       401:
@@ -278,8 +278,10 @@ router.get('/reports', validate(travelFeed.adminListReports), controller.adminLi
  *         description: Admin role required
  *       404:
  *         description: Travel post report not found
+ *       409:
+ *         description: Travel post report has already been processed
  */
-router.patch('/reports/:reportId/review', validate(travelFeed.adminReviewReport), controller.adminReviewReport);
+router.patch('/reports/:reportId', validate(travelFeed.adminReviewReport), controller.adminReviewReport);
 
 /**
  * @swagger
@@ -305,8 +307,37 @@ router.patch('/reports/:reportId/review', validate(travelFeed.adminReviewReport)
  *         description: Admin role required
  *       404:
  *         description: Travel post report or post not found
+ *       409:
+ *         description: Report was processed or post was already deleted
  */
 router.delete('/reports/:reportId/violated-post', validate(travelFeed.adminReportAction), controller.adminDeleteViolatedPost);
+
+/**
+ * @swagger
+ * /admin/travel-feed/posts/{postId}/restore:
+ *   patch:
+ *     summary: Admin restore an accidentally deleted travel post
+ *     description: Restores a soft-deleted post to its previous status. Related reports are unchanged.
+ *     tags: [Admin Travel Feed]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: postId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Travel post restored successfully
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Admin role required
+ *       409:
+ *         description: Post is not deleted or has already been restored
+ */
+router.patch('/posts/:postId/restore', validate(travelFeed.adminRestorePost), controller.adminRestorePost);
 
 /**
  * @swagger
