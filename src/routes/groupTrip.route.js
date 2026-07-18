@@ -6,6 +6,49 @@ const { groupTrip } = require('../validators');
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * /group-trips/public:
+ *   get:
+ *     summary: Guest list public group trips
+ *     tags: [Group Trips]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, minimum: 1, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+ *       - in: query
+ *         name: search
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Public group trip list }
+ * /group-trips/public/{id}:
+ *   get:
+ *     summary: Guest view public group trip detail and itinerary
+ *     tags: [Group Trips]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200: { description: Public group trip detail }
+ *       404: { description: Group trip is missing, private, or archived }
+ */
+router.get(
+  '/public',
+  validate({ query: groupTrip.listQuery }),
+  controller.listPublic
+);
+
+router.get(
+  '/public/:id',
+  validate({ params: groupTrip.idParam }),
+  controller.getPublic
+);
+
 router.use(authenticate, authorize('customer'));
 
 /**
@@ -392,10 +435,18 @@ router
   .patch(validate(groupTrip.updateItineraryItem), controller.updateItineraryItem)
   .delete(validate({ params: groupTrip.itineraryParam }), controller.deleteItineraryItem);
 
-router.post(
-  '/:id/invites',
-  validate(groupTrip.invite),
-  controller.inviteMember
+router
+  .route('/:id/invites')
+  .get(
+    validate({ params: groupTrip.idParam, query: groupTrip.inviteListQuery }),
+    controller.listInvitesForLeader
+  )
+  .post(validate(groupTrip.invite), controller.inviteMember);
+
+router.delete(
+  '/:id/invites/:inviteId',
+  validate({ params: groupTrip.groupInviteParam }),
+  controller.cancelInvite
 );
 
 module.exports = router;

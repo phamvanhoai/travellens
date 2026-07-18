@@ -168,6 +168,67 @@ module.exports = {
     return result.rows[0] || null;
   },
 
+  async listPublic(query = {}, executor = db) {
+    const page = Math.max(Number(query.page || 1), 1);
+    const limit = Math.min(Math.max(Number(query.limit || 20), 1), 100);
+    const offset = (page - 1) * limit;
+    const values = [];
+    const clauses = ["gt.status = 'active'", "gt.visibility = 'public'"];
+    if (query.search) {
+      values.push(`%${query.search}%`);
+      clauses.push(`(gt.name ILIKE $${values.length} OR gt.destination_name ILIKE $${values.length} OR td.name ILIKE $${values.length})`);
+    }
+    const where = `WHERE ${clauses.join(' AND ')}`;
+    const count = await executor.query(
+      `SELECT COUNT(*)::int AS total
+       FROM group_trip gt
+       LEFT JOIN travel_destination td ON td.destination_id = gt.destination_id
+       ${where}`,
+      values
+    );
+    const listValues = [...values, limit, offset];
+    const result = await executor.query(
+      `SELECT gt.group_trip_id, gt.name, gt.description, gt.destination_id,
+              COALESCE(td.name, gt.destination_name) AS destination_name,
+              gt.start_date, gt.end_date, gt.max_members, gt.visibility,
+              gt.created_at, gt.updated_at,
+              json_build_object('user_id', leader.user_id, 'name', leader.name,
+                'avatar_url', leader.avatar_url) AS leader,
+              (SELECT COUNT(*)::int FROM group_trip_member gtm
+               WHERE gtm.group_trip_id = gt.group_trip_id AND gtm.status = 'active') AS member_count
+       FROM group_trip gt
+       JOIN users leader ON leader.user_id = gt.leader_id
+       LEFT JOIN travel_destination td ON td.destination_id = gt.destination_id
+       ${where}
+       ORDER BY gt.start_date ASC NULLS LAST, gt.updated_at DESC
+       LIMIT $${listValues.length - 1} OFFSET $${listValues.length}`,
+      listValues
+    );
+    const total = count.rows[0].total;
+    return { items: result.rows, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  },
+
+  async findPublicById(id, executor = db) {
+    const result = await executor.query(
+      `SELECT gt.group_trip_id, gt.name, gt.description, gt.destination_id,
+              COALESCE(td.name, gt.destination_name) AS destination_name,
+              gt.start_date, gt.end_date, gt.max_members, gt.visibility,
+              gt.created_at, gt.updated_at,
+              json_build_object('user_id', leader.user_id, 'name', leader.name,
+                'avatar_url', leader.avatar_url) AS leader,
+              (SELECT COUNT(*)::int FROM group_trip_member gtm
+               WHERE gtm.group_trip_id = gt.group_trip_id AND gtm.status = 'active') AS member_count
+       FROM group_trip gt
+       JOIN users leader ON leader.user_id = gt.leader_id
+       LEFT JOIN travel_destination td ON td.destination_id = gt.destination_id
+       WHERE gt.group_trip_id = $1
+         AND gt.status = 'active'
+         AND gt.visibility = 'public'`,
+      [id]
+    );
+    return result.rows[0] || null;
+  },
+
   async archive(id, executor = db) {
     const result = await executor.query(
       `UPDATE group_trip
@@ -444,10 +505,142 @@ module.exports = {
     return result.rows[0] || null;
   },
 
-  async findInviteByTokenHashForUpdate(tokenHash, executor) {
+  async expirePendingInvites(executor = db) {
+    await executor.query(
+      `UPDATE group_trip_invite
+       SET status = 'expired'
+       WHERE status = 'pending'
+         AND expires_at <= CURRENT_TIMESTAMP`
+    );
+  },
+
+  async listInvitesForLeader(groupTripId, query = {}, executor = db) {
+    const page = Math.max(Number(query.page || 1), 1);
+    const limit = Math.min(Math.max(Number(query.limit || 20), 1), 100);
+    const offset = (page - 1) * limit;
+    const values = [groupTripId];
+    const clauses = ['gti.group_trip_id = $1'];
+    if (query.status) {
+      values.push(query.status);
+      clauses.push(`gti.status = $${values.length}`);
+    }
+    if (query.search) {
+      values.push(`%${query.search}%`);
+      clauses.push(`(u.name ILIKE $${values.length} OR u.email ILIKE $${values.length})`);
+    }
+    const where = `WHERE ${clauses.join(' AND ')}`;
+    const count = await executor.query(
+      `SELECT COUNT(*)::int AS total
+       FROM group_trip_invite gti
+       JOIN users u ON u.user_id = gti.invited_user_id
+       ${where}`,
+      values
+    );
+    const listValues = [...values, limit, offset];
+    const result = await executor.query(
+      `SELECT gti.group_trip_invite_id, gti.group_trip_id, gti.invited_user_id,
+              gti.invited_email, gti.status, gti.expires_at, gti.accepted_at,
+              gti.canceled_at, gti.declined_at, gti.created_at,
+              json_build_object('user_id', u.user_id, 'name', u.name,
+                'email', u.email, 'avatar_url', u.avatar_url) AS invited_user
+       FROM group_trip_invite gti
+       JOIN users u ON u.user_id = gti.invited_user_id
+       ${where}
+       ORDER BY gti.created_at DESC, gti.group_trip_invite_id DESC
+       LIMIT $${listValues.length - 1} OFFSET $${listValues.length}`,
+      listValues
+    );
+    const total = count.rows[0].total;
+    return { items: result.rows, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  },
+
+  async listInvitesForUser(userId, query = {}, executor = db) {
+    const page = Math.max(Number(query.page || 1), 1);
+    const limit = Math.min(Math.max(Number(query.limit || 20), 1), 100);
+    const offset = (page - 1) * limit;
+    const values = [userId];
+    const clauses = ['gti.invited_user_id = $1'];
+    if (query.status) {
+      values.push(query.status);
+      clauses.push(`gti.status = $${values.length}`);
+    }
+    if (query.search) {
+      values.push(`%${query.search}%`);
+      clauses.push(`(gt.name ILIKE $${values.length} OR inviter.name ILIKE $${values.length})`);
+    }
+    const where = `WHERE ${clauses.join(' AND ')}`;
+    const count = await executor.query(
+      `SELECT COUNT(*)::int AS total
+       FROM group_trip_invite gti
+       JOIN group_trip gt ON gt.group_trip_id = gti.group_trip_id
+       JOIN users inviter ON inviter.user_id = gti.invited_by
+       ${where}`,
+      values
+    );
+    const listValues = [...values, limit, offset];
+    const result = await executor.query(
+      `SELECT gti.group_trip_invite_id, gti.group_trip_id, gti.status,
+              gti.expires_at, gti.accepted_at, gti.canceled_at, gti.declined_at,
+              gti.created_at,
+              json_build_object('group_trip_id', gt.group_trip_id, 'name', gt.name,
+                'description', gt.description, 'destination_name', gt.destination_name,
+                'start_date', gt.start_date, 'end_date', gt.end_date,
+                'visibility', gt.visibility, 'status', gt.status) AS group_trip,
+              json_build_object('user_id', inviter.user_id, 'name', inviter.name,
+                'avatar_url', inviter.avatar_url) AS invited_by
+       FROM group_trip_invite gti
+       JOIN group_trip gt ON gt.group_trip_id = gti.group_trip_id
+       JOIN users inviter ON inviter.user_id = gti.invited_by
+       ${where}
+       ORDER BY CASE WHEN gti.status = 'pending' THEN 0 ELSE 1 END,
+                gti.created_at DESC, gti.group_trip_invite_id DESC
+       LIMIT $${listValues.length - 1} OFFSET $${listValues.length}`,
+      listValues
+    );
+    const total = count.rows[0].total;
+    return { items: result.rows, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  },
+
+  async findInviteByIdForUpdate(inviteId, executor) {
     const result = await executor.query(
       `SELECT gti.*, gt.name AS group_trip_name, gt.visibility, gt.leader_id,
               gt.status AS group_trip_status, gt.max_members
+       FROM group_trip_invite gti
+       JOIN group_trip gt ON gt.group_trip_id = gti.group_trip_id
+       WHERE gti.group_trip_invite_id = $1
+       FOR UPDATE OF gti`,
+      [inviteId]
+    );
+    return result.rows[0] || null;
+  },
+
+  async cancelInvite(inviteId, executor = db) {
+    const result = await executor.query(
+      `UPDATE group_trip_invite
+       SET status = 'canceled', canceled_at = CURRENT_TIMESTAMP
+       WHERE group_trip_invite_id = $1 AND status = 'pending'
+       RETURNING *`,
+      [inviteId]
+    );
+    return result.rows[0] || null;
+  },
+
+  async declineInvite(inviteId, executor = db) {
+    const result = await executor.query(
+      `UPDATE group_trip_invite
+       SET status = 'declined', declined_at = CURRENT_TIMESTAMP
+       WHERE group_trip_invite_id = $1 AND status = 'pending'
+       RETURNING *`,
+      [inviteId]
+    );
+    return result.rows[0] || null;
+  },
+
+  async findInviteByTokenHashForUpdate(tokenHash, executor) {
+    const result = await executor.query(
+      `SELECT gti.*, gt.name AS group_trip_name, gt.visibility, gt.leader_id,
+              gt.status AS group_trip_status, gt.max_members, gt.description AS group_trip_description,
+              gt.destination_name, gt.start_date, gt.end_date
        FROM group_trip_invite gti
        INNER JOIN group_trip gt ON gt.group_trip_id = gti.group_trip_id
        WHERE gti.token_hash = $1

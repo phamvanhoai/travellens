@@ -14,6 +14,15 @@ const itineraryParam = Joi.object({
   itemId: Joi.number().integer().positive().required(),
 });
 
+const inviteIdParam = Joi.object({
+  inviteId: Joi.number().integer().positive().required(),
+});
+
+const groupInviteParam = Joi.object({
+  id: Joi.number().integer().positive().required(),
+  inviteId: Joi.number().integer().positive().required(),
+});
+
 const tokenParam = Joi.object({
   token: Joi.string().trim().hex().length(64).required(),
 });
@@ -22,6 +31,13 @@ const listQuery = Joi.object({
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(20),
   search: Joi.string().trim().allow(''),
+}).unknown(false);
+
+const inviteListQuery = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(100).default(20),
+  search: Joi.string().trim().allow(''),
+  status: Joi.string().valid('pending', 'accepted', 'expired', 'canceled', 'declined'),
 }).unknown(false);
 
 const create = {
@@ -108,8 +124,11 @@ module.exports = {
   idParam,
   memberParam,
   itineraryParam,
+  inviteIdParam,
+  groupInviteParam,
   tokenParam,
   listQuery,
+  inviteListQuery,
   create,
   updateSettings,
   createItineraryItem,
