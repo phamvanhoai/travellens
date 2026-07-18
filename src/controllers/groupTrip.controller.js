@@ -4,7 +4,7 @@ const groupTripService = require('../services/groupTrip.service');
 
 module.exports = {
   create: asyncHandler(async (req, res) => {
-    const data = await groupTripService.createForBooking(req.user.sub, req.body);
+    const data = await groupTripService.create(req.user.sub, req.body);
     response.success(res, data, 'Created', 201);
   }),
 
@@ -16,6 +16,26 @@ module.exports = {
   get: asyncHandler(async (req, res) => {
     const data = await groupTripService.getForUser(req.params.id, req.user.sub);
     response.success(res, data);
+  }),
+
+  delete: asyncHandler(async (req, res) => {
+    const data = await groupTripService.delete(req.params.id, req.user.sub);
+    response.success(res, data, 'Group trip deleted successfully');
+  }),
+
+  addItineraryItem: asyncHandler(async (req, res) => {
+    const data = await groupTripService.addItineraryItem(req.params.id, req.user.sub, req.body);
+    response.success(res, data, 'Itinerary item created', 201);
+  }),
+
+  updateItineraryItem: asyncHandler(async (req, res) => {
+    const data = await groupTripService.updateItineraryItem(req.params.id, req.params.itemId, req.user.sub, req.body);
+    response.success(res, data, 'Itinerary item updated');
+  }),
+
+  deleteItineraryItem: asyncHandler(async (req, res) => {
+    const data = await groupTripService.deleteItineraryItem(req.params.id, req.params.itemId, req.user.sub);
+    response.success(res, data, 'Itinerary item deleted');
   }),
 
   listMembers: asyncHandler(async (req, res) => {
