@@ -807,6 +807,10 @@ CREATE TABLE travel_post (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP,
+    previous_status VARCHAR(30),
+    deleted_by INT,
+    restored_at TIMESTAMP,
+    restored_by INT,
     CONSTRAINT fk_travel_post_user
         FOREIGN KEY (user_id)
         REFERENCES users(user_id)
@@ -819,10 +823,20 @@ CREATE TABLE travel_post (
         FOREIGN KEY (location_id)
         REFERENCES location(location_id)
         ON DELETE SET NULL,
+    CONSTRAINT fk_travel_post_deleted_by
+        FOREIGN KEY (deleted_by)
+        REFERENCES users(user_id)
+        ON DELETE SET NULL,
+    CONSTRAINT fk_travel_post_restored_by
+        FOREIGN KEY (restored_by)
+        REFERENCES users(user_id)
+        ON DELETE SET NULL,
     CONSTRAINT chk_travel_post_status
         CHECK (status IN ('draft', 'published', 'hidden', 'deleted')),
     CONSTRAINT chk_travel_post_visibility
         CHECK (visibility IN ('public', 'private')),
+    CONSTRAINT chk_travel_post_previous_status
+        CHECK (previous_status IS NULL OR previous_status IN ('draft', 'published', 'hidden')),
     CONSTRAINT chk_travel_post_counts
         CHECK (like_count >= 0 AND comment_count >= 0 AND report_count >= 0 AND share_count >= 0)
 );
@@ -904,7 +918,7 @@ CREATE TABLE travel_post_report (
         REFERENCES users(user_id)
         ON DELETE SET NULL,
     CONSTRAINT chk_travel_post_report_status
-        CHECK (status IN ('pending', 'reviewed', 'dismissed', 'resolved')),
+        CHECK (status IN ('pending', 'dismissed', 'resolved')),
     CONSTRAINT uq_travel_post_report_user_post
         UNIQUE (post_id, user_id)
 );
