@@ -384,8 +384,14 @@ CREATE TABLE booking_detail (
 -- =========================================================
 CREATE TABLE group_trip (
     group_trip_id SERIAL PRIMARY KEY,
-    booking_id INT NOT NULL,
+    booking_id INT,
     name VARCHAR(150) NOT NULL,
+    description TEXT,
+    destination_id INT,
+    destination_name VARCHAR(200),
+    start_date DATE,
+    end_date DATE,
+    max_members INT,
     visibility VARCHAR(20) NOT NULL DEFAULT 'private' CHECK (visibility IN ('public', 'private')),
     leader_id INT NOT NULL,
     created_by INT NOT NULL,
@@ -407,8 +413,38 @@ CREATE TABLE group_trip (
         REFERENCES users(user_id)
         ON UPDATE CASCADE
         ON DELETE RESTRICT,
-    CONSTRAINT uq_group_trip_booking
-        UNIQUE (booking_id)
+    CONSTRAINT fk_group_trip_destination
+        FOREIGN KEY (destination_id)
+        REFERENCES travel_destination(destination_id)
+        ON DELETE SET NULL,
+    CONSTRAINT chk_group_trip_dates
+        CHECK (end_date IS NULL OR start_date IS NULL OR end_date >= start_date),
+    CONSTRAINT chk_group_trip_max_members
+        CHECK (max_members IS NULL OR max_members >= 2)
+);
+
+CREATE TABLE group_trip_itinerary_item (
+    itinerary_item_id SERIAL PRIMARY KEY,
+    group_trip_id INT NOT NULL,
+    itinerary_date DATE NOT NULL,
+    start_time TIME,
+    title VARCHAR(200) NOT NULL,
+    description TEXT,
+    location_id INT,
+    custom_location VARCHAR(255),
+    latitude DECIMAL(10,7),
+    longitude DECIMAL(10,7),
+    order_index INT NOT NULL DEFAULT 0 CHECK (order_index >= 0),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_group_trip_itinerary_trip FOREIGN KEY (group_trip_id)
+        REFERENCES group_trip(group_trip_id) ON DELETE CASCADE,
+    CONSTRAINT fk_group_trip_itinerary_location FOREIGN KEY (location_id)
+        REFERENCES location(location_id) ON DELETE SET NULL,
+    CONSTRAINT chk_group_trip_itinerary_latitude
+        CHECK (latitude IS NULL OR latitude BETWEEN -90 AND 90),
+    CONSTRAINT chk_group_trip_itinerary_longitude
+        CHECK (longitude IS NULL OR longitude BETWEEN -180 AND 180)
 );
 
 CREATE TABLE group_trip_member (

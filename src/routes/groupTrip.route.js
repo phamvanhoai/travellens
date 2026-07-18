@@ -34,7 +34,7 @@ router.use(authenticate, authorize('customer'));
  *       200:
  *         description: Group trip list
  *   post:
- *     summary: Create a group trip from current customer's booking
+ *     summary: Create an independent self-planned group trip
  *     tags: [Group Trips]
  *     security:
  *       - bearerAuth: []
@@ -44,14 +44,26 @@ router.use(authenticate, authorize('customer'));
  *         application/json:
  *           schema:
  *             type: object
- *             required: [booking_id, name]
+ *             required: [name, start_date, end_date]
  *             properties:
- *               booking_id:
- *                 type: integer
- *                 example: 12
  *               name:
  *                 type: string
- *                 example: Da Nang summer group
+ *                 example: Da Lat weekend trip
+ *               description:
+ *                 type: string
+ *               destination_id:
+ *                 type: integer
+ *               destination_name:
+ *                 type: string
+ *                 example: Da Lat
+ *               start_date:
+ *                 type: string
+ *                 format: date
+ *               end_date:
+ *                 type: string
+ *                 format: date
+ *               max_members:
+ *                 type: integer
  *               visibility:
  *                 type: string
  *                 enum: [public, private]
@@ -60,10 +72,8 @@ router.use(authenticate, authorize('customer'));
  *     responses:
  *       201:
  *         description: Group trip created and creator assigned as leader
- *       404:
- *         description: Booking not found
- *       409:
- *         description: Group trip already exists for this booking
+ *       400:
+ *         description: Invalid trip dates or destination
  *
  * /group-trips/{id}:
  *   get:
@@ -83,6 +93,26 @@ router.use(authenticate, authorize('customer'));
  *         description: Private group trip requires active membership
  *       404:
  *         description: Group trip not found
+ *   delete:
+ *     summary: Delete a group trip
+ *     description: Only the active group leader can soft-delete the group trip. Pending invitations are canceled and history is retained.
+ *     tags: [Group Trips]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Group trip soft-deleted successfully
+ *       403:
+ *         description: Only the group leader can delete the group trip
+ *       404:
+ *         description: Group trip not found
+ *       409:
+ *         description: Group trip has already been deleted
  *
  * /group-trips/{id}/members:
  *   get:
@@ -275,7 +305,8 @@ router.post(
 
 router
   .route('/:id')
-  .get(validate({ params: groupTrip.idParam }), controller.get);
+  .get(validate({ params: groupTrip.idParam }), controller.get)
+  .delete(validate({ params: groupTrip.idParam }), controller.delete);
 
 router.get(
   '/:id/members',
@@ -306,6 +337,60 @@ router.patch(
   validate(groupTrip.updateSettings),
   controller.updateSettings
 );
+
+/**
+ * @swagger
+ * /group-trips/{id}/itinerary:
+ *   post:
+ *     summary: Add an itinerary item
+ *     description: Only the group leader can add an item within the trip date range.
+ *     tags: [Group Trips]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [itinerary_date, title]
+ *             properties:
+ *               itinerary_date: { type: string, format: date, example: '2026-08-11' }
+ *               start_time: { type: string, example: '17:30' }
+ *               title: { type: string, example: 'Explore Hoi An Ancient Town' }
+ *               description: { type: string, nullable: true }
+ *               location_id: { type: integer, nullable: true, description: System location; cannot be combined with custom location fields. }
+ *               custom_location: { type: string, nullable: true, example: 'Hoi An Ancient Town' }
+ *               latitude: { type: number, format: double, minimum: -90, maximum: 90, nullable: true, example: 15.8801 }
+ *               longitude: { type: number, format: double, minimum: -180, maximum: 180, nullable: true, example: 108.338 }
+ *               order_index: { type: integer, minimum: 0, default: 0 }
+ *     responses:
+ *       201: { description: Itinerary item created }
+ *       400: { description: Invalid coordinates, location mode, or itinerary date }
+ * /group-trips/{id}/itinerary/{itemId}:
+ *   patch:
+ *     summary: Update an itinerary item
+ *     tags: [Group Trips]
+ *     security: [{ bearerAuth: [] }]
+ *     description: Switching to location_id clears custom_location and coordinates. Switching to custom requires its name and coordinates.
+ *     responses:
+ *       200: { description: Itinerary item updated }
+ *   delete:
+ *     summary: Delete an itinerary item
+ *     tags: [Group Trips]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Itinerary item deleted }
+ */
+router.post(
+  '/:id/itinerary',
+  validate(groupTrip.createItineraryItem),
+  controller.addItineraryItem
+);
+
+router
+  .route('/:id/itinerary/:itemId')
+  .patch(validate(groupTrip.updateItineraryItem), controller.updateItineraryItem)
+  .delete(validate({ params: groupTrip.itineraryParam }), controller.deleteItineraryItem);
 
 router.post(
   '/:id/invites',

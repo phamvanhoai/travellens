@@ -1,7 +1,8 @@
 const crypto = require('crypto');
 const groupTripModel = require('../models/groupTrip.model');
-const bookingModel = require('../models/booking.model');
 const userModel = require('../models/user.model');
+const travelDestinationModel = require('../models/travelDestination.model');
+const locationModel = require('../models/location.model');
 const emailService = require('./email.service');
 const logger = require('../config/logger');
 const ApiError = require('../utils/ApiError');
@@ -10,6 +11,55 @@ const { httpStatus } = require('../constants');
 const INVITE_EXPIRE_DAYS = Number(process.env.GROUP_TRIP_INVITE_EXPIRE_DAYS || 7);
 
 class GroupTripService {
+  toDateKey(value) {
+    if (!value) return null;
+    if (value instanceof Date) return value.toISOString().slice(0, 10);
+    return String(value).slice(0, 10);
+  }
+
+  serializeItineraryItem(item) {
+    if (!item) return item;
+    return {
+      ...item,
+      latitude: item.latitude === null || item.latitude === undefined ? null : Number(item.latitude),
+      longitude: item.longitude === null || item.longitude === undefined ? null : Number(item.longitude),
+    };
+  }
+
+  async normalizeItineraryLocation(payload, existing = null, executor) {
+    if (payload.location_id !== undefined && payload.location_id !== null) {
+      const location = await locationModel.findActiveById(payload.location_id, executor);
+      if (!location) throw new ApiError(httpStatus.NOT_FOUND, 'Location not found');
+      return {
+        ...payload,
+        custom_location: null,
+        latitude: null,
+        longitude: null,
+      };
+    }
+
+    const customKeys = ['custom_location', 'latitude', 'longitude'];
+    const switchesToCustom = payload.location_id === null || customKeys.some((key) => payload[key] !== undefined);
+    if (!switchesToCustom) return payload;
+
+    const customLocation = payload.custom_location ?? existing?.custom_location;
+    const latitude = payload.latitude ?? existing?.latitude;
+    const longitude = payload.longitude ?? existing?.longitude;
+    if (!customLocation || latitude === null || latitude === undefined || longitude === null || longitude === undefined) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        'custom_location, latitude, and longitude are required when location_id is not provided'
+      );
+    }
+    return {
+      ...payload,
+      location_id: null,
+      custom_location: customLocation,
+      latitude: Number(latitude),
+      longitude: Number(longitude),
+    };
+  }
+
   hashToken(token) {
     return crypto.createHash('sha256').update(token).digest('hex');
   }
@@ -26,29 +76,19 @@ class GroupTripService {
     return `${baseUrl.replace(/\/$/, '')}/group-trip-invites/accept?token=${token}`;
   }
 
-  async createForBooking(userId, payload) {
+  async create(userId, payload) {
+    if (payload.destination_id) {
+      const destination = await travelDestinationModel.findActiveById(payload.destination_id);
+      if (!destination) throw new ApiError(httpStatus.NOT_FOUND, 'Travel destination not found');
+    }
+
     const client = await groupTripModel.getClient();
     let groupTripId;
     try {
       await client.query('BEGIN');
 
-      const booking = await bookingModel.findOwnedById(payload.booking_id, userId, client);
-      if (!booking) {
-        throw new ApiError(httpStatus.NOT_FOUND, 'Booking not found');
-      }
-      if (['canceled', 'expired'].includes(booking.status)) {
-        throw new ApiError(httpStatus.BAD_REQUEST, 'Cannot create group trip for canceled or expired booking');
-      }
-
-      const existing = await groupTripModel.findByBookingId(payload.booking_id, client);
-      if (existing) {
-        throw new ApiError(httpStatus.CONFLICT, 'Group trip already exists for this booking');
-      }
-
       const trip = await groupTripModel.create({
-        booking_id: payload.booking_id,
-        name: payload.name,
-        visibility: payload.visibility,
+        ...payload,
         leader_id: userId,
         created_by: userId,
       }, client);
@@ -78,10 +118,15 @@ class GroupTripService {
   async getForUser(groupTripId, userId) {
     const trip = await this.ensureViewable(groupTripId, userId);
     const members = await groupTripModel.listMembers(groupTripId, { limit: 100 });
+    const itinerary = await groupTripModel.listItinerary(groupTripId);
+    const visibleMembers = trip.current_member
+      ? members.items
+      : members.items.map(({ email, phone, ...member }) => member);
     return {
       ...trip,
-      members: members.items,
+      members: visibleMembers,
       member_count: members.pagination.total,
+      itinerary: itinerary.map((item) => this.serializeItineraryItem(item)),
     };
   }
 
@@ -231,10 +276,144 @@ class GroupTripService {
   }
 
   async updateSettings(groupTripId, actorUserId, payload) {
-    await this.ensureLeader(groupTripId, actorUserId);
-    const updated = await groupTripModel.updateSettings(groupTripId, payload);
-    if (!updated) throw new ApiError(httpStatus.NOT_FOUND, 'Group trip not found');
+    if (payload.destination_id) {
+      const destination = await travelDestinationModel.findActiveById(payload.destination_id);
+      if (!destination) throw new ApiError(httpStatus.NOT_FOUND, 'Travel destination not found');
+    }
+
+    const client = await groupTripModel.getClient();
+    try {
+      await client.query('BEGIN');
+      const trip = await groupTripModel.findForUpdate(groupTripId, client);
+      if (!trip || trip.status !== 'active') throw new ApiError(httpStatus.NOT_FOUND, 'Group trip not found');
+      const leader = await groupTripModel.findMember(groupTripId, actorUserId, client);
+      if (!leader || leader.status !== 'active' || leader.role !== 'leader' || trip.leader_id !== actorUserId) {
+        throw new ApiError(httpStatus.FORBIDDEN, 'Only the group leader can perform this action');
+      }
+      const startDate = payload.start_date || trip.start_date;
+      const endDate = payload.end_date || trip.end_date;
+      if (startDate && endDate && this.toDateKey(endDate) < this.toDateKey(startDate)) {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'End date must be on or after start date');
+      }
+      if (payload.max_members) {
+        const activeMembers = await groupTripModel.countActiveMembers(groupTripId, client);
+        if (payload.max_members < activeMembers) {
+          throw new ApiError(httpStatus.CONFLICT, 'Max members cannot be lower than the active member count');
+        }
+      }
+      await groupTripModel.updateSettings(groupTripId, payload, client);
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
     return this.getForUser(groupTripId, actorUserId);
+  }
+
+  assertItineraryDate(trip, itineraryDate) {
+    const value = this.toDateKey(itineraryDate);
+    const start = this.toDateKey(trip.start_date);
+    const end = this.toDateKey(trip.end_date);
+    if ((start && value < start) || (end && value > end)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Itinerary date must be within the group trip date range');
+    }
+  }
+
+  async addItineraryItem(groupTripId, actorUserId, payload) {
+    const { trip } = await this.ensureLeader(groupTripId, actorUserId);
+    this.assertItineraryDate(trip, payload.itinerary_date);
+    const normalizedPayload = await this.normalizeItineraryLocation(payload);
+    const item = await groupTripModel.createItineraryItem(groupTripId, normalizedPayload);
+    await groupTripModel.touch(groupTripId);
+    return this.serializeItineraryItem(item);
+  }
+
+  async updateItineraryItem(groupTripId, itemId, actorUserId, payload) {
+    const client = await groupTripModel.getClient();
+    try {
+      await client.query('BEGIN');
+      const trip = await groupTripModel.findForUpdate(groupTripId, client);
+      if (!trip || trip.status !== 'active') throw new ApiError(httpStatus.NOT_FOUND, 'Group trip not found');
+      const leader = await groupTripModel.findMember(groupTripId, actorUserId, client);
+      if (!leader || leader.status !== 'active' || leader.role !== 'leader' || trip.leader_id !== actorUserId) {
+        throw new ApiError(httpStatus.FORBIDDEN, 'Only the group leader can edit the itinerary');
+      }
+      const existing = await groupTripModel.findItineraryItemForUpdate(groupTripId, itemId, client);
+      if (!existing) throw new ApiError(httpStatus.NOT_FOUND, 'Itinerary item not found');
+      this.assertItineraryDate(trip, payload.itinerary_date || existing.itinerary_date);
+      const normalizedPayload = await this.normalizeItineraryLocation(payload, existing, client);
+      const item = await groupTripModel.updateItineraryItem(itemId, normalizedPayload, client);
+      await groupTripModel.touch(groupTripId, client);
+      await client.query('COMMIT');
+      return this.serializeItineraryItem(item);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async deleteItineraryItem(groupTripId, itemId, actorUserId) {
+    const client = await groupTripModel.getClient();
+    try {
+      await client.query('BEGIN');
+      const trip = await groupTripModel.findForUpdate(groupTripId, client);
+      if (!trip || trip.status !== 'active') throw new ApiError(httpStatus.NOT_FOUND, 'Group trip not found');
+      const leader = await groupTripModel.findMember(groupTripId, actorUserId, client);
+      if (!leader || leader.status !== 'active' || leader.role !== 'leader' || trip.leader_id !== actorUserId) {
+        throw new ApiError(httpStatus.FORBIDDEN, 'Only the group leader can edit the itinerary');
+      }
+      const existing = await groupTripModel.findItineraryItemForUpdate(groupTripId, itemId, client);
+      if (!existing) throw new ApiError(httpStatus.NOT_FOUND, 'Itinerary item not found');
+      const deleted = await groupTripModel.deleteItineraryItem(itemId, client);
+      await groupTripModel.touch(groupTripId, client);
+      await client.query('COMMIT');
+      return { ...deleted, deleted: true };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async delete(groupTripId, actorUserId) {
+    const client = await groupTripModel.getClient();
+    try {
+      await client.query('BEGIN');
+
+      const trip = await groupTripModel.findForUpdate(groupTripId, client);
+      if (!trip) {
+        throw new ApiError(httpStatus.NOT_FOUND, 'Group trip not found');
+      }
+      if (trip.status !== 'active') {
+        throw new ApiError(httpStatus.CONFLICT, 'Group trip has already been deleted');
+      }
+
+      const leader = await groupTripModel.findMember(groupTripId, actorUserId, client);
+      if (!leader || leader.status !== 'active' || leader.role !== 'leader' || trip.leader_id !== actorUserId) {
+        throw new ApiError(httpStatus.FORBIDDEN, 'Only the group leader can delete this group trip');
+      }
+
+      const archived = await groupTripModel.archive(groupTripId, client);
+      const canceledInvites = await groupTripModel.cancelPendingInvites(groupTripId, client);
+
+      await client.query('COMMIT');
+      return {
+        group_trip_id: archived.group_trip_id,
+        status: archived.status,
+        canceled_invites_count: canceledInvites.length,
+        deleted: true,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async inviteMember(groupTripId, actorUserId, payload) {
@@ -331,6 +510,9 @@ class GroupTripService {
       if (invite.status !== 'pending') {
         throw new ApiError(httpStatus.BAD_REQUEST, `Invitation is already ${invite.status}`);
       }
+      if (invite.group_trip_status !== 'active') {
+        throw new ApiError(httpStatus.CONFLICT, 'Group trip is no longer active');
+      }
       if (new Date(invite.expires_at).getTime() <= Date.now()) {
         await client.query(
           "UPDATE group_trip_invite SET status = 'expired' WHERE group_trip_invite_id = $1",
@@ -353,6 +535,12 @@ class GroupTripService {
         await client.query('COMMIT');
         groupTripId = invite.group_trip_id;
       } else {
+        if (invite.max_members) {
+          const activeMembers = await groupTripModel.countActiveMembers(invite.group_trip_id, client);
+          if (activeMembers >= invite.max_members) {
+            throw new ApiError(httpStatus.CONFLICT, 'Group trip has reached its member limit');
+          }
+        }
         await groupTripModel.addMember({
           group_trip_id: invite.group_trip_id,
           user_id: userId,
