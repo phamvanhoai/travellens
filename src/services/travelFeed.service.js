@@ -189,6 +189,13 @@ class TravelFeedService {
   }
 
   async reviewReportForAdmin(reportId, payload = {}, adminId) {
+    if (payload.status !== 'dismissed') {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        'Reports can only be dismissed directly; resolved is set when the violated post is deleted'
+      );
+    }
+
     const report = await travelPostModel.reviewReportForAdmin(reportId, payload, adminId);
 
     if (!report) {

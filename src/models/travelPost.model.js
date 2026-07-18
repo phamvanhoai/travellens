@@ -652,16 +652,16 @@ class TravelPostModel {
     return result.rows[0] || null;
   }
 
-  async reviewReportForAdmin(reportId, payload, reviewedBy, executor = db) {
+  async reviewReportForAdmin(reportId, _payload, reviewedBy, executor = db) {
     const result = await executor.query(
       `UPDATE travel_post_report
-       SET status = $2,
-           reviewed_by = $3,
+       SET status = 'dismissed',
+           reviewed_by = $2,
            reviewed_at = CURRENT_TIMESTAMP
        WHERE report_id = $1
          AND status = 'pending'
        RETURNING report_id, post_id, user_id, reason, description, status, reviewed_by, reviewed_at, created_at`,
-      [reportId, payload.status, reviewedBy]
+      [reportId, reviewedBy]
     );
 
     return result.rows[0] || null;

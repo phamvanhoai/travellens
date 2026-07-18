@@ -85,7 +85,7 @@ module.exports = {
       reportId: Joi.number().integer().positive().required(),
     }),
     body: Joi.object({
-      status: Joi.string().valid('dismissed', 'resolved').required(),
+      status: Joi.string().valid('dismissed').required(),
     }),
   },
 

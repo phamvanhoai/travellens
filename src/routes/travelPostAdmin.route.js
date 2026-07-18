@@ -246,7 +246,7 @@ router.get('/reports', validate(travelFeed.adminListReports), controller.adminLi
  * /admin/travel-feed/reports/{reportId}:
  *   patch:
  *     summary: Admin process a travel post report
- *     description: Admin marks a pending report as dismissed or resolved without changing the post.
+ *     description: Admin dismisses an invalid pending report without changing the post. Resolved is set only when the violated post is deleted.
  *     tags: [Admin Travel Feed]
  *     security:
  *       - bearerAuth: []
@@ -266,7 +266,7 @@ router.get('/reports', validate(travelFeed.adminListReports), controller.adminLi
  *             properties:
  *               status:
  *                 type: string
- *                 enum: [dismissed, resolved]
+ *                 enum: [dismissed]
  *     responses:
  *       200:
  *         description: Travel post report processed successfully
