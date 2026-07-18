@@ -115,6 +115,20 @@ class GroupTripService {
     return groupTripModel.listForUser(userId, query);
   }
 
+  listPublic(query = {}) {
+    return groupTripModel.listPublic(query);
+  }
+
+  async getPublic(groupTripId) {
+    const trip = await groupTripModel.findPublicById(groupTripId);
+    if (!trip) throw new ApiError(httpStatus.NOT_FOUND, 'Public group trip not found');
+    const itinerary = await groupTripModel.listItinerary(groupTripId);
+    return {
+      ...trip,
+      itinerary: itinerary.map((item) => this.serializeItineraryItem(item)),
+    };
+  }
+
   async getForUser(groupTripId, userId) {
     const trip = await this.ensureViewable(groupTripId, userId);
     const members = await groupTripModel.listMembers(groupTripId, { limit: 100 });
@@ -407,6 +421,173 @@ class GroupTripService {
         status: archived.status,
         canceled_invites_count: canceledInvites.length,
         deleted: true,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async listInvitesForLeader(groupTripId, actorUserId, query = {}) {
+    await this.ensureLeader(groupTripId, actorUserId);
+    await groupTripModel.expirePendingInvites();
+    return groupTripModel.listInvitesForLeader(groupTripId, query);
+  }
+
+  async cancelInvite(groupTripId, inviteId, actorUserId) {
+    const client = await groupTripModel.getClient();
+    try {
+      await client.query('BEGIN');
+      const trip = await groupTripModel.findForUpdate(groupTripId, client);
+      if (!trip || trip.status !== 'active') throw new ApiError(httpStatus.NOT_FOUND, 'Group trip not found');
+      const leader = await groupTripModel.findMember(groupTripId, actorUserId, client);
+      if (!leader || leader.status !== 'active' || leader.role !== 'leader' || trip.leader_id !== actorUserId) {
+        throw new ApiError(httpStatus.FORBIDDEN, 'Only the group leader can revoke invitations');
+      }
+      const invite = await groupTripModel.findInviteByIdForUpdate(inviteId, client);
+      if (!invite || Number(invite.group_trip_id) !== Number(groupTripId)) {
+        throw new ApiError(httpStatus.NOT_FOUND, 'Invitation not found');
+      }
+      if (invite.status !== 'pending') throw new ApiError(httpStatus.CONFLICT, `Invitation is already ${invite.status}`);
+      if (new Date(invite.expires_at).getTime() <= Date.now()) {
+        await client.query("UPDATE group_trip_invite SET status = 'expired' WHERE group_trip_invite_id = $1", [inviteId]);
+        throw new ApiError(httpStatus.CONFLICT, 'Invitation has expired');
+      }
+      const canceled = await groupTripModel.cancelInvite(inviteId, client);
+      await client.query('COMMIT');
+      return canceled;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async listInvitesForUser(userId, query = {}) {
+    await groupTripModel.expirePendingInvites();
+    return groupTripModel.listInvitesForUser(userId, query);
+  }
+
+  async declineInvite(inviteId, userId) {
+    const client = await groupTripModel.getClient();
+    try {
+      await client.query('BEGIN');
+      const invite = await groupTripModel.findInviteByIdForUpdate(inviteId, client);
+      if (!invite) throw new ApiError(httpStatus.NOT_FOUND, 'Invitation not found');
+      if (invite.invited_user_id !== userId) throw new ApiError(httpStatus.FORBIDDEN, 'This invitation belongs to another customer account');
+      if (invite.status !== 'pending') throw new ApiError(httpStatus.CONFLICT, `Invitation is already ${invite.status}`);
+      if (new Date(invite.expires_at).getTime() <= Date.now()) {
+        await client.query("UPDATE group_trip_invite SET status = 'expired' WHERE group_trip_invite_id = $1", [inviteId]);
+        throw new ApiError(httpStatus.CONFLICT, 'Invitation has expired');
+      }
+      const declined = await groupTripModel.declineInvite(inviteId, client);
+      await client.query('COMMIT');
+      return declined;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async acceptInviteById(inviteId, userId) {
+    const client = await groupTripModel.getClient();
+    let groupTripId;
+    try {
+      await client.query('BEGIN');
+      const invite = await groupTripModel.findInviteByIdForUpdate(inviteId, client);
+      if (!invite) throw new ApiError(httpStatus.NOT_FOUND, 'Invitation not found');
+      if (invite.invited_user_id !== userId) throw new ApiError(httpStatus.FORBIDDEN, 'This invitation belongs to another customer account');
+      if (invite.status !== 'pending') throw new ApiError(httpStatus.CONFLICT, `Invitation is already ${invite.status}`);
+      if (invite.group_trip_status !== 'active') throw new ApiError(httpStatus.CONFLICT, 'Group trip is no longer active');
+      if (new Date(invite.expires_at).getTime() <= Date.now()) {
+        await client.query("UPDATE group_trip_invite SET status = 'expired' WHERE group_trip_invite_id = $1", [inviteId]);
+        throw new ApiError(httpStatus.CONFLICT, 'Invitation has expired');
+      }
+      const customer = await userModel.findActiveCustomerById(userId, client);
+      if (!customer) throw new ApiError(httpStatus.FORBIDDEN, 'Only active customer accounts can accept invitations');
+      const existingMember = await groupTripModel.findMember(invite.group_trip_id, userId, client);
+      if (!existingMember || existingMember.status !== 'active') {
+        if (invite.max_members) {
+          const count = await groupTripModel.countActiveMembers(invite.group_trip_id, client);
+          if (count >= invite.max_members) throw new ApiError(httpStatus.CONFLICT, 'Group trip has reached its member limit');
+        }
+        await groupTripModel.addMember({ group_trip_id: invite.group_trip_id, user_id: userId, role: 'member' }, client);
+      }
+      await groupTripModel.markInviteAccepted(inviteId, client);
+      await groupTripModel.touch(invite.group_trip_id, client);
+      groupTripId = invite.group_trip_id;
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+    return this.getForUser(groupTripId, userId);
+  }
+
+  async getInviteByToken(token, userId) {
+    const tokenHash = this.hashToken(token);
+    const client = await groupTripModel.getClient();
+    try {
+      await client.query('BEGIN');
+      const invite = await groupTripModel.findInviteByTokenHashForUpdate(tokenHash, client);
+      if (!invite) throw new ApiError(httpStatus.NOT_FOUND, 'Invitation not found');
+      if (invite.invited_user_id !== userId) {
+        throw new ApiError(httpStatus.FORBIDDEN, 'This invitation belongs to another customer account');
+      }
+
+      let status = invite.status;
+      if (status === 'pending' && new Date(invite.expires_at).getTime() <= Date.now()) {
+        await client.query(
+          "UPDATE group_trip_invite SET status = 'expired' WHERE group_trip_invite_id = $1",
+          [invite.group_trip_invite_id]
+        );
+        status = 'expired';
+      }
+
+      let memberCount = null;
+      if (invite.group_trip_status === 'active') {
+        memberCount = await groupTripModel.countActiveMembers(invite.group_trip_id, client);
+      }
+      const groupIsFull = invite.max_members !== null
+        && invite.max_members !== undefined
+        && memberCount !== null
+        && memberCount >= invite.max_members;
+      const canAccept = status === 'pending'
+        && invite.group_trip_status === 'active'
+        && !groupIsFull;
+
+      await client.query('COMMIT');
+      return {
+        group_trip_invite_id: invite.group_trip_invite_id,
+        status,
+        can_accept: canAccept,
+        unavailable_reason: canAccept
+          ? null
+          : status !== 'pending'
+            ? `Invitation is ${status}`
+            : invite.group_trip_status !== 'active'
+              ? 'Group trip is no longer active'
+              : 'Group trip has reached its member limit',
+        expires_at: invite.expires_at,
+        group_trip: {
+          group_trip_id: invite.group_trip_id,
+          name: invite.group_trip_name,
+          description: invite.group_trip_description,
+          destination_name: invite.destination_name,
+          start_date: invite.start_date,
+          end_date: invite.end_date,
+          visibility: invite.visibility,
+          status: invite.group_trip_status,
+          max_members: invite.max_members,
+          member_count: memberCount,
+        },
       };
     } catch (error) {
       await client.query('ROLLBACK');
