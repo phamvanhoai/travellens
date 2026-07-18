@@ -24,7 +24,7 @@ router.use('/webhooks', require('./webhook.route'));
 router.use('/coupons', require('./couponPublic.route'));
 router.use('/blogs', require('./blogPublic.route'));
 router.use('/reviews', require('./reviewPublic.route'));
-router.use('/chat', require('./chat.route'));
+router.use('/ai', require('./aiRecommendation.routes'));
 router.use('/suggestions', require('./suggestion.route'));
 router.use('/saved', require('./savedItem.route'));
 
