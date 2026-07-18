@@ -124,11 +124,11 @@ class TravelFeedService {
     };
   }
 
-  async removeForAdmin(postId) {
-    const post = await travelPostModel.softDeletePost(postId);
+  async removeForAdmin(postId, adminId) {
+    const post = await travelPostModel.softDeletePost(postId, adminId);
 
     if (!post) {
-      throw new ApiError(httpStatus.NOT_FOUND, 'Travel post not found');
+      throw new ApiError(httpStatus.CONFLICT, 'Travel post not found or already deleted');
     }
 
     return post;
@@ -192,6 +192,10 @@ class TravelFeedService {
     const report = await travelPostModel.reviewReportForAdmin(reportId, payload, adminId);
 
     if (!report) {
+      const existing = await travelPostModel.findReportForUpdate(reportId);
+      if (existing) {
+        throw new ApiError(httpStatus.CONFLICT, 'Travel post report has already been processed');
+      }
       throw new ApiError(httpStatus.NOT_FOUND, 'Travel post report not found');
     }
 
@@ -210,10 +214,14 @@ class TravelFeedService {
         throw new ApiError(httpStatus.NOT_FOUND, 'Travel post report not found');
       }
 
-      const post = await travelPostModel.softDeletePost(report.post_id, client);
+      if (report.status !== 'pending') {
+        throw new ApiError(httpStatus.CONFLICT, 'Travel post report has already been processed');
+      }
+
+      const post = await travelPostModel.softDeletePost(report.post_id, adminId, client);
 
       if (!post) {
-        throw new ApiError(httpStatus.NOT_FOUND, 'Travel post not found or already deleted');
+        throw new ApiError(httpStatus.CONFLICT, 'Travel post not found or already deleted');
       }
 
       const resolvedReports = await travelPostModel.resolveReportsForPost(report.post_id, adminId, client);
@@ -221,8 +229,8 @@ class TravelFeedService {
       await client.query('COMMIT');
       return {
         post,
-        report_id: Number(reportId),
-        resolved_reports: resolvedReports,
+        report: resolvedReports.find((item) => Number(item.report_id) === Number(reportId)) || report,
+        resolved_reports_count: resolvedReports.length,
       };
     } catch (error) {
       await client.query('ROLLBACK');
@@ -230,6 +238,16 @@ class TravelFeedService {
     } finally {
       client.release();
     }
+  }
+
+  async restorePostForAdmin(postId, adminId) {
+    const post = await travelPostModel.restorePostForAdmin(postId, adminId);
+
+    if (!post) {
+      throw new ApiError(httpStatus.CONFLICT, 'Travel post is not deleted or has already been restored');
+    }
+
+    return post;
   }
 
   async list(userId, query = {}) {

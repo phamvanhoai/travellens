@@ -67,7 +67,7 @@ module.exports = {
       post_id: Joi.number().integer().positive(),
       user_id: Joi.number().integer().positive(),
       reviewed_by: Joi.number().integer().positive(),
-      status: Joi.string().valid('pending', 'reviewed', 'dismissed', 'resolved'),
+      status: Joi.string().valid('pending', 'dismissed', 'resolved'),
       reason: Joi.string().valid(...reportReasons),
       include_deleted_posts: Joi.boolean().default(true),
       sort: Joi.string().valid('newest', 'oldest').default('newest'),
@@ -85,7 +85,13 @@ module.exports = {
       reportId: Joi.number().integer().positive().required(),
     }),
     body: Joi.object({
-      status: Joi.string().valid('reviewed', 'dismissed', 'resolved').required(),
+      status: Joi.string().valid('dismissed', 'resolved').required(),
+    }),
+  },
+
+  adminRestorePost: {
+    params: Joi.object({
+      postId: Joi.number().integer().positive().required(),
     }),
   },
 

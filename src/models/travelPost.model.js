@@ -381,13 +381,21 @@ class TravelPostModel {
     };
   }
 
-  async softDeletePost(postId, executor = db) {
+  async softDeletePost(postId, deletedBy = null, executor = db) {
     const result = await executor.query(
       `UPDATE travel_post
-       SET status = 'deleted',
+       SET previous_status = CASE
+             WHEN status IN ('draft', 'published', 'hidden') THEN status
+             ELSE previous_status
+           END,
+           status = 'deleted',
            deleted_at = CURRENT_TIMESTAMP,
+           deleted_by = $2,
+           restored_at = NULL,
+           restored_by = NULL,
            updated_at = CURRENT_TIMESTAMP
        WHERE post_id = $1
+         AND status <> 'deleted'
          AND deleted_at IS NULL
        RETURNING
          post_id,
@@ -404,7 +412,38 @@ class TravelPostModel {
          created_at,
          updated_at,
          deleted_at`,
-      [postId]
+      [postId, deletedBy]
+    );
+
+    return result.rows[0] || null;
+  }
+
+  async restorePostForAdmin(postId, restoredBy, executor = db) {
+    const result = await executor.query(
+      `UPDATE travel_post
+       SET status = COALESCE(previous_status, 'published'),
+           deleted_at = NULL,
+           deleted_by = NULL,
+           restored_at = CURRENT_TIMESTAMP,
+           restored_by = $2,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE post_id = $1
+         AND status = 'deleted'
+         AND deleted_at IS NOT NULL
+       RETURNING
+         post_id,
+         user_id,
+         content,
+         status,
+         visibility,
+         previous_status,
+         deleted_at,
+         deleted_by,
+         restored_at,
+         restored_by,
+         created_at,
+         updated_at`,
+      [postId, restoredBy]
     );
 
     return result.rows[0] || null;
@@ -620,6 +659,7 @@ class TravelPostModel {
            reviewed_by = $3,
            reviewed_at = CURRENT_TIMESTAMP
        WHERE report_id = $1
+         AND status = 'pending'
        RETURNING report_id, post_id, user_id, reason, description, status, reviewed_by, reviewed_at, created_at`,
       [reportId, payload.status, reviewedBy]
     );
