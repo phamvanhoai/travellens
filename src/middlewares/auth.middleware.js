@@ -123,9 +123,34 @@ const requireActiveAccount = async (req, res, next) => {
   }
 };
 
+/**
+ * Optional auth: sets req.user if a valid token is present, otherwise continues without error.
+ */
+const optionalAuth = async (req, res, next) => {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+
+  if (!token) {
+    return next(); // No token, continue as guest
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const isRevoked = await revokedTokenModel.isRevoked(token);
+    if (!isRevoked) {
+      req.token = token;
+      req.user = decoded;
+    }
+  } catch (error) {
+    // Invalid token, just continue as guest
+  }
+  next();
+};
+
 module.exports = {
   authenticate,
   optionalAuthenticate,
   authorize,
   requireActiveAccount,
+  optionalAuth,
 };
