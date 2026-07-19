@@ -29,4 +29,5 @@ module.exports = {
   chat: require('./chat.service'),
   suggestion: require('./suggestion.service'),
   refundRequest: require('./refundRequest.service'),
+  travelStory: require('./travelStory.service'),
 };

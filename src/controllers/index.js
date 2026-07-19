@@ -29,4 +29,5 @@ module.exports = {
   chat: require('./chat.controller'),
   suggestion: require('./suggestion.controller'),
   refundRequest: require('./refundRequest.controller'),
+  travelStory: require('./travelStory.controller'),
 };

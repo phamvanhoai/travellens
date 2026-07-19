@@ -4,6 +4,16 @@ const response = require('../utils/responseHandler');
 const { httpStatus } = require('../constants');
 
 module.exports = {
+  customerList: asyncHandler(async (req, res) => {
+    const result = await paymentService.listOwned(req.query, req.user.sub);
+    res.status(httpStatus.OK).json({
+      success: true,
+      message: 'Success',
+      data: result.items,
+      pagination: result.pagination,
+    });
+  }),
+
   list: asyncHandler(async (req, res) => {
     const data = await paymentService.list(req.query);
     response.success(res, data);

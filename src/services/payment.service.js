@@ -30,6 +30,10 @@ class PaymentService {
     return paymentModel.findAll(query);
   }
 
+  listOwned(query, userId) {
+    return paymentModel.findAllOwned(userId, query);
+  }
+
   async get(id) {
     const payment = await paymentModel.findById(id);
     if (!payment) {

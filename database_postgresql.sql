@@ -6,6 +6,8 @@
 DROP TABLE IF EXISTS statistics CASCADE;
 DROP TABLE IF EXISTS revoked_tokens CASCADE;
 DROP TABLE IF EXISTS user_block CASCADE;
+DROP TABLE IF EXISTS travel_story_view CASCADE;
+DROP TABLE IF EXISTS travel_story CASCADE;
 DROP TABLE IF EXISTS review_photo CASCADE;
 DROP TABLE IF EXISTS review CASCADE;
 DROP TABLE IF EXISTS travel_post_share CASCADE;
@@ -149,6 +151,26 @@ CREATE TABLE tour_content_item (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP
+);
+
+CREATE TABLE travel_story (
+    story_id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(user_id) ON UPDATE CASCADE ON DELETE CASCADE,
+    media_url TEXT NOT NULL,
+    media_type VARCHAR(10) NOT NULL CHECK (media_type IN ('image', 'video')),
+    caption VARCHAR(1000),
+    status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'deleted')),
+    expires_at TIMESTAMP NOT NULL DEFAULT (CURRENT_TIMESTAMP + INTERVAL '24 hours'),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
+);
+
+CREATE TABLE travel_story_view (
+    story_id INT NOT NULL REFERENCES travel_story(story_id) ON UPDATE CASCADE ON DELETE CASCADE,
+    viewer_id INT NOT NULL REFERENCES users(user_id) ON UPDATE CASCADE ON DELETE CASCADE,
+    viewed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (story_id, viewer_id)
 );
 
 CREATE TABLE tour (
@@ -1102,6 +1124,9 @@ CREATE INDEX idx_booking_status_history_booking_id ON booking_status_history(boo
 CREATE INDEX idx_booking_status_history_created_at ON booking_status_history(created_at);
 CREATE INDEX idx_booking_status_history_action ON booking_status_history(action);
 CREATE INDEX idx_booking_detail_booking_id ON booking_detail(booking_id);
+CREATE INDEX idx_travel_story_active_feed ON travel_story(created_at DESC) WHERE status = 'active' AND deleted_at IS NULL;
+CREATE INDEX idx_travel_story_user_created ON travel_story(user_id, created_at DESC);
+CREATE INDEX idx_travel_story_expires_at ON travel_story(expires_at);
 CREATE INDEX idx_payment_booking_id ON payment(booking_id);
 CREATE UNIQUE INDEX idx_refund_request_active_booking
     ON refund_request(booking_id)

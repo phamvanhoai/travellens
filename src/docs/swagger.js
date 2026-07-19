@@ -39,6 +39,7 @@ const options = {
       { name: 'Health', description: 'API health check' },
       { name: 'Tours', description: 'Tour endpoints' },
       { name: 'Travel Destinations', description: 'Travel destination endpoints' },
+      { name: 'Travel Stories', description: 'Customer image/video stories that expire after 24 hours' },
       { name: 'Maps', description: 'Map endpoints' },
       { name: 'Bookings', description: 'Customer booking endpoints. Requires Bearer token with role customer.' },
       { name: 'Group Trips', description: 'Customer group trip membership, leader, settings, and email invitation endpoints.' },

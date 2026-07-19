@@ -4,7 +4,7 @@ const paymentColumns = `
   p.payment_id,
   p.booking_id,
   p.payment_code,
-  p.amount,
+  p.amount::float AS amount,
   p.payment_method,
   p.payment_provider,
   p.status,
@@ -44,6 +44,66 @@ const buildListWhere = (query = {}) => {
 };
 
 module.exports = {
+  async findAllOwned(userId, query = {}) {
+    const page = Math.max(Number(query.page || 1), 1);
+    const limit = Math.min(Math.max(Number(query.limit || 20), 1), 100);
+    const offset = (page - 1) * limit;
+    const values = [userId];
+    const clauses = ['p.deleted_at IS NULL', 'b.user_id = $1'];
+    if (query.status) {
+      values.push(query.status);
+      clauses.push(`p.status = $${values.length}`);
+    }
+    if (query.search) {
+      values.push(`%${query.search}%`);
+      clauses.push(`(
+        p.payment_code ILIKE $${values.length}
+        OR COALESCE(p.transaction_code, '') ILIKE $${values.length}
+        OR t.name ILIKE $${values.length}
+        OR CAST(p.payment_id AS TEXT) ILIKE $${values.length}
+        OR CAST(b.booking_id AS TEXT) ILIKE $${values.length}
+      )`);
+    }
+    const where = `WHERE ${clauses.join(' AND ')}`;
+    const countResult = await db.query(
+      `SELECT COUNT(*)::int AS total
+       FROM payment p
+       INNER JOIN booking b ON b.booking_id = p.booking_id
+       INNER JOIN tour t ON t.tour_id = b.tour_id
+       ${where}`,
+      values
+    );
+    const listValues = [...values, limit, offset];
+    const result = await db.query(
+      `SELECT ${paymentColumns},
+              json_build_object(
+                'booking_id', b.booking_id,
+                'status', b.status,
+                'payment_status', b.payment_status,
+                'departure_at', b.departure_at,
+                'final_amount', b.final_amount::float,
+                'currency', b.currency
+              ) AS booking,
+              json_build_object(
+                'tour_id', t.tour_id,
+                'name', t.name,
+                'thumbnail_url', t.thumbnail
+              ) AS tour
+       FROM payment p
+       INNER JOIN booking b ON b.booking_id = p.booking_id
+       INNER JOIN tour t ON t.tour_id = b.tour_id
+       ${where}
+       ORDER BY p.payment_id DESC
+       LIMIT $${listValues.length - 1} OFFSET $${listValues.length}`,
+      listValues
+    );
+    const total = countResult.rows[0].total;
+    return {
+      items: result.rows,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  },
+
   async findAll(query = {}) {
     const page = Math.max(Number(query.page || 1), 1);
     const limit = Math.min(Math.max(Number(query.limit || 20), 1), 100);
