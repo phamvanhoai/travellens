@@ -241,7 +241,7 @@ const handleSingleUpload = ({
 const parseTourDestinations = (req) => {
   const jsonFields = [
     'destinations', 'languages', 'highlights', 'inclusions', 'exclusions',
-    'requirements', 'faqs', 'gallery', 'content_item_ids',
+    'requirements', 'faqs', 'gallery', 'content_items',
   ];
   for (const field of jsonFields) {
     if (typeof req.body[field] !== 'string') continue;

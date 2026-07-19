@@ -19,6 +19,12 @@ const router = express.Router();
  *       - in: query
  *         name: search
  *         schema: { type: string }
+ *       - in: query
+ *         name: sort
+ *         schema: { type: string, enum: [created_at, updated_at, content, type] }
+ *       - in: query
+ *         name: order
+ *         schema: { type: string, enum: [asc, desc] }
  *     responses:
  *       200: { description: Content item list }
  *   post:
@@ -38,6 +44,25 @@ const router = express.Router();
  *               status: { type: string, enum: [active, inactive], default: active }
  *     responses:
  *       201: { description: Content item created }
+ * /admin/tour-content-items/bulk:
+ *   post:
+ *     summary: Create up to 100 separate content item records atomically
+ *     tags: [Admin Tour Content Items]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [type, items]
+ *             properties:
+ *               type: { type: string, enum: [highlight, requirement, inclusion, exclusion, booking_policy, cancellation_policy, additional_information] }
+ *               status: { type: string, enum: [active, inactive], default: active }
+ *               items: { type: array, minItems: 1, maxItems: 100, items: { type: string } }
+ *     responses:
+ *       201: { description: Every line was created as a separate record }
+ *       409: { description: Duplicate input; the entire transaction was rolled back }
  * /admin/tour-content-items/{id}:
  *   get:
  *     summary: Get one reusable tour content item
@@ -82,6 +107,7 @@ const router = express.Router();
 router.route('/')
   .get(validate(schema.list), controller.list)
   .post(validate(schema.create), controller.create);
+router.post('/bulk', validate(schema.bulkCreate), controller.bulkCreate);
 router.route('/:id')
   .get(validate(schema.detail), controller.get)
   .put(validate(schema.update), controller.update)

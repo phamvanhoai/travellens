@@ -948,10 +948,10 @@ router
  *               tour_category_id:
  *                 type: integer
  *                 example: 1
- *               content_item_ids:
+ *               content_items:
  *                 type: string
- *                 description: JSON array string of individually selected reusable content item IDs.
- *                 example: '[1,2,5,8]'
+ *                 description: JSON array string of selected content items with display order.
+ *                 example: '[{"id":8,"sort_order":1},{"id":3,"sort_order":2}]'
  *               name:
  *                 type: string
  *                 maxLength: 255
@@ -1034,12 +1034,15 @@ router
  *               tour_category_id:
  *                 type: integer
  *                 example: 1
- *               content_item_ids:
+ *               content_items:
  *                 type: array
- *                 uniqueItems: true
- *                 items: { type: integer }
- *                 description: Individually selected reusable content items. Explicit list values are merged; explicit policies override selected policies.
- *                 example: [1, 2, 5, 8]
+ *                 items:
+ *                   type: object
+ *                   required: [id, sort_order]
+ *                   properties:
+ *                     id: { type: integer }
+ *                     sort_order: { type: integer, minimum: 1 }
+ *                 description: Selected reusable items in display order. Explicit list content is normalized and deduplicated.
  *               name:
  *                 type: string
  *                 maxLength: 255

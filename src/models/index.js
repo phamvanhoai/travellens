@@ -4,6 +4,7 @@ module.exports = {
   tourCategory: require('./tourCategory.model'),
   tour: require('./tour.model'),
   tourContentItem: require('./tourContentItem.model'),
+  tourContentItemLink: require('./tourContentItemLink.model'),
   tourDestination: require('./tourDestination.model'),
   travelDestination: require('./travelDestination.model'),
   location: require('./location.model'),

@@ -46,9 +46,13 @@ const destinationSchema = Joi.object({
   activity: optionalText,
   note: optionalText,
 });
+const contentItems = Joi.array().items(Joi.object({
+  id: id.required(),
+  sort_order: Joi.number().integer().min(1).required(),
+})).unique('id').unique('sort_order');
 
 const tourBody = {
-  content_item_ids: Joi.array().items(id).unique().default([]),
+  content_items: contentItems.default([]),
   tour_category_id: id.required(),
   name: Joi.string().trim().max(255).required(),
   slug: Joi.string().trim().lowercase().pattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(255),
@@ -117,7 +121,7 @@ module.exports = {
       id: id.required(),
     }),
     body: Joi.object({
-      content_item_ids: Joi.array().items(id).unique(),
+      content_items: contentItems,
       tour_category_id: id,
       name: Joi.string().trim().max(255),
       slug: Joi.string().trim().lowercase().pattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(255),

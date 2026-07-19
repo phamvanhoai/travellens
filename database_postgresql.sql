@@ -144,6 +144,7 @@ CREATE TABLE tour_content_item (
         'booking_policy', 'cancellation_policy', 'additional_information'
     )),
     content TEXT NOT NULL,
+    normalized_content TEXT NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -230,6 +231,24 @@ CREATE TABLE tour_destination (
         UNIQUE (tour_id, destination_id),
     CONSTRAINT uq_tour_destination_order
         UNIQUE (tour_id, order_index)
+);
+
+CREATE TABLE tour_content_item_link (
+    tour_id INT NOT NULL,
+    content_item_id INT,
+    source_content_item_id INT,
+    content_type VARCHAR(40) NOT NULL,
+    snapshot_content TEXT NOT NULL,
+    sort_order INT NOT NULL CHECK (sort_order >= 1),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pk_tour_content_item_link PRIMARY KEY (tour_id, sort_order),
+    CONSTRAINT uq_tour_content_item_link_item UNIQUE (tour_id, content_item_id),
+    CONSTRAINT fk_tour_content_item_link_tour FOREIGN KEY (tour_id)
+        REFERENCES tour(tour_id) ON UPDATE CASCADE ON DELETE CASCADE,
+    CONSTRAINT fk_tour_content_item_link_item FOREIGN KEY (content_item_id)
+        REFERENCES tour_content_item(content_item_id) ON UPDATE CASCADE ON DELETE SET NULL,
+    CONSTRAINT fk_tour_content_item_link_source FOREIGN KEY (source_content_item_id)
+        REFERENCES tour_content_item(content_item_id) ON UPDATE CASCADE ON DELETE SET NULL
 );
 
 -- =========================================================
@@ -1050,8 +1069,9 @@ CREATE INDEX idx_tour_created_at ON tour(created_at);
 CREATE INDEX idx_tour_deleted_at ON tour(deleted_at);
 CREATE INDEX idx_tour_destination_tour_id ON tour_destination(tour_id);
 CREATE UNIQUE INDEX uq_tour_slug_active ON tour(LOWER(slug)) WHERE deleted_at IS NULL;
-CREATE UNIQUE INDEX uq_tour_content_item_type_content_active ON tour_content_item(type, LOWER(content)) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX uq_tour_content_item_type_normalized_active ON tour_content_item(type, normalized_content) WHERE deleted_at IS NULL;
 CREATE INDEX idx_tour_content_item_type_status ON tour_content_item(type, status) WHERE deleted_at IS NULL;
+CREATE INDEX idx_tour_content_item_link_source ON tour_content_item_link(source_content_item_id);
 CREATE INDEX idx_tour_destination_destination_id ON tour_destination(destination_id);
 CREATE INDEX idx_location_destination_id ON location(destination_id);
 CREATE UNIQUE INDEX idx_location_destination_name_unique ON location(destination_id, LOWER(name)) WHERE is_deleted = FALSE;

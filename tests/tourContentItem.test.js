@@ -17,3 +17,19 @@ test('tour content item rejects unsupported content types', () => {
   const result = schema.create.body.validate({ type: 'template', content: 'Invalid' });
   assert.ok(result.error);
 });
+
+test('list content rejects multiple lines while policy content allows them', () => {
+  const list = schema.create.body.validate({ type: 'highlight', content: 'First\nSecond' });
+  assert.ok(list.error);
+  const policy = schema.create.body.validate({ type: 'booking_policy', content: 'First paragraph\nSecond paragraph' });
+  assert.equal(policy.error, undefined);
+});
+
+test('bulk create accepts up to 100 separate records', () => {
+  const result = schema.bulkCreate.body.validate({
+    type: 'inclusion',
+    items: ['Entrance ticket', 'Local guide', 'Drinking water'],
+  });
+  assert.equal(result.error, undefined);
+  assert.equal(result.value.items.length, 3);
+});

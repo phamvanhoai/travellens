@@ -58,10 +58,14 @@ test('tour slug generation handles Vietnamese names', () => {
   assert.equal(tourService.slugify('\u0110\u00e0 N\u1eb5ng'), 'da-nang');
 });
 
-test('tour create accepts reusable individual content item ids', () => {
-  const result = tour.create.body.validate({ ...validTour, content_item_ids: [1, 2, 3] });
+test('tour create accepts ordered reusable individual content items', () => {
+  const content_items = [
+    { id: 8, sort_order: 1 },
+    { id: 3, sort_order: 2 },
+  ];
+  const result = tour.create.body.validate({ ...validTour, content_items });
   assert.equal(result.error, undefined);
-  assert.deepEqual(result.value.content_item_ids, [1, 2, 3]);
+  assert.deepEqual(result.value.content_items, content_items);
   assert.equal(result.value.highlights, undefined);
   assert.equal(result.value.inclusions, undefined);
 });
@@ -74,12 +78,20 @@ test('individual content items merge with tour-specific list values and policies
     { content_item_id: 3, type: 'booking_policy', content: 'Book 24 hours ahead' },
   ];
   try {
-    const payload = { content_item_ids: [1, 2, 3], highlights: ['Tour-specific highlight'] };
-    await tourService.applyContentItems(payload);
-    assert.deepEqual(payload.highlights, ['Tour-specific highlight', 'Shared highlight']);
+    const payload = {
+      content_items: [
+        { id: 1, sort_order: 1 },
+        { id: 2, sort_order: 2 },
+        { id: 3, sort_order: 3 },
+      ],
+      highlights: ['Tour-specific highlight', ' shared   HIGHLIGHT '],
+    };
+    const selected = await tourService.applyContentItems(payload);
+    assert.deepEqual(payload.highlights, ['Tour-specific highlight', 'shared   HIGHLIGHT']);
     assert.deepEqual(payload.inclusions, ['Entrance ticket']);
     assert.equal(payload.booking_policy, 'Book 24 hours ahead');
-    assert.equal(payload.content_item_ids, undefined);
+    assert.equal(payload.content_items, undefined);
+    assert.deepEqual(selected.map((item) => item.content_item_id), [1, 2, 3]);
   } finally {
     tourContentItemModel.findActiveByIds = original;
   }

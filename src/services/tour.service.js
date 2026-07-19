@@ -4,6 +4,7 @@ const tourDestinationModel = require('../models/tourDestination.model');
 const tourCategoryModel = require('../models/tourCategory.model');
 const travelDestinationModel = require('../models/travelDestination.model');
 const tourContentItemModel = require('../models/tourContentItem.model');
+const tourContentItemLinkModel = require('../models/tourContentItemLink.model');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 const { removeUploadedFile } = require('../utils/uploadedFile');
@@ -18,7 +19,7 @@ class TourService extends BaseService {
     if (!item) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Tour Not Found');
     }
-    return item;
+    return this.attachContentItems(item);
   }
 
   async publicList(query = {}) {
@@ -33,12 +34,12 @@ class TourService extends BaseService {
     if (!item || item.status !== 'active') {
       throw new ApiError(httpStatus.NOT_FOUND, 'Tour Not Found');
     }
-    return item;
+    return this.attachContentItems(item);
   }
 
   async create(payload) {
     this.normalizeAliases(payload);
-    await this.applyContentItems(payload);
+    const selectedContentItems = await this.applyContentItems(payload);
     this.validateDestinationList(payload.destinations);
 
     const client = await this.model.getClient();
@@ -52,6 +53,7 @@ class TourService extends BaseService {
 
       const tour = await this.model.createTour(payload, client);
       await tourDestinationModel.replaceForTour(tour.tour_id, payload.destinations, client);
+      await tourContentItemLinkModel.replaceForTour(tour.tour_id, selectedContentItems, client);
 
       await client.query('COMMIT');
       return { tour_id: tour.tour_id };
@@ -65,7 +67,8 @@ class TourService extends BaseService {
 
   async update(id, payload) {
     this.normalizeAliases(payload);
-    await this.applyContentItems(payload);
+    const replacesContentItems = payload.content_items !== undefined;
+    const selectedContentItems = await this.applyContentItems(payload);
     if (payload.destinations) {
       this.validateDestinationList(payload.destinations);
     }
@@ -111,6 +114,9 @@ class TourService extends BaseService {
 
       if (payload.destinations) {
         await tourDestinationModel.replaceForTour(id, payload.destinations, client);
+      }
+      if (replacesContentItems) {
+        await tourContentItemLinkModel.replaceForTour(id, selectedContentItems, client);
       }
 
       await client.query('COMMIT');
@@ -263,16 +269,21 @@ class TourService extends BaseService {
   }
 
   async applyContentItems(payload) {
-    if (!payload.content_item_ids) return;
-    const ids = payload.content_item_ids;
-    delete payload.content_item_ids;
-    if (!ids.length) return;
+    if (!payload.content_items) return [];
+    const selections = payload.content_items;
+    delete payload.content_items;
+    if (!selections.length) return [];
 
+    const ids = selections.map((item) => item.id);
     const items = await tourContentItemModel.findActiveByIds(ids);
     if (items.length !== ids.length) {
       throw new ApiError(httpStatus.NOT_FOUND, 'One or more active tour content items were not found');
     }
 
+    const byId = new Map(items.map((item) => [Number(item.content_item_id), item]));
+    const orderedItems = [...selections]
+      .sort((left, right) => left.sort_order - right.sort_order)
+      .map((selection) => ({ ...byId.get(Number(selection.id)), sort_order: selection.sort_order }));
     const listFields = {
       highlight: 'highlights',
       requirement: 'requirements',
@@ -283,10 +294,10 @@ class TourService extends BaseService {
     const selectedScalars = new Set();
     const explicitScalars = new Set([...scalarFields].filter((field) => payload[field] !== undefined));
 
-    for (const item of items) {
+    for (const item of orderedItems) {
       const listField = listFields[item.type];
       if (listField) {
-        payload[listField] = [...new Set([...(payload[listField] || []), item.content])];
+        payload[listField] = this.mergeUniqueContent(payload[listField] || [], [item.content]);
         continue;
       }
       if (scalarFields.has(item.type)) {
@@ -297,6 +308,26 @@ class TourService extends BaseService {
         if (!explicitScalars.has(item.type)) payload[item.type] = item.content;
       }
     }
+    return orderedItems;
+  }
+
+  mergeUniqueContent(existing, additions) {
+    const result = [];
+    const normalized = new Set();
+    for (const content of [...existing, ...additions]) {
+      const key = tourContentItemModel.normalizeContent(content);
+      if (!key || normalized.has(key)) continue;
+      normalized.add(key);
+      result.push(String(content).trim());
+    }
+    return result;
+  }
+
+  async attachContentItems(item) {
+    return {
+      ...item,
+      content_items: await tourContentItemLinkModel.findByTourId(item.tour_id),
+    };
   }
 }
 

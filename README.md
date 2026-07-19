@@ -168,6 +168,7 @@ psql -U postgres -d travel360 -f migrations/027_add_booking_departure_at.sql
 psql -U postgres -d travel360 -f migrations/048_expand_tour_detail.sql
 psql -U postgres -d travel360 -f migrations/049_create_tour_content_template.sql
 psql -U postgres -d travel360 -f migrations/050_replace_tour_content_templates_with_items.sql
+psql -U postgres -d travel360 -f migrations/051_harden_tour_content_items.sql
 ```
 
 Some migration numbers are shared by older branch work. Run every file in `migrations/` that has not already been applied to your database.
@@ -386,7 +387,7 @@ returns `currency`, calculated availability, `average_rating`, and `review_count
 returns `rating_distribution`.
 
 Reusable content can be managed as individual entries through `/api/admin/tour-content-items`.
-Pass `content_item_ids` when creating or updating a tour. List item types are merged with explicit
+Pass ordered `content_items` (`id` and `sort_order`) when creating or updating a tour. List item types are merged with explicit
 tour values, while an explicit policy overrides the selected policy. Tours store content snapshots,
 so later library changes do not alter existing tours.
 
