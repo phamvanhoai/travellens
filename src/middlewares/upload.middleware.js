@@ -18,6 +18,7 @@ const uploadDirs = {
   tours: path.join(__dirname, '..', '..', 'public', 'tours'),
   reviews: path.join(__dirname, '..', '..', 'public', 'reviews'),
   travelFeed: path.join(__dirname, '..', '..', 'public', 'travel-feed'),
+  travelStories: path.join(__dirname, '..', '..', 'public', 'travel-stories'),
   media: path.join(__dirname, '..', '..', 'public', 'media'),
   blogs: path.join(__dirname, '..', '..', 'public', 'blogs'),
 };
@@ -40,6 +41,10 @@ const allowedAudioMimeTypes = new Set([
   'audio/ogg',
   'audio/mp4',
   'audio/x-m4a',
+]);
+const allowedStoryExtensions = new Set(['.jpg', '.jpeg', '.png', '.webp', '.mp4', '.webm', '.mov']);
+const allowedStoryMimeTypes = new Set([
+  'image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm', 'video/quicktime',
 ]);
 
 if (!isVercel && !useObjectStorage) {
@@ -77,6 +82,7 @@ const createFileFilter = (extensions, mimeTypes, message) => (req, file, cb) => 
 const mapFileFilter = createFileFilter(allowedMapExtensions, allowedMapMimeTypes, 'Unsupported map file format');
 const imageFileFilter = createFileFilter(allowedImageExtensions, allowedImageMimeTypes, 'Unsupported image format');
 const audioFileFilter = createFileFilter(allowedAudioExtensions, allowedAudioMimeTypes, 'Unsupported View360 audio format');
+const storyFileFilter = createFileFilter(allowedStoryExtensions, allowedStoryMimeTypes, 'Unsupported story media format');
 
 const createUploader = ({ uploadDir, fallbackName, fileFilter, limits }) => multer({
   storage: useObjectStorage
@@ -153,6 +159,12 @@ const uploadTravelPostPhotos = createUploader({
     fileSize: 5 * 1024 * 1024,
     files: 10,
   },
+});
+const uploadTravelStoryMedia = createUploader({
+  uploadDir: uploadDirs.travelStories,
+  fallbackName: 'travel-story',
+  fileFilter: storyFileFilter,
+  limits: { fileSize: 50 * 1024 * 1024 },
 });
 
 const uploadMedia = createUploader({
@@ -306,6 +318,17 @@ const handleTourThumbnailUpload = handleSingleUpload({
   localPrefix: '/public/tours',
   fallbackName: 'tour-thumbnail',
   afterUpload: parseTourDestinations,
+});
+const handleTravelStoryMediaUpload = handleSingleUpload({
+  uploader: uploadTravelStoryMedia,
+  fieldName: 'media_file',
+  bodyField: 'media_url',
+  folder: 'travel-stories',
+  localPrefix: '/public/travel-stories',
+  fallbackName: 'travel-story',
+  afterUpload: (req) => {
+    if (req.file?.mimetype) req.body.media_type = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
+  },
 });
 
 const handleMediaUpload = handleSingleUpload({
@@ -467,6 +490,7 @@ module.exports = {
   handleTourThumbnailUpload,
   handleReviewPhotoUpload,
   handleTravelPostPhotoUpload,
+  handleTravelStoryMediaUpload,
   handleMediaUpload,
   handleBlogThumbnailUpload,
 };

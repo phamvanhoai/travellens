@@ -18,6 +18,37 @@ const uploadedOrRemoteImage = (folder) => Joi.string().trim().custom((value, hel
 
   return value;
 }).allow(null, '');
+const passengerSchema = Joi.object({
+  passenger_name: Joi.string().trim().max(150).pattern(fullNamePattern).required().messages({
+    'string.base': fullNameMessage,
+    'string.empty': fullNameMessage,
+    'string.max': 'passenger_name must not exceed 150 characters',
+    'string.pattern.base': fullNameMessage,
+    'any.required': 'passenger_name is required',
+  }),
+  age_category: Joi.string().valid('adult', 'child', 'infant').required(),
+  price: Joi.forbidden().messages({ 'any.unknown': 'passenger price is calculated by server from tour price' }),
+  seat_number: optionalText,
+  special_request: optionalText,
+});
+const bookingFields = {
+  tour_id: id.required(),
+  contact_phone: Joi.string().trim().pattern(vietnamPhonePattern).required().messages({
+    'string.base': 'contact_phone must be a string',
+    'string.empty': 'contact_phone is required',
+    'string.pattern.base': 'contact_phone must be a valid Vietnamese mobile number with 10 digits, for example: 0901234567',
+    'any.required': 'contact_phone is required',
+  }),
+  travel_date: Joi.date(),
+  coupon_code: Joi.string().trim().uppercase().allow(null, ''),
+  coupon_id: Joi.forbidden().messages({ 'any.unknown': 'Use coupon_code to apply coupon' }),
+  original_amount: Joi.forbidden().messages({ 'any.unknown': 'original_amount is calculated by server' }),
+  discount_amount: Joi.forbidden().messages({ 'any.unknown': 'discount_amount is calculated by server' }),
+  final_amount: Joi.forbidden().messages({ 'any.unknown': 'final_amount is calculated by server' }),
+  status: Joi.forbidden().messages({ 'any.unknown': 'status is managed by server' }),
+  payment_status: Joi.forbidden().messages({ 'any.unknown': 'payment_status is managed by server' }),
+  passengers: Joi.array().items(passengerSchema).min(1).required(),
+};
 
 module.exports = {
   user: Joi.object({
@@ -76,49 +107,18 @@ module.exports = {
     order_index: Joi.number().integer().min(0).allow(null),
   }),
   view360Image: Joi.object({ view_id: id.required(), image_file: Joi.string().required(), order_index: Joi.number().integer().min(0).allow(null) }),
-  booking: Joi.object({
-    user_id: id,
-    tour_id: id.required(),
-    contact_phone: Joi.string().trim().pattern(vietnamPhonePattern).required().messages({
-      'string.base': 'contact_phone must be a string',
-      'string.empty': 'contact_phone is required',
-      'string.pattern.base': 'contact_phone must be a valid Vietnamese mobile number with 10 digits, for example: 0901234567',
-      'any.required': 'contact_phone is required',
-    }),
+  bookingCustomer: Joi.object({
+    ...bookingFields,
+    user_id: Joi.forbidden(),
+    departure_at: Joi.forbidden().messages({ 'any.unknown': 'Customer must use travel_date; departure_at is calculated by server' }),
+    travel_date: Joi.date().required(),
+  }),
+  bookingStaff: Joi.object({
+    ...bookingFields,
+    user_id: id.required(),
     departure_at: Joi.date(),
-    travel_date: Joi.date(),
-    coupon_id: id.allow(null),
-    coupon_code: Joi.string().trim().uppercase().allow(null, ''),
-    original_amount: Joi.forbidden().messages({
-      'any.unknown': 'original_amount is calculated by server',
-    }),
-    discount_amount: Joi.forbidden().messages({
-      'any.unknown': 'discount_amount is calculated by server',
-    }),
-    final_amount: Joi.forbidden().messages({
-      'any.unknown': 'final_amount is calculated by server',
-    }),
-    status: Joi.string().valid('confirmed', 'canceled', 'pending', 'waiting_manual_confirmation', 'cancel_pending').default('pending'),
-    payment_status: Joi.string().valid('unpaid', 'paid', 'failed', 'refunded', 'pending').default('unpaid'),
-    passengers: Joi.array().items(Joi.object({
-      passenger_name: Joi.string().trim().max(150).pattern(fullNamePattern).required().messages({
-        'string.base': fullNameMessage,
-        'string.empty': fullNameMessage,
-        'string.max': 'passenger_name must not exceed 150 characters',
-        'string.pattern.base': fullNameMessage,
-        'any.required': 'passenger_name is required',
-      }),
-      age_category: Joi.string().valid('adult', 'child', 'infant').required(),
-      price: Joi.forbidden().messages({
-        'any.unknown': 'passenger price is calculated by server from tour price',
-      }),
-      seat_number: optionalText,
-      special_request: optionalText,
-    })).min(1).required(),
-  }),
-  bookingCancel: Joi.object({
-    reason: Joi.string().trim().min(1).max(1000).required(),
-  }),
+  }).or('travel_date', 'departure_at'),
+  bookingCancel: Joi.object({ reason: Joi.string().trim().min(1).max(1000).allow(null, '') }).default({}),
   manualBookingConfirmation: Joi.object({
     transaction_code: Joi.string().trim().max(255),
     note: Joi.string().trim().max(1000),

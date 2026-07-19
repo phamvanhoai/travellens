@@ -27,6 +27,7 @@ router.use('/blogs', require('./blogPublic.route'));
 router.use('/reviews', require('./reviewPublic.route'));
 router.use('/ai', require('./aiRecommendation.routes'));
 router.use('/travel-feed', require('./travelFeed.route'));
+router.use('/travel-stories', require('./travelStory.route'));
 router.use('/suggestions', require('./suggestion.route'));
 router.use('/saved', require('./savedItem.route'));
 router.use('/group-trips', require('./groupTrip.route'));

@@ -84,7 +84,7 @@ const sweepExpiredBookings = async () => {
          FROM booking
          WHERE status = 'waiting_manual_confirmation'
            AND payment_status <> 'paid'
-           AND date_created < CURRENT_TIMESTAMP - ($1::int * INTERVAL '1 minute')
+           AND created_at < CURRENT_TIMESTAMP - ($1::int * INTERVAL '1 minute')
        )
        UPDATE booking b
        SET status = 'expired',
@@ -105,7 +105,7 @@ const sweepExpiredBookings = async () => {
          FROM booking
          WHERE status = 'pending'
            AND payment_status IN ('unpaid', 'failed')
-           AND date_created < CURRENT_TIMESTAMP - ($1::int * INTERVAL '1 minute')
+           AND created_at < CURRENT_TIMESTAMP - ($1::int * INTERVAL '1 minute')
            AND NOT EXISTS (
              SELECT 1
              FROM payment p

@@ -81,6 +81,27 @@ module.exports = {
     return result.rows[0] || null;
   },
 
+  async findByCodeForUpdate(code, executor) {
+    const result = await executor.query(
+      `SELECT * FROM coupon
+       WHERE code = $1 AND deleted_at IS NULL
+       FOR UPDATE`,
+      [code.toUpperCase().trim()]
+    );
+    return result.rows[0] || null;
+  },
+
+  async countActiveBookingReservations(couponId, executor = db) {
+    const result = await executor.query(
+      `SELECT COUNT(*)::int AS total
+       FROM booking
+       WHERE coupon_id = $1
+         AND status IN ('pending', 'waiting_manual_confirmation', 'confirmed', 'cancel_pending')`,
+      [couponId]
+    );
+    return Number(result.rows[0].total || 0);
+  },
+
   async createCoupon(payload) {
     const result = await db.query(
       `INSERT INTO coupon
@@ -185,7 +206,9 @@ module.exports = {
       `UPDATE coupon
        SET used_count = used_count + 1,
            updated_at = CURRENT_TIMESTAMP
-       WHERE coupon_id = $1 AND deleted_at IS NULL
+       WHERE coupon_id = $1
+         AND deleted_at IS NULL
+         AND (usage_limit IS NULL OR used_count < usage_limit)
        RETURNING *`,
       [id]
     );

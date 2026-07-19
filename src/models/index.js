@@ -28,4 +28,5 @@ module.exports = {
   mediaFile: require('./mediaFile.model'),
   refundRequest: require('./refundRequest.model'),
   groupTrip: require('./groupTrip.model'),
+  travelStory: require('./travelStory.model'),
 };

@@ -107,7 +107,9 @@ class CouponService {
   }
 
   async validateCoupon({ code, booking_amount: bookingAmount }, executor) {
-    const coupon = await couponModel.findByCode(code, executor);
+    const coupon = executor
+      ? await couponModel.findByCodeForUpdate(code, executor)
+      : await couponModel.findByCode(code);
     if (!coupon) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Coupon not found');
     }
@@ -134,6 +136,12 @@ class CouponService {
     if (coupon.usage_limit !== null && Number(coupon.used_count) >= Number(coupon.usage_limit)) {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Coupon usage limit reached');
     }
+    if (executor && coupon.usage_limit !== null) {
+      const reservations = await couponModel.countActiveBookingReservations(coupon.coupon_id, executor);
+      if (reservations >= Number(coupon.usage_limit)) {
+        throw new ApiError(httpStatus.CONFLICT, 'Coupon usage limit is fully reserved by active bookings');
+      }
+    }
 
     let discountAmount = coupon.discount_type === 'percentage'
       ? Number(bookingAmount) * Number(coupon.discount_value) / 100
@@ -156,7 +164,11 @@ class CouponService {
     if (!couponId) {
       return null;
     }
-    return couponModel.incrementUsedCount(couponId, executor);
+    const coupon = await couponModel.incrementUsedCount(couponId, executor);
+    if (!coupon) {
+      throw new ApiError(httpStatus.CONFLICT, 'Coupon usage limit reached');
+    }
+    return coupon;
   }
 
   validateBusinessRules(payload) {

@@ -23,5 +23,6 @@ module.exports = {
   media: require('./media.validator'),
   refundRequest: require('./refundRequest.validator'),
   travelFeed: require('./travelFeed.validator'),
+  travelStory: require('./travelStory.validator'),
   groupTrip: require('./groupTrip.validator'),
 };

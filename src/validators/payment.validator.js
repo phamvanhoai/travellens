@@ -25,6 +25,15 @@ module.exports = {
     }),
   },
 
+  customerList: {
+    query: Joi.object({
+      page: Joi.number().integer().min(1).default(1),
+      limit: Joi.number().integer().min(1).max(100).default(20),
+      search: Joi.string().trim().max(255).allow(''),
+      status: Joi.string().valid('pending', 'paid', 'failed', 'expired', 'refunded'),
+    }),
+  },
+
   updateStatus: {
     params: Joi.object({
       id: id.required(),
