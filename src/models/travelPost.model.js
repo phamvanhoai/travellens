@@ -730,7 +730,43 @@ class TravelPostModel {
     return result.rows[0];
   }
 
-  async addPhotos(postId, photos = [], executor = db) {
+  async updatePost(postId, payload, executor = db) {
+    const result = await executor.query(
+      `UPDATE travel_post
+       SET content = $2,
+           destination_id = $3,
+           location_id = $4,
+           visibility = $5,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE post_id = $1
+         AND deleted_at IS NULL
+       RETURNING
+         post_id,
+         user_id,
+         content,
+         destination_id,
+         location_id,
+         status,
+         visibility,
+         like_count,
+         comment_count,
+         report_count,
+         share_count,
+         created_at,
+         updated_at`,
+      [
+        postId,
+        payload.content || null,
+        payload.destination_id || null,
+        payload.location_id || null,
+        payload.visibility || 'public',
+      ]
+    );
+
+    return result.rows[0] || null;
+  }
+
+  async addPhotos(postId, photos = [], executor = db, startOrder = 0) {
     const created = [];
 
     for (const [index, photo] of photos.entries()) {
@@ -738,13 +774,91 @@ class TravelPostModel {
         `INSERT INTO travel_post_photo (post_id, image_url, display_order)
          VALUES ($1, $2, $3)
          RETURNING photo_id, post_id, image_url, display_order, created_at`,
-        [postId, photo.url, index]
+        [postId, photo.url, startOrder + index]
       );
 
       created.push(result.rows[0]);
     }
 
     return created;
+  }
+
+  async findEditablePostById(postId, executor = db) {
+    const result = await executor.query(
+      `SELECT
+         post_id,
+         user_id,
+         content,
+         destination_id,
+         location_id,
+         status,
+         visibility,
+         deleted_at
+       FROM travel_post
+       WHERE post_id = $1
+       FOR UPDATE`,
+      [postId]
+    );
+
+    return result.rows[0] || null;
+  }
+
+  async listActivePhotos(postId, executor = db) {
+    const result = await executor.query(
+      `SELECT photo_id, post_id, image_url, display_order, created_at
+       FROM travel_post_photo
+       WHERE post_id = $1
+         AND deleted_at IS NULL
+       ORDER BY display_order ASC, photo_id ASC`,
+      [postId]
+    );
+
+    return result.rows;
+  }
+
+  async softDeletePhotosNotIn(postId, keepPhotoIds = [], executor = db) {
+    const values = [postId];
+    const keepFilter = keepPhotoIds.length
+      ? `AND photo_id <> ALL($2::int[])`
+      : '';
+
+    if (keepPhotoIds.length) {
+      values.push(keepPhotoIds);
+    }
+
+    const result = await executor.query(
+      `UPDATE travel_post_photo
+       SET deleted_at = CURRENT_TIMESTAMP
+       WHERE post_id = $1
+         AND deleted_at IS NULL
+         ${keepFilter}
+       RETURNING photo_id, image_url`,
+      values
+    );
+
+    return result.rows;
+  }
+
+  async updatePhotoDisplayOrders(postId, photoIds = [], executor = db) {
+    const updated = [];
+
+    for (const [index, photoId] of photoIds.entries()) {
+      const result = await executor.query(
+        `UPDATE travel_post_photo
+         SET display_order = $3
+         WHERE post_id = $1
+           AND photo_id = $2
+           AND deleted_at IS NULL
+         RETURNING photo_id, post_id, image_url, display_order, created_at`,
+        [postId, photoId, index]
+      );
+
+      if (result.rows[0]) {
+        updated.push(result.rows[0]);
+      }
+    }
+
+    return updated;
   }
 
   async findFeedPostById(postId, viewerId, executor = db) {

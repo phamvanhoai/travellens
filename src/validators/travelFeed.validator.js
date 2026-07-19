@@ -16,6 +16,71 @@ const sharePlatforms = [
   'other',
 ];
 
+const contentMessages = {
+  'string.base': 'Content must be text.',
+  'string.max': 'Content must be 5000 characters or fewer.',
+};
+
+const destinationMessages = {
+  'number.base': 'Destination must be a valid id or empty.',
+  'number.integer': 'Destination must be a valid id or empty.',
+  'number.positive': 'Destination must be a valid id or empty.',
+};
+
+const locationMessages = {
+  'number.base': 'Location must be a valid id or empty.',
+  'number.integer': 'Location must be a valid id or empty.',
+  'number.positive': 'Location must be a valid id or empty.',
+};
+
+const visibilityMessages = {
+  'any.only': 'Visibility must be public or private.',
+};
+
+const keepPhotoMessages = {
+  'any.invalid': 'Kept photos must be valid photo ids with no duplicates.',
+  'array.max': 'Kept photos can contain at most 10 photo ids.',
+};
+
+const photoIds = Joi.any().custom((value, helpers) => {
+  let rawIds = value;
+
+  if (value === undefined || value === null || value === '') {
+    rawIds = [];
+  } else if (typeof value === 'string') {
+    const trimmed = value.trim();
+
+    if (!trimmed) {
+      rawIds = [];
+    } else {
+      try {
+        const parsed = JSON.parse(trimmed);
+        rawIds = Array.isArray(parsed) ? parsed : [parsed];
+      } catch (error) {
+        rawIds = trimmed.split(',').map((item) => item.trim()).filter(Boolean);
+      }
+    }
+  } else if (!Array.isArray(value)) {
+    rawIds = [value];
+  }
+
+  const ids = rawIds.map((item) => Number(item));
+
+  if (ids.some((item) => !Number.isInteger(item) || item <= 0)) {
+    return helpers.error('any.invalid');
+  }
+
+  if (new Set(ids).size !== ids.length) {
+    return helpers.error('any.invalid');
+  }
+
+  if (ids.length > 10) {
+    return helpers.error('array.max');
+  }
+
+  return ids;
+});
+
 module.exports = {
   adminList: {
     query: Joi.object({
@@ -112,6 +177,19 @@ module.exports = {
       content: Joi.string().trim().max(5000).allow(''),
       destination_id: Joi.number().integer().positive(),
       location_id: Joi.number().integer().positive(),
+    }),
+  },
+
+  update: {
+    params: Joi.object({
+      postId: Joi.number().integer().positive().required(),
+    }),
+    body: Joi.object({
+      content: Joi.string().trim().max(5000).allow('').messages(contentMessages),
+      destination_id: Joi.number().integer().positive().allow(null, '').empty('').messages(destinationMessages),
+      location_id: Joi.number().integer().positive().allow(null, '').empty('').messages(locationMessages),
+      visibility: Joi.string().valid('public', 'private').messages(visibilityMessages),
+      keep_photo_ids: photoIds.messages(keepPhotoMessages),
     }),
   },
 
