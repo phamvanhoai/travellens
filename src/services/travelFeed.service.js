@@ -1,12 +1,14 @@
 const travelPostModel = require('../models/travelPost.model');
 const userBlockModel = require('../models/userBlock.model');
 const ApiError = require('../utils/ApiError');
+const { removeUploadedFiles } = require('../utils/uploadedFile');
 const { httpStatus } = require('../constants');
 
 const configuredShareCooldown = Number(process.env.TRAVEL_POST_SHARE_COUNT_COOLDOWN_MINUTES || 5);
 const SHARE_COOLDOWN_MINUTES = Number.isFinite(configuredShareCooldown) && configuredShareCooldown >= 0
   ? configuredShareCooldown
   : 5;
+const MAX_POST_PHOTOS = 10;
 
 const trimTrailingSlash = (value) => String(value || '').replace(/\/+$/, '');
 
@@ -108,6 +110,8 @@ const assertCanInteractWithUser = async (userId, targetUserId, executor) => {
     throw new ApiError(httpStatus.FORBIDDEN, 'You cannot interact with this user');
   }
 };
+
+const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
 
 class TravelFeedService {
   async listForAdmin(query = {}) {
@@ -323,6 +327,195 @@ class TravelFeedService {
       await client.query('COMMIT');
 
       return created;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async update(userId, postId, payload = {}, files = []) {
+    const photos = files.filter((file) => file.url);
+    const uploadedPhotoUrls = photos.map((file) => file.url);
+    const hasContent = hasOwn(payload, 'content');
+    const hasDestination = hasOwn(payload, 'destination_id');
+    const hasLocation = hasOwn(payload, 'location_id');
+    const hasVisibility = hasOwn(payload, 'visibility');
+    const hasKeepPhotos = hasOwn(payload, 'keep_photo_ids');
+    const client = await travelPostModel.getClient();
+
+    try {
+      await client.query('BEGIN');
+
+      const post = await travelPostModel.findEditablePostById(postId, client);
+
+      if (!post) {
+        throw new ApiError(httpStatus.NOT_FOUND, 'Travel post not found');
+      }
+
+      if (post.deleted_at) {
+        throw new ApiError(httpStatus.CONFLICT, 'Deleted travel post cannot be updated');
+      }
+
+      if (!['draft', 'published'].includes(post.status)) {
+        throw new ApiError(httpStatus.CONFLICT, 'Travel post cannot be updated in its current status');
+      }
+
+      if (Number(post.user_id) !== Number(userId)) {
+        throw new ApiError(httpStatus.FORBIDDEN, 'You can only update your own post');
+      }
+
+      const content = hasContent
+        ? String(payload.content || '').trim()
+        : String(post.content || '');
+      let destinationId = hasDestination
+        ? (payload.destination_id ? Number(payload.destination_id) : null)
+        : post.destination_id;
+      let locationId = hasLocation
+        ? (payload.location_id ? Number(payload.location_id) : null)
+        : post.location_id;
+
+      if (hasDestination && payload.destination_id === null && !hasLocation) {
+        locationId = null;
+      }
+
+      if (locationId) {
+        const location = await travelPostModel.findActiveLocation(locationId, client);
+
+        if (!location) {
+          throw new ApiError(httpStatus.NOT_FOUND, 'Location not found');
+        }
+
+        if (hasDestination && payload.destination_id && Number(location.destination_id) !== destinationId) {
+          throw new ApiError(httpStatus.BAD_REQUEST, 'Location does not belong to the selected destination');
+        }
+
+        destinationId = Number(location.destination_id);
+      } else if (destinationId) {
+        const destination = await travelPostModel.findActiveDestination(destinationId, client);
+
+        if (!destination) {
+          throw new ApiError(httpStatus.NOT_FOUND, 'Destination not found');
+        }
+      }
+
+      const existingPhotos = await travelPostModel.listActivePhotos(postId, client);
+      let keptPhotoIds = existingPhotos.map((photo) => Number(photo.photo_id));
+
+      if (hasKeepPhotos) {
+        keptPhotoIds = payload.keep_photo_ids || [];
+        const activePhotoIds = new Set(existingPhotos.map((photo) => Number(photo.photo_id)));
+        const invalidPhotoIds = keptPhotoIds.filter((photoId) => !activePhotoIds.has(Number(photoId)));
+
+        if (invalidPhotoIds.length) {
+          throw new ApiError(
+            httpStatus.NOT_FOUND,
+            `Photo ${invalidPhotoIds.join(', ')} does not belong to this post or was already removed`,
+            {
+              field: 'keep_photo_ids',
+              invalid_photo_ids: invalidPhotoIds,
+            }
+          );
+        }
+      }
+
+      const finalPhotoCount = keptPhotoIds.length + photos.length;
+
+      if (finalPhotoCount > MAX_POST_PHOTOS) {
+        const removableCount = finalPhotoCount - MAX_POST_PHOTOS;
+        throw new ApiError(
+          httpStatus.BAD_REQUEST,
+          `This post would have ${finalPhotoCount} photos after update. Maximum is ${MAX_POST_PHOTOS}. Remove at least ${removableCount} existing photo${removableCount > 1 ? 's' : ''} or upload fewer new photos.`,
+          {
+            field: 'photos',
+            max_photos: MAX_POST_PHOTOS,
+            kept_photo_count: keptPhotoIds.length,
+            new_photo_count: photos.length,
+            final_photo_count: finalPhotoCount,
+            remove_or_skip_photo_count: removableCount,
+          }
+        );
+      }
+
+      if (!content && finalPhotoCount === 0) {
+        throw new ApiError(
+          httpStatus.BAD_REQUEST,
+          'Post content or at least one photo is required. Add text, keep an existing photo, or upload a new photo.',
+          {
+            field: 'content',
+            kept_photo_count: keptPhotoIds.length,
+            new_photo_count: photos.length,
+          }
+        );
+      }
+
+      await travelPostModel.updatePost(postId, {
+        content,
+        destination_id: destinationId,
+        location_id: locationId,
+        visibility: hasVisibility ? payload.visibility : post.visibility,
+      }, client);
+
+      if (hasKeepPhotos) {
+        await travelPostModel.softDeletePhotosNotIn(postId, keptPhotoIds, client);
+      }
+
+      await travelPostModel.updatePhotoDisplayOrders(postId, keptPhotoIds, client);
+      await travelPostModel.addPhotos(postId, photos, client, keptPhotoIds.length);
+
+      const updated = await travelPostModel.findFeedPostById(postId, userId, client);
+
+      await client.query('COMMIT');
+
+      return updated;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      await removeUploadedFiles(uploadedPhotoUrls);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async remove(userId, postId) {
+    const client = await travelPostModel.getClient();
+
+    try {
+      await client.query('BEGIN');
+
+      const post = await travelPostModel.findEditablePostById(postId, client);
+
+      if (!post) {
+        throw new ApiError(httpStatus.NOT_FOUND, 'Travel post not found');
+      }
+
+      if (post.deleted_at) {
+        throw new ApiError(httpStatus.CONFLICT, 'Travel post has already been deleted');
+      }
+
+      if (Number(post.user_id) !== Number(userId)) {
+        throw new ApiError(httpStatus.FORBIDDEN, 'You can only delete your own post');
+      }
+
+      if (!['draft', 'published'].includes(post.status)) {
+        throw new ApiError(httpStatus.CONFLICT, 'Travel post cannot be deleted in its current status');
+      }
+
+      const deleted = await travelPostModel.softDeletePost(postId, userId, client);
+
+      if (!deleted) {
+        throw new ApiError(httpStatus.CONFLICT, 'Travel post has already been deleted');
+      }
+
+      await client.query('COMMIT');
+
+      return {
+        deleted: true,
+        post_id: Number(postId),
+        previous_status: deleted.previous_status || post.status,
+        deleted_at: deleted.deleted_at,
+      };
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
