@@ -8,7 +8,8 @@ const baseController = createController(tourService);
 module.exports = {
   ...baseController,
   create: asyncHandler(async (req, res) => {
-    const data = await tourService.create(req.body);
+    const created = await tourService.create(req.body);
+    const data = await tourService.viewTourDetail(created.tour_id);
     res.status(httpStatus.CREATED).json({
       success: true,
       message: 'Tour created successfully',
@@ -17,9 +18,11 @@ module.exports = {
   }),
   update: asyncHandler(async (req, res) => {
     await tourService.update(req.params.id, req.body);
+    const data = await tourService.viewTourDetail(req.params.id);
     res.status(httpStatus.OK).json({
       success: true,
       message: 'Tour updated successfully',
+      data,
     });
   }),
   remove: asyncHandler(async (req, res) => {

@@ -4,6 +4,7 @@ module.exports = {
   destinationCategory: require('./destinationCategory.service'),
   tourCategory: require('./tourCategory.service'),
   tour: require('./tour.service'),
+  tourContentItem: require('./tourContentItem.service'),
   travelDestination: require('./travelDestination.service'),
   location: require('./location.service'),
   view360: require('./view360.service'),

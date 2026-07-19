@@ -8,13 +8,23 @@ const ACTIVE_BOOKING_STATUSES = [
   'cancel_pending',
   'paid',
 ];
+const JSON_FIELDS = new Set(['languages', 'highlights', 'inclusions', 'exclusions', 'requirements', 'faqs', 'gallery']);
+const dbValue = (field, value) => JSON_FIELDS.has(field) ? JSON.stringify(value) : value;
 
 class TourModel extends BaseModel {
   constructor() {
     super({
       table: 'tour',
       primaryKey: 'tour_id',
-      fields: ['name', 'description', 'price', 'child_price', 'schedule', 'capacity', 'thumbnail', 'status', 'tour_category_id'],
+      fields: [
+        'slug', 'name', 'short_description', 'description', 'price', 'child_price', 'infant_price',
+        'currency', 'schedule', 'duration_days', 'duration_nights', 'start_time', 'end_time',
+        'tour_type', 'languages', 'difficulty', 'minimum_participants', 'minimum_booking',
+        'maximum_booking', 'meeting_point', 'pickup_available', 'pickup_description', 'highlights',
+        'inclusions', 'exclusions', 'requirements', 'cancellation_policy', 'booking_policy',
+        'additional_information', 'faqs', 'video_url', 'gallery', 'capacity', 'thumbnail', 'status',
+        'tour_category_id',
+      ],
       searchable: ['name', 'description', 'schedule'],
       filters: ['tour_category_id', 'status'],
     });
@@ -82,16 +92,30 @@ class TourModel extends BaseModel {
     const listResult = await db.query(
       `SELECT
           t.tour_id,
+          t.slug,
           t.name,
+          t.short_description,
           t.description,
           t.price::float AS price,
           t.child_price::float AS child_price,
+          t.infant_price::float AS infant_price,
+          t.currency,
           t.schedule,
           t.start_at,
+          t.duration_days,
+          t.duration_nights,
+          t.start_time,
+          t.end_time,
+          t.tour_type,
+          t.languages,
+          t.difficulty,
           t.capacity,
           t.thumbnail,
+          t.thumbnail AS thumbnail_url,
           COALESCE(slot_stats.booked_slots, 0)::int AS booked_slots,
-          (COALESCE(t.capacity, 0) - COALESCE(slot_stats.booked_slots, 0))::int AS available_slots,
+          GREATEST(COALESCE(t.capacity, 0) - COALESCE(slot_stats.booked_slots, 0), 0)::int AS available_slots,
+          COALESCE(review_stats.average_rating, 0)::float AS average_rating,
+          COALESCE(review_stats.review_count, 0)::int AS review_count,
           t.status,
           CASE
             WHEN tc.tour_category_id IS NULL THEN NULL
@@ -114,6 +138,11 @@ class TourModel extends BaseModel {
           WHERE b.status = ANY($${listValues.length + 1})
           GROUP BY b.tour_id
        ) slot_stats ON slot_stats.tour_id = t.tour_id
+       LEFT JOIN LATERAL (
+          SELECT ROUND(AVG(r.rating)::numeric, 1) AS average_rating, COUNT(*)::int AS review_count
+          FROM review r
+          WHERE r.tour_id = t.tour_id AND r.status = 'approved' AND r.deleted_at IS NULL
+       ) review_stats ON TRUE
        LEFT JOIN LATERAL (
           SELECT json_agg(
             json_build_object(
@@ -151,16 +180,47 @@ class TourModel extends BaseModel {
     const result = await db.query(
       `SELECT
           t.tour_id,
+          t.slug,
           t.name,
+          t.short_description,
           t.description,
           t.price::float AS price,
           t.child_price::float AS child_price,
+          t.infant_price::float AS infant_price,
+          t.currency,
           t.schedule,
           t.start_at,
+          t.duration_days,
+          t.duration_nights,
+          t.start_time,
+          t.end_time,
+          t.tour_type,
+          t.languages,
+          t.difficulty,
+          t.minimum_participants,
+          t.minimum_booking,
+          t.maximum_booking,
+          t.meeting_point,
+          t.pickup_available,
+          t.pickup_description,
+          t.highlights,
+          t.inclusions,
+          t.exclusions,
+          t.requirements,
+          t.cancellation_policy,
+          t.booking_policy,
+          t.additional_information,
+          t.faqs,
+          t.video_url,
+          t.gallery,
           t.capacity,
           t.thumbnail,
+          t.thumbnail AS thumbnail_url,
           COALESCE(slot_stats.booked_slots, 0)::int AS booked_slots,
-          (COALESCE(t.capacity, 0) - COALESCE(slot_stats.booked_slots, 0))::int AS available_slots,
+          GREATEST(COALESCE(t.capacity, 0) - COALESCE(slot_stats.booked_slots, 0), 0)::int AS available_slots,
+          COALESCE(review_stats.average_rating, 0)::float AS average_rating,
+          COALESCE(review_stats.review_count, 0)::int AS review_count,
+          COALESCE(review_stats.rating_distribution, '{"1":0,"2":0,"3":0,"4":0,"5":0}'::json) AS rating_distribution,
           t.status,
           CASE
             WHEN tc.tour_category_id IS NULL THEN NULL
@@ -187,6 +247,20 @@ class TourModel extends BaseModel {
           WHERE b.status = ANY($2)
           GROUP BY b.tour_id
        ) slot_stats ON slot_stats.tour_id = t.tour_id
+       LEFT JOIN LATERAL (
+          SELECT
+            ROUND(AVG(r.rating)::numeric, 1) AS average_rating,
+            COUNT(*)::int AS review_count,
+            json_build_object(
+              '5', COUNT(*) FILTER (WHERE r.rating = 5),
+              '4', COUNT(*) FILTER (WHERE r.rating = 4),
+              '3', COUNT(*) FILTER (WHERE r.rating = 3),
+              '2', COUNT(*) FILTER (WHERE r.rating = 2),
+              '1', COUNT(*) FILTER (WHERE r.rating = 1)
+            ) AS rating_distribution
+          FROM review r
+          WHERE r.tour_id = t.tour_id AND r.status = 'approved' AND r.deleted_at IS NULL
+       ) review_stats ON TRUE
        LEFT JOIN (
           SELECT tour_id, COUNT(*)::int AS total_bookings
           FROM booking
@@ -202,10 +276,19 @@ class TourModel extends BaseModel {
        LEFT JOIN LATERAL (
           SELECT json_agg(
             json_build_object(
+              'tour_destination_id', td.tour_destination_id,
               'destination_id', td.destination_id,
               'name', d.name,
+              'thumbnail_url', d.thumbnail,
+              'latitude', d.latitude,
+              'longitude', d.longitude,
               'order_index', td.order_index,
+              'day_number', td.day_number,
+              'start_time', td.start_time,
+              'end_time', td.end_time,
               'estimated_time', td.estimated_time,
+              'estimated_minutes', td.estimated_minutes,
+              'activity', td.activity,
               'note', td.note,
               'locations_count', COALESCE(location_stats.locations_count, 0)
             )
@@ -272,38 +355,40 @@ class TourModel extends BaseModel {
     return result.rows[0] || null;
   }
 
-  async createTour(payload, client) {
+  async findBySlug(slug, excludeTourId, client = db) {
+    const values = [slug];
+    const excludeClause = excludeTourId ? 'AND tour_id <> $2' : '';
+    if (excludeTourId) values.push(excludeTourId);
     const result = await client.query(
-      `INSERT INTO tour (
-          tour_category_id, name, description, price, child_price, schedule, capacity, thumbnail, status
-       )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, 'active'))
+      `SELECT tour_id FROM tour
+       WHERE LOWER(slug) = LOWER($1) AND deleted_at IS NULL ${excludeClause}
+       LIMIT 1`,
+      values
+    );
+    return result.rows[0] || null;
+  }
+
+  async createTour(payload, client) {
+    const fields = this.fields.filter((field) => payload[field] !== undefined);
+    const result = await client.query(
+      `INSERT INTO tour (${fields.join(', ')})
+       VALUES (${fields.map((_, index) => `$${index + 1}`).join(', ')})
        RETURNING tour_id`,
-      [
-        payload.tour_category_id,
-        payload.name,
-        payload.description || null,
-        payload.price,
-        payload.child_price,
-        payload.schedule,
-        payload.capacity,
-        payload.thumbnail || null,
-        payload.status || 'active',
-      ]
+      fields.map((field) => dbValue(field, payload[field]))
     );
 
     return result.rows[0];
   }
 
   async updateTour(id, payload, client) {
-    const fields = ['tour_category_id', 'name', 'description', 'price', 'child_price', 'schedule', 'capacity', 'thumbnail', 'status'];
+    const fields = this.fields;
     const keys = fields.filter((field) => payload[field] !== undefined);
 
     if (!keys.length) {
       return this.findRawById(id, client);
     }
 
-    const values = keys.map((field) => payload[field]);
+    const values = keys.map((field) => dbValue(field, payload[field]));
     values.push(id);
     const assignments = keys.map((field, index) => `${field} = $${index + 1}`);
 

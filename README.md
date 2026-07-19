@@ -165,6 +165,9 @@ psql -U postgres -d travel360 -f migrations/024_add_tour_start_at.sql
 psql -U postgres -d travel360 -f migrations/025_create_refund_request.sql
 psql -U postgres -d travel360 -f migrations/026_create_booking_status_history.sql
 psql -U postgres -d travel360 -f migrations/027_add_booking_departure_at.sql
+psql -U postgres -d travel360 -f migrations/048_expand_tour_detail.sql
+psql -U postgres -d travel360 -f migrations/049_create_tour_content_template.sql
+psql -U postgres -d travel360 -f migrations/050_replace_tour_content_templates_with_items.sql
 ```
 
 Some migration numbers are shared by older branch work. Run every file in `migrations/` that has not already been applied to your database.
@@ -373,6 +376,19 @@ Admin endpoint:
 ```http
 /api/admin/travel-destinations
 ```
+
+### Tour Detail Content
+
+Tour create/update supports structured detail content for the frontend tabs: duration, languages,
+tour type, meeting/pickup information, highlights, inclusions, exclusions, requirements, policies,
+FAQ, video, ordered gallery, and detailed destination itinerary fields. Public tour list/detail also
+returns `currency`, calculated availability, `average_rating`, and `review_count`; detail additionally
+returns `rating_distribution`.
+
+Reusable content can be managed as individual entries through `/api/admin/tour-content-items`.
+Pass `content_item_ids` when creating or updating a tour. List item types are merged with explicit
+tour values, while an explicit policy overrides the selected policy. Tours store content snapshots,
+so later library changes do not alter existing tours.
 
 ### Locations
 

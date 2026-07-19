@@ -137,14 +137,54 @@ CREATE TABLE travel_destination (
 -- =========================================================
 -- Tour
 -- =========================================================
+CREATE TABLE tour_content_item (
+    content_item_id SERIAL PRIMARY KEY,
+    type VARCHAR(40) NOT NULL CHECK (type IN (
+        'highlight', 'requirement', 'inclusion', 'exclusion',
+        'booking_policy', 'cancellation_policy', 'additional_information'
+    )),
+    content TEXT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
+);
+
 CREATE TABLE tour (
     tour_id SERIAL PRIMARY KEY,
+    slug VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
+    short_description TEXT,
     description TEXT,
     price NUMERIC(12,2) NOT NULL CHECK (price >= 0),
     child_price NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (child_price >= 0),
+    infant_price NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (infant_price >= 0),
+    currency VARCHAR(3) NOT NULL DEFAULT 'VND',
     schedule TEXT,
     start_at TIMESTAMP,
+    duration_days INT NOT NULL DEFAULT 1 CHECK (duration_days >= 0),
+    duration_nights INT NOT NULL DEFAULT 0 CHECK (duration_nights >= 0),
+    start_time TIME,
+    end_time TIME,
+    tour_type VARCHAR(30) NOT NULL DEFAULT 'group' CHECK (tour_type IN ('group', 'private', 'self_guided')),
+    languages JSONB NOT NULL DEFAULT '[]'::jsonb,
+    difficulty VARCHAR(30) NOT NULL DEFAULT 'easy' CHECK (difficulty IN ('easy', 'moderate', 'challenging', 'difficult')),
+    minimum_participants INT NOT NULL DEFAULT 1 CHECK (minimum_participants >= 1),
+    minimum_booking INT NOT NULL DEFAULT 1 CHECK (minimum_booking >= 1),
+    maximum_booking INT CHECK (maximum_booking IS NULL OR maximum_booking >= 1),
+    meeting_point TEXT,
+    pickup_available BOOLEAN NOT NULL DEFAULT FALSE,
+    pickup_description TEXT,
+    highlights JSONB NOT NULL DEFAULT '[]'::jsonb,
+    inclusions JSONB NOT NULL DEFAULT '[]'::jsonb,
+    exclusions JSONB NOT NULL DEFAULT '[]'::jsonb,
+    requirements JSONB NOT NULL DEFAULT '[]'::jsonb,
+    cancellation_policy TEXT,
+    booking_policy TEXT,
+    additional_information TEXT,
+    faqs JSONB NOT NULL DEFAULT '[]'::jsonb,
+    video_url TEXT,
+    gallery JSONB NOT NULL DEFAULT '[]'::jsonb,
     capacity INT CHECK (capacity >= 0),
     thumbnail TEXT,
     status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'draft', 'deleted')),
@@ -168,6 +208,11 @@ CREATE TABLE tour_destination (
     destination_id INT NOT NULL,
     order_index INT NOT NULL CHECK (order_index >= 1),
     estimated_time VARCHAR(100),
+    estimated_minutes INT CHECK (estimated_minutes IS NULL OR estimated_minutes >= 0),
+    day_number INT NOT NULL DEFAULT 1 CHECK (day_number >= 1),
+    start_time TIME,
+    end_time TIME,
+    activity TEXT,
     note TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1004,6 +1049,9 @@ CREATE INDEX idx_tour_start_at ON tour(start_at);
 CREATE INDEX idx_tour_created_at ON tour(created_at);
 CREATE INDEX idx_tour_deleted_at ON tour(deleted_at);
 CREATE INDEX idx_tour_destination_tour_id ON tour_destination(tour_id);
+CREATE UNIQUE INDEX uq_tour_slug_active ON tour(LOWER(slug)) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX uq_tour_content_item_type_content_active ON tour_content_item(type, LOWER(content)) WHERE deleted_at IS NULL;
+CREATE INDEX idx_tour_content_item_type_status ON tour_content_item(type, status) WHERE deleted_at IS NULL;
 CREATE INDEX idx_tour_destination_destination_id ON tour_destination(destination_id);
 CREATE INDEX idx_location_destination_id ON location(destination_id);
 CREATE UNIQUE INDEX idx_location_destination_name_unique ON location(destination_id, LOWER(name)) WHERE is_deleted = FALSE;

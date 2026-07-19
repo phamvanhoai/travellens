@@ -948,10 +948,36 @@ router
  *               tour_category_id:
  *                 type: integer
  *                 example: 1
+ *               content_item_ids:
+ *                 type: string
+ *                 description: JSON array string of individually selected reusable content item IDs.
+ *                 example: '[1,2,5,8]'
  *               name:
  *                 type: string
  *                 maxLength: 255
  *                 example: Dinh Doc Lap Half-day Tour
+ *               slug:
+ *                 type: string
+ *                 description: Optional; generated uniquely from name when omitted.
+ *                 example: dinh-doc-lap-half-day-tour
+ *               short_description:
+ *                 type: string
+ *                 nullable: true
+ *               duration_days: { type: integer, minimum: 0, default: 1 }
+ *               duration_nights: { type: integer, minimum: 0, default: 0 }
+ *               start_time: { type: string, example: '08:00' }
+ *               end_time: { type: string, example: '17:00' }
+ *               tour_type: { type: string, enum: [group, private, self_guided], default: group }
+ *               languages:
+ *                 type: string
+ *                 description: JSON array string, for example `["vi","en"]`.
+ *               difficulty: { type: string, enum: [easy, moderate, challenging, difficult], default: easy }
+ *               minimum_participants: { type: integer, minimum: 1, default: 1 }
+ *               minimum_booking: { type: integer, minimum: 1, default: 1 }
+ *               maximum_booking: { type: integer, minimum: 1, nullable: true }
+ *               meeting_point: { type: string, nullable: true }
+ *               pickup_available: { type: boolean, default: false }
+ *               pickup_description: { type: string, nullable: true }
  *               description:
  *                 type: string
  *                 format: html
@@ -966,6 +992,8 @@ router
  *                 type: number
  *                 minimum: 0
  *                 example: 162500
+ *               infant_price: { type: number, minimum: 0, default: 0 }
+ *               currency: { type: string, minLength: 3, maxLength: 3, default: VND }
  *               schedule:
  *                 type: string
  *                 example: 08:00 - 12:00
@@ -976,6 +1004,20 @@ router
  *               thumbnail_file:
  *                 type: string
  *                 format: binary
+ *               video_url: { type: string, format: uri, nullable: true }
+ *               highlights: { type: string, description: 'JSON array string of highlight texts.' }
+ *               inclusions: { type: string, description: 'JSON array string of included items.' }
+ *               exclusions: { type: string, description: 'JSON array string of excluded items.' }
+ *               requirements: { type: string, description: 'JSON array string of requirements.' }
+ *               cancellation_policy: { type: string, nullable: true }
+ *               booking_policy: { type: string, nullable: true }
+ *               additional_information: { type: string, nullable: true }
+ *               faqs:
+ *                 type: string
+ *                 description: 'JSON array string: [{"question":"...","answer":"...","order_index":1}]'
+ *               gallery:
+ *                 type: string
+ *                 description: 'JSON array string: [{"type":"image","url":"https://...","alt":"...","order_index":1}]'
  *               status:
  *                 type: string
  *                 enum: [active, inactive, draft]
@@ -983,7 +1025,7 @@ router
  *               destinations:
  *                 type: string
  *                 description: JSON array of tour destinations.
- *                 example: '[{"destination_id":1,"order_index":1,"estimated_time":"90 minutes","note":"Start point"}]'
+ *                 example: '[{"destination_id":1,"order_index":1,"day_number":1,"start_time":"08:00","end_time":"10:00","estimated_minutes":120,"activity":"Sightseeing","note":"Start point"}]'
  *         application/json:
  *           schema:
  *             type: object
@@ -992,10 +1034,34 @@ router
  *               tour_category_id:
  *                 type: integer
  *                 example: 1
+ *               content_item_ids:
+ *                 type: array
+ *                 uniqueItems: true
+ *                 items: { type: integer }
+ *                 description: Individually selected reusable content items. Explicit list values are merged; explicit policies override selected policies.
+ *                 example: [1, 2, 5, 8]
  *               name:
  *                 type: string
  *                 maxLength: 255
  *                 example: Dinh Doc Lap Half-day Tour
+ *               slug: { type: string, example: dinh-doc-lap-half-day-tour }
+ *               short_description: { type: string, nullable: true }
+ *               duration_days: { type: integer, minimum: 0, default: 1 }
+ *               duration_nights: { type: integer, minimum: 0, default: 0 }
+ *               start_time: { type: string, example: '08:00' }
+ *               end_time: { type: string, example: '17:00' }
+ *               tour_type: { type: string, enum: [group, private, self_guided], default: group }
+ *               languages:
+ *                 type: array
+ *                 items: { type: string }
+ *                 example: [vi, en]
+ *               difficulty: { type: string, enum: [easy, moderate, challenging, difficult], default: easy }
+ *               minimum_participants: { type: integer, minimum: 1, default: 1 }
+ *               minimum_booking: { type: integer, minimum: 1, default: 1 }
+ *               maximum_booking: { type: integer, minimum: 1, nullable: true }
+ *               meeting_point: { type: string, nullable: true }
+ *               pickup_available: { type: boolean, default: false }
+ *               pickup_description: { type: string, nullable: true }
  *               description:
  *                 type: string
  *                 format: html
@@ -1010,6 +1076,8 @@ router
  *                 type: number
  *                 minimum: 0
  *                 example: 162500
+ *               infant_price: { type: number, minimum: 0, default: 0 }
+ *               currency: { type: string, minLength: 3, maxLength: 3, default: VND }
  *               schedule:
  *                 type: string
  *                 example: 08:00 - 12:00
@@ -1022,6 +1090,36 @@ router
  *                 format: uri
  *                 nullable: true
  *                 example: https://example.com/tour.jpg
+ *               thumbnail_url: { type: string, format: uri, nullable: true, description: Alias of thumbnail. }
+ *               video_url: { type: string, format: uri, nullable: true }
+ *               highlights: { type: array, items: { type: string } }
+ *               inclusions: { type: array, items: { type: string } }
+ *               exclusions: { type: array, items: { type: string } }
+ *               requirements: { type: array, items: { type: string } }
+ *               cancellation_policy: { type: string, nullable: true }
+ *               booking_policy: { type: string, nullable: true }
+ *               additional_information: { type: string, nullable: true }
+ *               faqs:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required: [question, answer, order_index]
+ *                   properties:
+ *                     faq_id: { type: integer, description: Optional; assigned automatically when omitted. }
+ *                     question: { type: string }
+ *                     answer: { type: string }
+ *                     order_index: { type: integer, minimum: 1 }
+ *               gallery:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required: [url, order_index]
+ *                   properties:
+ *                     media_id: { type: integer, description: Optional; assigned automatically when omitted. }
+ *                     type: { type: string, enum: [image, video], default: image }
+ *                     url: { type: string }
+ *                     alt: { type: string, nullable: true }
+ *                     order_index: { type: integer, minimum: 1 }
  *               status:
  *                 type: string
  *                 enum: [active, inactive, draft]
@@ -1044,6 +1142,11 @@ router
  *                       type: string
  *                       nullable: true
  *                       example: 90 minutes
+ *                     estimated_minutes: { type: integer, minimum: 0, nullable: true, example: 90 }
+ *                     day_number: { type: integer, minimum: 1, default: 1 }
+ *                     start_time: { type: string, nullable: true, example: '08:00' }
+ *                     end_time: { type: string, nullable: true, example: '09:30' }
+ *                     activity: { type: string, nullable: true }
  *                     note:
  *                       type: string
  *                       nullable: true
@@ -2072,6 +2175,7 @@ router
 router.use('/users', require('./user.route'));
 router.use('/travel-destinations', require('./travelDestination.route'));
 router.use('/tours', require('./tour.route'));
+router.use('/tour-content-items', require('./tourContentItem.route'));
 router.use('/locations', require('./location.route'));
 router.use('/blogs', require('./blog.route'));
 router.use('/media', require('./mediaFile.route'));

@@ -985,16 +985,6 @@ const router = express.Router();
  *     tags: [Tours]
  *     responses:
  *       200: { description: Tour list }
- *   post:
- *     summary: Create tour
- *     tags: [Tours]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema: { $ref: '#/components/schemas/GenericInput' }
- *     responses:
- *       201: { description: Tour created }
  * /tours/{id}:
  *   get:
  *     summary: Get tour detail
@@ -1005,32 +995,16 @@ const router = express.Router();
  *         required: true
  *         schema: { type: integer }
  *     responses:
- *       200: { description: Tour detail }
- *   put:
- *     summary: Update tour
- *     tags: [Tours]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema: { $ref: '#/components/schemas/GenericInput' }
- *     responses:
- *       200: { description: Tour updated }
- *   delete:
- *     summary: Delete tour
- *     tags: [Tours]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     responses:
- *       200: { description: Tour deleted }
+ *       200:
+ *         description: Active tour detail with media, itinerary, pricing, availability and rating aggregates
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 data: { $ref: '#/components/schemas/TourDetail' }
+ *       404: { description: Active tour not found }
  *
  * /travel-destinations:
  *   get:
