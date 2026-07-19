@@ -33,11 +33,15 @@ class TravelStoryModel {
       ? `EXISTS(SELECT 1 FROM travel_story_view own_view
                  WHERE own_view.story_id = s.story_id AND own_view.viewer_id = $1)`
       : 'FALSE';
+    const countValues = isCustomer ? [viewerId] : [];
+    const paginationPlaceholders = isCustomer
+      ? { limit: '$2', offset: '$3', values: [viewerId, limit, offset] }
+      : { limit: '$1', offset: '$2', values: [limit, offset] };
     const count = await db.query(
       `SELECT COUNT(*)::int AS total FROM travel_story s
        WHERE s.status = 'active' AND s.deleted_at IS NULL AND s.expires_at > CURRENT_TIMESTAMP
        ${blockClause}`,
-      [viewerId]
+      countValues
     );
     const result = await db.query(
       `SELECT ${storySelect},
@@ -47,8 +51,8 @@ class TravelStoryModel {
        WHERE s.status = 'active' AND s.deleted_at IS NULL AND s.expires_at > CURRENT_TIMESTAMP
        ${blockClause}
        ORDER BY s.created_at DESC
-       LIMIT $2 OFFSET $3`,
-      [viewerId, limit, offset]
+       LIMIT ${paginationPlaceholders.limit} OFFSET ${paginationPlaceholders.offset}`,
+      paginationPlaceholders.values
     );
     const total = count.rows[0].total;
     return { items: result.rows, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
@@ -98,7 +102,7 @@ class TravelStoryModel {
        WHERE s.story_id = $1 AND s.status = 'active' AND s.deleted_at IS NULL
          AND s.expires_at > CURRENT_TIMESTAMP
          ${blockClause}`,
-      [id, viewerId]
+      isCustomer ? [id, viewerId] : [id]
     );
     return result.rows[0] || null;
   }
