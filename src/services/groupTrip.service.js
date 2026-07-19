@@ -119,6 +119,26 @@ class GroupTripService {
     return groupTripModel.listPublic(query);
   }
 
+  listForAdmin(query = {}) {
+    return groupTripModel.listForAdmin(query);
+  }
+
+  async getForAdmin(groupTripId) {
+    const trip = await groupTripModel.findById(groupTripId);
+    if (!trip) throw new ApiError(httpStatus.NOT_FOUND, 'Group trip not found');
+    const itinerary = await groupTripModel.listItinerary(groupTripId);
+    return {
+      ...trip,
+      itinerary: itinerary.map((item) => this.serializeItineraryItem(item)),
+    };
+  }
+
+  async listMembersForAdmin(groupTripId, query = {}) {
+    const trip = await groupTripModel.findById(groupTripId);
+    if (!trip) throw new ApiError(httpStatus.NOT_FOUND, 'Group trip not found');
+    return groupTripModel.listMembers(groupTripId, query);
+  }
+
   async getPublic(groupTripId) {
     const trip = await groupTripModel.findPublicById(groupTripId);
     if (!trip) throw new ApiError(httpStatus.NOT_FOUND, 'Public group trip not found');

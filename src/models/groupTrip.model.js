@@ -148,6 +148,56 @@ module.exports = {
     };
   },
 
+  async listForAdmin(query = {}, executor = db) {
+    const page = Math.max(Number(query.page || 1), 1);
+    const limit = Math.min(Math.max(Number(query.limit || 20), 1), 100);
+    const offset = (page - 1) * limit;
+    const values = [];
+    const clauses = [];
+
+    if (query.search) {
+      values.push(`%${query.search}%`);
+      clauses.push(`(gt.name ILIKE $${values.length} OR gt.destination_name ILIKE $${values.length} OR td.name ILIKE $${values.length})`);
+    }
+    if (query.visibility) {
+      values.push(query.visibility);
+      clauses.push(`gt.visibility = $${values.length}`);
+    }
+    if (query.status) {
+      values.push(query.status);
+      clauses.push(`gt.status = $${values.length}`);
+    }
+
+    const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
+    const countResult = await executor.query(
+      `SELECT COUNT(*)::int AS total
+       FROM group_trip gt
+       LEFT JOIN travel_destination td ON td.destination_id = gt.destination_id
+       ${where}`,
+      values
+    );
+    const listValues = [...values, limit, offset];
+    const result = await executor.query(
+      `SELECT ${TRIP_SELECT},
+              json_build_object('user_id', leader.user_id, 'name', leader.name,
+                'email', leader.email, 'avatar_url', leader.avatar_url) AS leader,
+              (SELECT COUNT(*)::int FROM group_trip_member gtm
+               WHERE gtm.group_trip_id = gt.group_trip_id AND gtm.status = 'active') AS member_count
+       FROM group_trip gt
+       JOIN users leader ON leader.user_id = gt.leader_id
+       LEFT JOIN travel_destination td ON td.destination_id = gt.destination_id
+       ${where}
+       ORDER BY gt.updated_at DESC, gt.group_trip_id DESC
+       LIMIT $${listValues.length - 1} OFFSET $${listValues.length}`,
+      listValues
+    );
+    const total = Number(countResult.rows[0].total || 0);
+    return {
+      items: result.rows,
+      pagination: { page, limit, total, totalPages: Math.max(Math.ceil(total / limit), 1) },
+    };
+  },
+
   async updateSettings(id, payload, executor = db) {
     const fields = [
       'name', 'description', 'destination_id', 'destination_name',

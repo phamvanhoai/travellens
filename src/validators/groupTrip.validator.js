@@ -33,6 +33,14 @@ const listQuery = Joi.object({
   search: Joi.string().trim().allow(''),
 }).unknown(false);
 
+const adminListQuery = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(100).default(20),
+  search: Joi.string().trim().allow(''),
+  visibility: Joi.string().valid('public', 'private'),
+  status: Joi.string().valid('active', 'archived'),
+}).unknown(false);
+
 const inviteListQuery = Joi.object({
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(20),
@@ -128,6 +136,7 @@ module.exports = {
   groupInviteParam,
   tokenParam,
   listQuery,
+  adminListQuery,
   inviteListQuery,
   create,
   updateSettings,
