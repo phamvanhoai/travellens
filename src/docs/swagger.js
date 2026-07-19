@@ -140,7 +140,6 @@ const options = {
               description: 'Required Vietnamese mobile contact phone. Backend stores it in the first passenger special_request.',
             },
             travel_date: { type: 'string', format: 'date', example: '2026-07-15' },
-            departure_at: { type: 'string', format: 'date-time', nullable: true, description: 'Optional override. If omitted, backend combines travel_date with the start time from tour.schedule.', example: '2026-07-15T08:00:00+07:00' },
             coupon_code: { type: 'string', nullable: true, example: 'SUMMER20' },
             passengers: {
               type: 'array',

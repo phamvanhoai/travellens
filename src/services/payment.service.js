@@ -92,7 +92,7 @@ class PaymentService {
         bank_account: process.env.SEPAY_BANK_ACCOUNT || null,
         transfer_content: paymentCode,
         expire_minutes: EXPIRE_MINUTES,
-        currency: 'VND',
+        currency: booking.currency || 'VND',
       }, client);
 
       await bookingModel.updatePaymentState(booking.booking_id, 'unpaid', undefined, client);
@@ -154,7 +154,7 @@ class PaymentService {
         bank_account: null,
         transfer_content: payload.note || 'Confirmed manually by staff',
         expire_minutes: EXPIRE_MINUTES,
-        currency: 'VND',
+        currency: booking.currency || 'VND',
       }, client);
       const payment = await paymentModel.markPaid(pendingPayment.payment_id, {
         transaction_code: payload.transaction_code || `MANUAL-${paymentCode}`,

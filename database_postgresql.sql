@@ -371,6 +371,8 @@ CREATE TABLE booking (
     user_id INT NOT NULL,
     tour_id INT NOT NULL,
     coupon_id INT,
+    contact_phone VARCHAR(20),
+    currency VARCHAR(3) NOT NULL DEFAULT 'VND',
     departure_at TIMESTAMP,
     original_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (original_amount >= 0),
     discount_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (discount_amount >= 0),
@@ -381,6 +383,7 @@ CREATE TABLE booking (
     canceled_by INT,
     cancel_reason TEXT,
     date_created DATE NOT NULL DEFAULT CURRENT_DATE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_booking_user
         FOREIGN KEY (user_id)
         REFERENCES users(user_id)
@@ -1091,6 +1094,8 @@ CREATE INDEX idx_booking_tour_id ON booking(tour_id);
 CREATE INDEX idx_booking_coupon_id ON booking(coupon_id);
 CREATE INDEX idx_booking_departure_at ON booking(departure_at);
 CREATE INDEX idx_booking_tour_departure_at ON booking(tour_id, departure_at);
+CREATE INDEX idx_booking_created_at ON booking(created_at);
+CREATE INDEX idx_booking_tour_departure_status ON booking(tour_id, departure_at, status);
 CREATE INDEX idx_booking_canceled_at ON booking(canceled_at);
 CREATE INDEX idx_booking_canceled_by ON booking(canceled_by);
 CREATE INDEX idx_booking_status_history_booking_id ON booking_status_history(booking_id);

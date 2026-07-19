@@ -169,6 +169,7 @@ psql -U postgres -d travel360 -f migrations/048_expand_tour_detail.sql
 psql -U postgres -d travel360 -f migrations/049_create_tour_content_template.sql
 psql -U postgres -d travel360 -f migrations/050_replace_tour_content_templates_with_items.sql
 psql -U postgres -d travel360 -f migrations/051_harden_tour_content_items.sql
+psql -U postgres -d travel360 -f migrations/052_harden_customer_booking.sql
 ```
 
 Some migration numbers are shared by older branch work. Run every file in `migrations/` that has not already been applied to your database.

@@ -116,7 +116,7 @@ router.use(authenticate, authorize('customer'));
 router
   .route('/')
   .get(validate({ query: common.paginationQuery }), controller.customerList)
-  .post(validate({ body: entity.booking }), controller.customerCreate);
+  .post(validate({ body: entity.bookingCustomer }), controller.customerCreate);
 
 router
   .route('/:id')
