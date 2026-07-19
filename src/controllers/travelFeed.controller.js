@@ -52,6 +52,16 @@ const create = asyncHandler(async (req, res) => {
   response.success(res, result, 'Travel post created successfully', 201);
 });
 
+const update = asyncHandler(async (req, res) => {
+  const result = await travelFeedService.update(req.user.sub, req.params.postId, req.body, req.files || []);
+  response.success(res, result, 'Travel post updated successfully');
+});
+
+const remove = asyncHandler(async (req, res) => {
+  const result = await travelFeedService.remove(req.user.sub, req.params.postId);
+  response.success(res, result, 'Travel post deleted successfully');
+});
+
 const likePost = asyncHandler(async (req, res) => {
   const result = await travelFeedService.likePost(req.user.sub, req.params.postId);
   response.success(res, result, result.changed ? 'Travel post liked successfully' : 'Travel post already liked');
@@ -133,6 +143,8 @@ module.exports = {
   adminRestorePost,
   list,
   create,
+  update,
+  remove,
   likePost,
   unlikePost,
   reportPost,

@@ -292,6 +292,130 @@ router.post(
 
 /**
  * @swagger
+ * /travel-feed/{postId}:
+ *   patch:
+ *     summary: Update Post
+ *     description: Customer updates their own travel feed post. Send `keep_photo_ids` to keep existing photos and `photos` to append new images.
+ *     tags: [Travel Feed]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: postId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               content:
+ *                 type: string
+ *                 maxLength: 5000
+ *               destination_id:
+ *                 type: integer
+ *                 nullable: true
+ *               location_id:
+ *                 type: integer
+ *                 nullable: true
+ *               visibility:
+ *                 type: string
+ *                 enum: [public, private]
+ *               keep_photo_ids:
+ *                 type: array
+ *                 maxItems: 10
+ *                 items:
+ *                   type: integer
+ *               photos:
+ *                 type: array
+ *                 maxItems: 10
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               content:
+ *                 type: string
+ *                 maxLength: 5000
+ *               destination_id:
+ *                 type: integer
+ *                 nullable: true
+ *               location_id:
+ *                 type: integer
+ *                 nullable: true
+ *               visibility:
+ *                 type: string
+ *                 enum: [public, private]
+ *               keep_photo_ids:
+ *                 type: array
+ *                 maxItems: 10
+ *                 items:
+ *                   type: integer
+ *     responses:
+ *       200:
+ *         description: Travel post updated successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Customer role required or not post owner
+ *       404:
+ *         description: Travel post, destination, location, or photo not found
+ *       409:
+ *         description: Travel post cannot be updated
+ */
+router.patch(
+  '/:postId',
+  authenticate,
+  authorize('customer'),
+  handleTravelPostPhotoUpload,
+  validate(travelFeed.update),
+  controller.update
+);
+
+/**
+ * @swagger
+ * /travel-feed/{postId}:
+ *   delete:
+ *     summary: Delete Post
+ *     description: Customer soft-deletes their own travel feed post. Photos, comments, likes, and reports are kept for history, but the post no longer appears in public feed.
+ *     tags: [Travel Feed]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: postId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Travel post deleted successfully
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Customer role required or not post owner
+ *       404:
+ *         description: Travel post not found
+ *       409:
+ *         description: Travel post has already been deleted or cannot be deleted
+ */
+router.delete(
+  '/:postId',
+  authenticate,
+  authorize('customer'),
+  validate(travelFeed.postAction),
+  controller.remove
+);
+
+/**
+ * @swagger
  * /travel-feed/{postId}/like:
  *   post:
  *     summary: Like Post
