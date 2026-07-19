@@ -4,6 +4,7 @@ module.exports = {
   entity: require('./entity.validator'),
   user: require('./user.validator'),
   tour: require('./tour.validator'),
+  tourContentItem: require('./tourContentItem.validator'),
   location: require('./location.validator'),
   coupon: require('./coupon.validator'),
   payment: require('./payment.validator'),

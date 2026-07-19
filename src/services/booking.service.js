@@ -182,7 +182,7 @@ class BookingService extends BaseService {
     const prices = {
       adult: tour.price,
       child: tour.child_price,
-      infant: 0,
+      infant: tour.infant_price ?? 0,
     };
     const price = prices[ageCategory];
 
@@ -250,9 +250,10 @@ class BookingService extends BaseService {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Travel date is required');
     }
 
-    const startTime = this.extractStartTimeFromSchedule(tour.schedule);
+    const startTime = this.normalizeStartTime(tour.start_time)
+      || this.extractStartTimeFromSchedule(tour.schedule);
     if (!startTime) {
-      throw new ApiError(httpStatus.BAD_REQUEST, 'Tour schedule must include a start time like 09:00');
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Tour start_time or schedule must include a start time like 09:00');
     }
 
     return `${this.formatDateOnly(travelDate)}T${startTime}:00+07:00`;
@@ -268,6 +269,12 @@ class BookingService extends BaseService {
 
   extractStartTimeFromSchedule(schedule) {
     const match = String(schedule || '').match(/(?:^|\D)([01]?\d|2[0-3]):([0-5]\d)/);
+    if (!match) return null;
+    return `${match[1].padStart(2, '0')}:${match[2]}`;
+  }
+
+  normalizeStartTime(value) {
+    const match = String(value || '').match(/^([01]?\d|2[0-3]):([0-5]\d)/);
     if (!match) return null;
     return `${match[1].padStart(2, '0')}:${match[2]}`;
   }
