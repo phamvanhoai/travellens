@@ -3,6 +3,8 @@ const tourModel = require('../models/tour.model');
 const tourDestinationModel = require('../models/tourDestination.model');
 const tourCategoryModel = require('../models/tourCategory.model');
 const travelDestinationModel = require('../models/travelDestination.model');
+const tourContentItemModel = require('../models/tourContentItem.model');
+const tourContentItemLinkModel = require('../models/tourContentItemLink.model');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 const { removeUploadedFile } = require('../utils/uploadedFile');
@@ -17,7 +19,7 @@ class TourService extends BaseService {
     if (!item) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Tour Not Found');
     }
-    return item;
+    return this.attachContentItems(item);
   }
 
   async publicList(query = {}) {
@@ -32,10 +34,12 @@ class TourService extends BaseService {
     if (!item || item.status !== 'active') {
       throw new ApiError(httpStatus.NOT_FOUND, 'Tour Not Found');
     }
-    return item;
+    return this.attachContentItems(item);
   }
 
   async create(payload) {
+    this.normalizeAliases(payload);
+    const selectedContentItems = await this.applyContentItems(payload);
     this.validateDestinationList(payload.destinations);
 
     const client = await this.model.getClient();
@@ -44,9 +48,12 @@ class TourService extends BaseService {
       await this.ensureTourCategoryExists(payload.tour_category_id, client);
       await this.ensureDestinationsExist(payload.destinations, client);
       await this.ensureTourNameIsUnique(payload.name, null, client);
+      payload.slug = await this.resolveUniqueSlug(payload.slug || payload.name, null, client);
+      this.validateTourRules(payload);
 
       const tour = await this.model.createTour(payload, client);
       await tourDestinationModel.replaceForTour(tour.tour_id, payload.destinations, client);
+      await tourContentItemLinkModel.replaceForTour(tour.tour_id, selectedContentItems, client);
 
       await client.query('COMMIT');
       return { tour_id: tour.tour_id };
@@ -59,6 +66,9 @@ class TourService extends BaseService {
   }
 
   async update(id, payload) {
+    this.normalizeAliases(payload);
+    const replacesContentItems = payload.content_items !== undefined;
+    const selectedContentItems = await this.applyContentItems(payload);
     if (payload.destinations) {
       this.validateDestinationList(payload.destinations);
     }
@@ -84,6 +94,12 @@ class TourService extends BaseService {
         await this.ensureTourNameIsUnique(payload.name, id, client);
       }
 
+      if (payload.slug !== undefined) {
+        payload.slug = await this.resolveUniqueSlug(payload.slug, id, client);
+      }
+
+      this.validateTourRules({ ...existingTour, ...payload });
+
       if (payload.capacity !== undefined) {
         const bookedSlots = await this.model.countBookedSlots(id, client);
         if (Number(payload.capacity) < bookedSlots) {
@@ -98,6 +114,9 @@ class TourService extends BaseService {
 
       if (payload.destinations) {
         await tourDestinationModel.replaceForTour(id, payload.destinations, client);
+      }
+      if (replacesContentItems) {
+        await tourContentItemLinkModel.replaceForTour(id, selectedContentItems, client);
       }
 
       await client.query('COMMIT');
@@ -185,6 +204,130 @@ class TourService extends BaseService {
     if (existingTour) {
       throw new ApiError(httpStatus.CONFLICT, 'Duplicate Tour');
     }
+  }
+
+  slugify(value) {
+    const slug = String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/Đ/g, 'D')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 240);
+    return slug || 'tour';
+  }
+
+  async resolveUniqueSlug(value, excludeTourId, client) {
+    const base = this.slugify(value);
+    let candidate = base;
+    let suffix = 2;
+    while (await this.model.findBySlug(candidate, excludeTourId, client)) {
+      candidate = `${base.slice(0, 245)}-${suffix}`;
+      suffix += 1;
+    }
+    return candidate;
+  }
+
+  validateTourRules(tour) {
+    if (tour.maximum_booking != null && Number(tour.maximum_booking) < Number(tour.minimum_booking || 1)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'maximum_booking cannot be lower than minimum_booking');
+    }
+    if (tour.capacity != null && Number(tour.minimum_participants || 1) > Number(tour.capacity)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'minimum_participants cannot exceed capacity');
+    }
+    if (tour.capacity != null && tour.maximum_booking != null && Number(tour.maximum_booking) > Number(tour.capacity)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'maximum_booking cannot exceed capacity');
+    }
+  }
+
+  normalizeAliases(payload) {
+    if (payload.thumbnail_url !== undefined && payload.thumbnail === undefined) {
+      payload.thumbnail = payload.thumbnail_url;
+    }
+    delete payload.thumbnail_url;
+    this.normalizeOrderedCollection(payload, 'faqs', 'faq_id');
+    this.normalizeOrderedCollection(payload, 'gallery', 'media_id');
+  }
+
+  normalizeOrderedCollection(payload, field, idField) {
+    if (!Array.isArray(payload[field])) return;
+    const orderIndexes = new Set();
+    payload[field] = [...payload[field]]
+      .sort((left, right) => Number(left.order_index) - Number(right.order_index))
+      .map((item, index) => {
+        if (orderIndexes.has(item.order_index)) {
+          throw new ApiError(httpStatus.BAD_REQUEST, `${field}.order_index must be unique`);
+        }
+        orderIndexes.add(item.order_index);
+        return {
+          ...item,
+          [idField]: item[idField] || index + 1,
+        };
+      });
+  }
+
+  async applyContentItems(payload) {
+    if (!payload.content_items) return [];
+    const selections = payload.content_items;
+    delete payload.content_items;
+    if (!selections.length) return [];
+
+    const ids = selections.map((item) => item.id);
+    const items = await tourContentItemModel.findActiveByIds(ids);
+    if (items.length !== ids.length) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'One or more active tour content items were not found');
+    }
+
+    const byId = new Map(items.map((item) => [Number(item.content_item_id), item]));
+    const orderedItems = [...selections]
+      .sort((left, right) => left.sort_order - right.sort_order)
+      .map((selection) => ({ ...byId.get(Number(selection.id)), sort_order: selection.sort_order }));
+    const listFields = {
+      highlight: 'highlights',
+      requirement: 'requirements',
+      inclusion: 'inclusions',
+      exclusion: 'exclusions',
+    };
+    const scalarFields = new Set(['booking_policy', 'cancellation_policy', 'additional_information']);
+    const selectedScalars = new Set();
+    const explicitScalars = new Set([...scalarFields].filter((field) => payload[field] !== undefined));
+
+    for (const item of orderedItems) {
+      const listField = listFields[item.type];
+      if (listField) {
+        payload[listField] = this.mergeUniqueContent(payload[listField] || [], [item.content]);
+        continue;
+      }
+      if (scalarFields.has(item.type)) {
+        if (selectedScalars.has(item.type)) {
+          throw new ApiError(httpStatus.BAD_REQUEST, `Select only one ${item.type} item`);
+        }
+        selectedScalars.add(item.type);
+        if (!explicitScalars.has(item.type)) payload[item.type] = item.content;
+      }
+    }
+    return orderedItems;
+  }
+
+  mergeUniqueContent(existing, additions) {
+    const result = [];
+    const normalized = new Set();
+    for (const content of [...existing, ...additions]) {
+      const key = tourContentItemModel.normalizeContent(content);
+      if (!key || normalized.has(key)) continue;
+      normalized.add(key);
+      result.push(String(content).trim());
+    }
+    return result;
+  }
+
+  async attachContentItems(item) {
+    return {
+      ...item,
+      content_items: await tourContentItemLinkModel.findByTourId(item.tour_id),
+    };
   }
 }
 

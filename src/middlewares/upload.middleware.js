@@ -239,12 +239,17 @@ const handleSingleUpload = ({
 };
 
 const parseTourDestinations = (req) => {
-  if (typeof req.body.destinations !== 'string') return;
-
-  try {
-    req.body.destinations = JSON.parse(req.body.destinations);
-  } catch (error) {
-    throw new ApiError(httpStatus.BAD_REQUEST, 'destinations must be valid JSON');
+  const jsonFields = [
+    'destinations', 'languages', 'highlights', 'inclusions', 'exclusions',
+    'requirements', 'faqs', 'gallery', 'content_items',
+  ];
+  for (const field of jsonFields) {
+    if (typeof req.body[field] !== 'string') continue;
+    try {
+      req.body[field] = JSON.parse(req.body[field]);
+    } catch (error) {
+      throw new ApiError(httpStatus.BAD_REQUEST, `${field} must be valid JSON`);
+    }
   }
 };
 

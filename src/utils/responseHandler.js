@@ -8,11 +8,11 @@ module.exports = {
   },
 
   error(res, message = 'Error', statusCode = 500, details) {
+    const errorDetails = details?.errors ? { errors: details.errors } : { details };
     return res.status(statusCode).json({
       success: false,
       message,
-      details,
+      ...errorDetails,
     });
   },
 };
-
