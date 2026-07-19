@@ -39,6 +39,7 @@ const options = {
       { name: 'Health', description: 'API health check' },
       { name: 'Tours', description: 'Tour endpoints' },
       { name: 'Travel Destinations', description: 'Travel destination endpoints' },
+      { name: 'Travel Stories', description: 'Customer image/video stories that expire after 24 hours' },
       { name: 'Maps', description: 'Map endpoints' },
       { name: 'Bookings', description: 'Customer booking endpoints. Requires Bearer token with role customer.' },
       { name: 'Group Trips', description: 'Customer group trip membership, leader, settings, and email invitation endpoints.' },
@@ -140,7 +141,6 @@ const options = {
               description: 'Required Vietnamese mobile contact phone. Backend stores it in the first passenger special_request.',
             },
             travel_date: { type: 'string', format: 'date', example: '2026-07-15' },
-            departure_at: { type: 'string', format: 'date-time', nullable: true, description: 'Optional override. If omitted, backend combines travel_date with the start time from tour.schedule.', example: '2026-07-15T08:00:00+07:00' },
             coupon_code: { type: 'string', nullable: true, example: 'SUMMER20' },
             passengers: {
               type: 'array',

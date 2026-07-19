@@ -19,23 +19,52 @@ module.exports = {
     for (const field of ['user_id', 'tour_id', 'status', 'payment_status']) {
       if (query[field] !== undefined) {
         values.push(query[field]);
-        clauses.push(`${field} = $${values.length}`);
+        clauses.push(`b.${field} = $${values.length}`);
       }
     }
 
     const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
     const sortOrder = query.sort === 'oldest' ? 'ASC' : 'DESC';
+    const countResult = await db.query(`SELECT COUNT(*)::int AS total FROM booking b ${where}`, values);
     values.push(limit, offset);
 
     const result = await db.query(
-      `SELECT *
-       FROM booking
+      `SELECT
+         b.*,
+         b.original_amount::float AS original_amount,
+         b.discount_amount::float AS discount_amount,
+         b.final_amount::float AS final_amount,
+         json_build_object(
+           'tour_id', t.tour_id,
+           'name', t.name,
+           'thumbnail_url', t.thumbnail,
+           'start_time', t.start_time,
+           'currency', t.currency
+         ) AS tour,
+         CASE WHEN latest_payment.payment_id IS NULL THEN NULL ELSE json_build_object(
+           'payment_id', latest_payment.payment_id,
+           'status', latest_payment.status,
+           'amount', latest_payment.amount::float,
+           'currency', latest_payment.currency,
+           'expired_at', latest_payment.expired_at
+         ) END AS latest_payment
+       FROM booking b
+       INNER JOIN tour t ON t.tour_id = b.tour_id
+       LEFT JOIN LATERAL (
+         SELECT * FROM payment p
+         WHERE p.booking_id = b.booking_id AND p.deleted_at IS NULL
+         ORDER BY p.payment_id DESC LIMIT 1
+       ) latest_payment ON TRUE
        ${where}
-       ORDER BY booking_id ${sortOrder}
+       ORDER BY b.booking_id ${sortOrder}
        LIMIT $${values.length - 1} OFFSET $${values.length}`,
       values
     );
-    return result.rows;
+    const total = countResult.rows[0].total;
+    return {
+      items: result.rows,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
   },
 
   async findAllForStaffView(query = {}) {
@@ -321,14 +350,16 @@ module.exports = {
   async create(payload, executor = db) {
     const result = await executor.query(
       `INSERT INTO booking
-         (user_id, tour_id, coupon_id, departure_at, original_amount, discount_amount,
-          final_amount, status, payment_status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         (user_id, tour_id, coupon_id, contact_phone, currency, departure_at,
+          original_amount, discount_amount, final_amount, status, payment_status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
       [
         payload.user_id,
         payload.tour_id,
         payload.coupon_id,
+        payload.contact_phone,
+        payload.currency || 'VND',
         payload.departure_at,
         payload.original_amount,
         payload.discount_amount,
@@ -431,7 +462,7 @@ module.exports = {
       `SELECT b.*,
               u.name AS customer_name,
               u.email AS customer_email,
-              u.phone AS customer_phone,
+              COALESCE(b.contact_phone, u.phone) AS customer_phone,
               (
                 SELECT bd.special_request
                 FROM booking_detail bd

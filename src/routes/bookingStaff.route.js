@@ -9,7 +9,7 @@ const router = express.Router();
 router
   .route('/')
   .get(validate({ query: common.paginationQuery }), controller.staffList)
-  .post(validate({ body: entity.booking }), controller.staffCreate);
+  .post(validate({ body: entity.bookingStaff }), controller.staffCreate);
 
 router
   .route('/:id')

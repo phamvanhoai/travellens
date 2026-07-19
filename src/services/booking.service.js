@@ -25,8 +25,11 @@ class BookingService extends BaseService {
   }
 
   async listWithPassengers(query = {}) {
-    const bookings = await bookingModel.findAll(query);
-    return this.attachPassengers(bookings);
+    const result = await bookingModel.findAll(query);
+    return {
+      items: await this.attachPassengers(result.items),
+      pagination: result.pagination,
+    };
   }
 
   async create(payload) {
@@ -43,13 +46,13 @@ class BookingService extends BaseService {
       }
 
       const tour = await this.ensureBookableTourExists(payload.tour_id, client, { lock: true });
+      this.ensurePassengerCountAllowed(tour, passengers.length);
       const departureAt = this.resolveDepartureAt(payload, tour);
       this.ensureDepartureAtIsValid(departureAt);
       await this.ensureCustomerExists(payload.user_id, client);
       await this.ensureTourHasCapacity(tour, passengers.length, client, departureAt);
 
-      const passengersWithContact = this.attachContactPhoneToPassengers(passengers, payload.contact_phone);
-      const pricedPassengers = this.applyPassengerPrices(passengersWithContact, tour);
+      const pricedPassengers = this.applyPassengerPrices(passengers, tour);
       const originalAmount = this.calculateOriginalAmount(pricedPassengers);
       let couponSnapshot = {
         coupon_id: null,
@@ -75,6 +78,8 @@ class BookingService extends BaseService {
         user_id: payload.user_id,
         tour_id: payload.tour_id,
         coupon_id: couponSnapshot.coupon_id,
+        contact_phone: payload.contact_phone,
+        currency: tour.currency || 'VND',
         departure_at: departureAt,
         original_amount: originalAmount,
         discount_amount: couponSnapshot.discount_amount,
@@ -197,25 +202,6 @@ class BookingService extends BaseService {
     return passengers.reduce((total, passenger) => total + Number(passenger.price || 0), 0);
   }
 
-  attachContactPhoneToPassengers(passengers, contactPhone) {
-    if (!contactPhone || !passengers.length) {
-      return passengers;
-    }
-
-    return passengers.map((passenger, index) => {
-      if (index !== 0) return passenger;
-
-      const existingRequest = String(passenger.special_request || '').trim();
-      const contactLine = `Contact phone: ${contactPhone}`;
-      return {
-        ...passenger,
-        special_request: existingRequest
-          ? `${existingRequest}\n${contactLine}`
-          : contactLine,
-      };
-    });
-  }
-
   listForUser(userId, query = {}) {
     return this.listWithPassengers({ ...query, user_id: userId });
   }
@@ -229,6 +215,9 @@ class BookingService extends BaseService {
     }
     if (tour.status !== 'active') {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Tour is not available for booking');
+    }
+    if (String(tour.currency || 'VND').toUpperCase() !== 'VND') {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Only VND tours are currently supported for booking and SePay payment');
     }
     return tour;
   }
@@ -271,6 +260,17 @@ class BookingService extends BaseService {
     const match = String(schedule || '').match(/(?:^|\D)([01]?\d|2[0-3]):([0-5]\d)/);
     if (!match) return null;
     return `${match[1].padStart(2, '0')}:${match[2]}`;
+  }
+
+  ensurePassengerCountAllowed(tour, passengerCount) {
+    const minimum = Number(tour.minimum_booking || 1);
+    const maximum = tour.maximum_booking == null ? null : Number(tour.maximum_booking);
+    if (passengerCount < minimum) {
+      throw new ApiError(httpStatus.BAD_REQUEST, `This tour requires at least ${minimum} passengers per booking`);
+    }
+    if (maximum !== null && passengerCount > maximum) {
+      throw new ApiError(httpStatus.BAD_REQUEST, `This tour allows at most ${maximum} passengers per booking`);
+    }
   }
 
   normalizeStartTime(value) {
@@ -456,7 +456,7 @@ class BookingService extends BaseService {
             refundRequest,
           });
         });
-        await zaloBotService.notifyBookingCanceled(id, {
+        await this.notifyZaloCancellationBestEffort(id, {
           status: 'cancel_pending',
           reason: options.reason,
           refundAmount: paidPayment.amount,
@@ -495,7 +495,7 @@ class BookingService extends BaseService {
       client.release();
       clientReleased = true;
       await emailService.sendBestEffort(() => this.sendCancelNotifications({ bookingId: id }));
-      await zaloBotService.notifyBookingCanceled(id, {
+      await this.notifyZaloCancellationBestEffort(id, {
         status: 'canceled',
         reason: options.reason,
       });
@@ -579,6 +579,18 @@ class BookingService extends BaseService {
         booking,
         refundRequest,
       }));
+    }
+  }
+
+  async notifyZaloCancellationBestEffort(bookingId, payload) {
+    try {
+      return await zaloBotService.notifyBookingCanceled(bookingId, payload);
+    } catch (error) {
+      logger.error('Zalo cancellation notification failed after booking transaction committed', {
+        booking_id: bookingId,
+        error: error.message,
+      });
+      return null;
     }
   }
 }

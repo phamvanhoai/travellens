@@ -15,6 +15,27 @@ router.use(authenticate, authorize('customer'));
  *     description: Customer SePay bank-transfer payment endpoints
  *
  * /payments:
+ *   get:
+ *     summary: List current customer's payments
+ *     description: Returns only payments belonging to bookings owned by the authenticated customer.
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, minimum: 1, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+ *       - in: query
+ *         name: search
+ *         schema: { type: string }
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [pending, paid, failed, expired, refunded] }
+ *     responses:
+ *       200: { description: Customer-owned payment list with pagination }
  *   post:
  *     summary: Create SePay payment for a booking
  *     tags: [Payments]
@@ -91,6 +112,7 @@ router.use(authenticate, authorize('customer'));
  *       200:
  *         description: Latest payment status
  */
+router.get('/', validate(payment.customerList), controller.customerList);
 router.post('/', validate(payment.create), controller.create);
 router.get('/:id', validate(payment.idParam), controller.getOwned);
 router.get('/:id/status', validate(payment.idParam), controller.getOwnedStatus);

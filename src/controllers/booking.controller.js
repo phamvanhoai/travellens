@@ -7,8 +7,8 @@ module.exports = {
   ...createController(bookingService),
 
   customerList: asyncHandler(async (req, res) => {
-    const data = await bookingService.listForUser(req.user.sub, req.query);
-    response.success(res, data);
+    const result = await bookingService.listForUser(req.user.sub, req.query);
+    res.json({ success: true, message: 'Success', data: result.items, pagination: result.pagination });
   }),
 
   customerGet: asyncHandler(async (req, res) => {
