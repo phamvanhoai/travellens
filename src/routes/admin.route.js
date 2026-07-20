@@ -5,11 +5,12 @@ const statisticsController = require('../controllers/statistics.controller');
 const view360Controller = require('../controllers/view360.controller');
 const view360HotspotController = require('../controllers/view360Hotspot.controller');
 const view360ImageController = require('../controllers/view360Image.controller');
+const groupTripController = require('../controllers/groupTrip.controller');
 const {
   handleView360AudioUpload,
   handleView360ImageUpload,
 } = require('../middlewares/upload.middleware');
-const { view360, view360Hotspot, view360Image } = require('../validators');
+const { view360, view360Hotspot, view360Image, groupTrip } = require('../validators');
 
 const router = express.Router();
 
@@ -78,6 +79,46 @@ router.use(authenticate, authorize('admin'));
 router.get('/statistics/system', statisticsController.dashboard);
 router.get('/statistics/users', statisticsController.users);
 router.get('/statistics/locations', statisticsController.locations);
+
+/**
+ * @swagger
+ * /admin/group-trips:
+ *   get:
+ *     summary: Admin list all public/private and active/archived group trips
+ *     tags: [Admin Group Trips]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Paginated group trip list }
+ * /admin/group-trips/{id}:
+ *   get:
+ *     summary: Admin view any group trip
+ *     tags: [Admin Group Trips]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Group trip detail and itinerary }
+ * /admin/group-trips/{id}/members:
+ *   get:
+ *     summary: Admin view members of any group trip
+ *     tags: [Admin Group Trips]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Paginated active member list }
+ */
+router.get(
+  '/group-trips',
+  validate({ query: groupTrip.adminListQuery }),
+  groupTripController.listAdmin
+);
+router.get(
+  '/group-trips/:id',
+  validate({ params: groupTrip.idParam }),
+  groupTripController.getAdmin
+);
+router.get(
+  '/group-trips/:id/members',
+  validate({ params: groupTrip.idParam, query: groupTrip.listQuery }),
+  groupTripController.listMembersAdmin
+);
 router.get('/statistics/content', statisticsController.content);
 
 /**
