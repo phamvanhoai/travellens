@@ -13,6 +13,16 @@ module.exports = {
     response.success(res, data, 'Group trip retrieved');
   }),
 
+  updateAdmin: asyncHandler(async (req, res) => {
+    const data = await groupTripService.updateForAdmin(req.params.id, req.body);
+    response.success(res, data, 'Group trip updated');
+  }),
+
+  deleteAdmin: asyncHandler(async (req, res) => {
+    const data = await groupTripService.deleteForAdmin(req.params.id);
+    response.success(res, data, 'Group trip deleted successfully');
+  }),
+
   listMembersAdmin: asyncHandler(async (req, res) => {
     const data = await groupTripService.listMembersForAdmin(req.params.id, req.query);
     response.success(res, data, 'Group trip members retrieved');

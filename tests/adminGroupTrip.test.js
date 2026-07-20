@@ -18,6 +18,17 @@ test('admin group trip filters accept supported values and reject unsupported va
   assert.ok(groupTrip.adminListQuery.validate({ status: 'deleted' }).error);
 });
 
+test('admin group trip edit reuses the settings payload validation', () => {
+  const valid = groupTrip.updateSettings.body.validate({
+    name: 'Updated group trip',
+    visibility: 'public',
+    max_members: 12,
+  });
+  assert.equal(valid.error, undefined);
+  assert.ok(groupTrip.updateSettings.body.validate({}).error);
+  assert.ok(groupTrip.updateSettings.body.validate({ visibility: 'hidden' }).error);
+});
+
 test('admin group trip list applies visibility/status/search and keeps empty pagination usable', async () => {
   const calls = [];
   const executor = {

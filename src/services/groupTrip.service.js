@@ -133,6 +133,68 @@ class GroupTripService {
     };
   }
 
+  async updateForAdmin(groupTripId, payload) {
+    if (payload.destination_id) {
+      const destination = await travelDestinationModel.findActiveById(payload.destination_id);
+      if (!destination) throw new ApiError(httpStatus.NOT_FOUND, 'Travel destination not found');
+    }
+
+    const client = await groupTripModel.getClient();
+    try {
+      await client.query('BEGIN');
+      const trip = await groupTripModel.findForUpdate(groupTripId, client);
+      if (!trip) throw new ApiError(httpStatus.NOT_FOUND, 'Group trip not found');
+
+      const startDate = payload.start_date || trip.start_date;
+      const endDate = payload.end_date || trip.end_date;
+      if (startDate && endDate && this.toDateKey(endDate) < this.toDateKey(startDate)) {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'End date must be on or after start date');
+      }
+      if (payload.max_members) {
+        const activeMembers = await groupTripModel.countActiveMembers(groupTripId, client);
+        if (payload.max_members < activeMembers) {
+          throw new ApiError(httpStatus.CONFLICT, 'Max members cannot be lower than the active member count');
+        }
+      }
+
+      await groupTripModel.updateSettings(groupTripId, payload, client);
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+    return this.getForAdmin(groupTripId);
+  }
+
+  async deleteForAdmin(groupTripId) {
+    const client = await groupTripModel.getClient();
+    try {
+      await client.query('BEGIN');
+      const trip = await groupTripModel.findForUpdate(groupTripId, client);
+      if (!trip) throw new ApiError(httpStatus.NOT_FOUND, 'Group trip not found');
+      if (trip.status !== 'active') {
+        throw new ApiError(httpStatus.CONFLICT, 'Group trip has already been deleted');
+      }
+
+      const archived = await groupTripModel.archive(groupTripId, client);
+      const canceledInvites = await groupTripModel.cancelPendingInvites(groupTripId, client);
+      await client.query('COMMIT');
+      return {
+        group_trip_id: archived.group_trip_id,
+        status: archived.status,
+        canceled_invites_count: canceledInvites.length,
+        deleted: true,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async listMembersForAdmin(groupTripId, query = {}) {
     const trip = await groupTripModel.findById(groupTripId);
     if (!trip) throw new ApiError(httpStatus.NOT_FOUND, 'Group trip not found');
