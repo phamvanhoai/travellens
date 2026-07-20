@@ -18,17 +18,19 @@ class EmailVerificationTokenModel {
         const rawToken = this.generateRawToken();
         const tokenHash = this.hashToken(rawToken);
 
-        const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // Expires in 15 minutes
-
-        await db.query(
+        // Calculate the expiry in PostgreSQL. The schema uses TIMESTAMP WITHOUT
+        // TIME ZONE, so passing a JavaScript Date here shifts the value when the
+        // database session runs in Asia/Ho_Chi_Minh.
+        const result = await db.query(
             `INSERT INTO ${this.table} (user_id, token_hash, expires_at)
-       VALUES ($1, $2, $3)`,
-            [userId, tokenHash, expiresAt]
+       VALUES ($1, $2, CURRENT_TIMESTAMP + INTERVAL '15 minutes')
+       RETURNING expires_at`,
+            [userId]
         );
 
         return {
             rawToken,
-            expiresAt,
+            expiresAt: result.rows[0].expires_at,
         };
     }
 
