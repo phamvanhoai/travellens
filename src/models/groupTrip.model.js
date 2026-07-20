@@ -67,7 +67,8 @@ module.exports = {
       `SELECT ${TRIP_SELECT}
        FROM group_trip gt
        LEFT JOIN travel_destination td ON td.destination_id = gt.destination_id
-       WHERE gt.group_trip_id = $1`,
+       WHERE gt.group_trip_id = $1
+         AND gt.deleted_at IS NULL`,
       [id]
     );
     return result.rows[0] || null;
@@ -75,7 +76,7 @@ module.exports = {
 
   async findByBookingId(bookingId, executor = db) {
     const result = await executor.query(
-      'SELECT * FROM group_trip WHERE booking_id = $1',
+      'SELECT * FROM group_trip WHERE booking_id = $1 AND deleted_at IS NULL',
       [bookingId]
     );
     return result.rows[0] || null;
@@ -83,7 +84,7 @@ module.exports = {
 
   async findForUpdate(id, executor) {
     const result = await executor.query(
-      'SELECT * FROM group_trip WHERE group_trip_id = $1 FOR UPDATE',
+      'SELECT * FROM group_trip WHERE group_trip_id = $1 AND deleted_at IS NULL FOR UPDATE',
       [id]
     );
     return result.rows[0] || null;
@@ -103,6 +104,7 @@ module.exports = {
           AND gtm.status = 'active'
       )`,
       "gt.status = 'active'",
+      'gt.deleted_at IS NULL',
     ];
 
     if (query.search) {
@@ -153,7 +155,7 @@ module.exports = {
     const limit = Math.min(Math.max(Number(query.limit || 20), 1), 100);
     const offset = (page - 1) * limit;
     const values = [];
-    const clauses = [];
+    const clauses = ['gt.deleted_at IS NULL'];
 
     if (query.search) {
       values.push(`%${query.search}%`);
@@ -212,6 +214,7 @@ module.exports = {
       `UPDATE group_trip
        SET ${assignments.join(', ')}, updated_at = CURRENT_TIMESTAMP
        WHERE group_trip_id = $${values.length}
+         AND deleted_at IS NULL
        RETURNING *`,
       values
     );
@@ -223,7 +226,7 @@ module.exports = {
     const limit = Math.min(Math.max(Number(query.limit || 20), 1), 100);
     const offset = (page - 1) * limit;
     const values = [];
-    const clauses = ["gt.status = 'active'", "gt.visibility = 'public'"];
+    const clauses = ["gt.status = 'active'", "gt.visibility = 'public'", 'gt.deleted_at IS NULL'];
     if (query.search) {
       values.push(`%${query.search}%`);
       clauses.push(`(gt.name ILIKE $${values.length} OR gt.destination_name ILIKE $${values.length} OR td.name ILIKE $${values.length})`);
@@ -273,7 +276,8 @@ module.exports = {
        LEFT JOIN travel_destination td ON td.destination_id = gt.destination_id
        WHERE gt.group_trip_id = $1
          AND gt.status = 'active'
-         AND gt.visibility = 'public'`,
+         AND gt.visibility = 'public'
+         AND gt.deleted_at IS NULL`,
       [id]
     );
     return result.rows[0] || null;
@@ -286,7 +290,21 @@ module.exports = {
            updated_at = CURRENT_TIMESTAMP
        WHERE group_trip_id = $1
          AND status = 'active'
+         AND deleted_at IS NULL
        RETURNING *`,
+      [id]
+    );
+    return result.rows[0] || null;
+  },
+
+  async softDelete(id, executor = db) {
+    const result = await executor.query(
+      `UPDATE group_trip
+       SET deleted_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE group_trip_id = $1
+         AND deleted_at IS NULL
+       RETURNING group_trip_id, deleted_at`,
       [id]
     );
     return result.rows[0] || null;
@@ -309,7 +327,7 @@ module.exports = {
     const result = await executor.query(
       `UPDATE group_trip
        SET leader_id = $2, updated_at = CURRENT_TIMESTAMP
-       WHERE group_trip_id = $1
+       WHERE group_trip_id = $1 AND deleted_at IS NULL
        RETURNING *`,
       [id, leaderId]
     );
@@ -318,7 +336,7 @@ module.exports = {
 
   async touch(id, executor = db) {
     await executor.query(
-      'UPDATE group_trip SET updated_at = CURRENT_TIMESTAMP WHERE group_trip_id = $1',
+      'UPDATE group_trip SET updated_at = CURRENT_TIMESTAMP WHERE group_trip_id = $1 AND deleted_at IS NULL',
       [id]
     );
   },
@@ -609,7 +627,7 @@ module.exports = {
     const limit = Math.min(Math.max(Number(query.limit || 20), 1), 100);
     const offset = (page - 1) * limit;
     const values = [userId];
-    const clauses = ['gti.invited_user_id = $1'];
+    const clauses = ['gti.invited_user_id = $1', 'gt.deleted_at IS NULL'];
     if (query.status) {
       values.push(query.status);
       clauses.push(`gti.status = $${values.length}`);
@@ -658,6 +676,7 @@ module.exports = {
        FROM group_trip_invite gti
        JOIN group_trip gt ON gt.group_trip_id = gti.group_trip_id
        WHERE gti.group_trip_invite_id = $1
+         AND gt.deleted_at IS NULL
        FOR UPDATE OF gti`,
       [inviteId]
     );
@@ -694,6 +713,7 @@ module.exports = {
        FROM group_trip_invite gti
        INNER JOIN group_trip gt ON gt.group_trip_id = gti.group_trip_id
        WHERE gti.token_hash = $1
+         AND gt.deleted_at IS NULL
        FOR UPDATE OF gti`,
       [tokenHash]
     );

@@ -487,6 +487,7 @@ CREATE TABLE group_trip (
     status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived')),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
     CONSTRAINT fk_group_trip_booking
         FOREIGN KEY (booking_id)
         REFERENCES booking(booking_id)
