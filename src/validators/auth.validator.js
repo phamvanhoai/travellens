@@ -150,4 +150,9 @@ module.exports = {
       otp: Joi.string().trim().length(6).required(),
     }),
   },
+  resendVerification: {
+    body: Joi.object({
+      email: Joi.string().trim().lowercase().email().required(),
+    }),
+  },
 };

@@ -32,6 +32,16 @@ class EmailVerificationTokenModel {
         };
     }
 
+    async invalidateUnused(userId) {
+        await db.query(
+            `UPDATE ${this.table}
+       SET used_at = CURRENT_TIMESTAMP
+       WHERE user_id = $1
+         AND used_at IS NULL`,
+            [userId]
+        );
+    }
+
     async findValidToken(token) {
         const tokenHash = this.hashToken(token);
 
