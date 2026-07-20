@@ -21,17 +21,16 @@ class PasswordResetCodeModel {
     async createCode(userId) {
         const rawCode = this.generateCode();
         const codeHash = this.hashValue(rawCode);
-        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-
-        await db.query(
+        const result = await db.query(
             `INSERT INTO ${this.table} (user_id, code_hash, expires_at)
-       VALUES ($1, $2, $3)`,
-            [userId, codeHash, expiresAt]
+       VALUES ($1, $2, CURRENT_TIMESTAMP + INTERVAL '10 minutes')
+       RETURNING expires_at`,
+            [userId, codeHash]
         );
 
         return {
             rawCode,
-            expiresAt,
+            expiresAt: result.rows[0].expires_at,
         };
     }
 
