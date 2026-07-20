@@ -3,6 +3,21 @@ const response = require('../utils/responseHandler');
 const groupTripService = require('../services/groupTrip.service');
 
 module.exports = {
+  listAdmin: asyncHandler(async (req, res) => {
+    const data = await groupTripService.listForAdmin(req.query);
+    response.success(res, data, 'Group trips retrieved');
+  }),
+
+  getAdmin: asyncHandler(async (req, res) => {
+    const data = await groupTripService.getForAdmin(req.params.id);
+    response.success(res, data, 'Group trip retrieved');
+  }),
+
+  listMembersAdmin: asyncHandler(async (req, res) => {
+    const data = await groupTripService.listMembersForAdmin(req.params.id, req.query);
+    response.success(res, data, 'Group trip members retrieved');
+  }),
+
   listPublic: asyncHandler(async (req, res) => {
     const data = await groupTripService.listPublic(req.query);
     response.success(res, data, 'Public group trips retrieved');
