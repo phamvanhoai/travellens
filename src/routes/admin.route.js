@@ -167,13 +167,13 @@ router.get('/statistics/locations', statisticsController.locations);
  *       404: { description: Group trip or destination not found }
  *       409: { description: max_members is lower than the active member count }
  *   delete:
- *     summary: Admin delete (archive) any active group trip
+ *     summary: Admin soft-delete any group trip
+ *     description: Marks the group trip as deleted by setting deleted_at. Related members, invitations, itinerary items, and the linked booking remain stored.
  *     tags: [Admin Group Trips]
  *     security: [{ bearerAuth: [] }]
  *     responses:
- *       200: { description: Group trip archived and pending invitations canceled }
+ *       200: { description: Group trip marked as deleted }
  *       404: { description: Group trip not found }
- *       409: { description: Group trip was already archived }
  * /admin/group-trips/{id}/members:
  *   get:
  *     summary: Admin view members of any group trip

@@ -174,17 +174,12 @@ class GroupTripService {
       await client.query('BEGIN');
       const trip = await groupTripModel.findForUpdate(groupTripId, client);
       if (!trip) throw new ApiError(httpStatus.NOT_FOUND, 'Group trip not found');
-      if (trip.status !== 'active') {
-        throw new ApiError(httpStatus.CONFLICT, 'Group trip has already been deleted');
-      }
 
-      const archived = await groupTripModel.archive(groupTripId, client);
-      const canceledInvites = await groupTripModel.cancelPendingInvites(groupTripId, client);
+      const deleted = await groupTripModel.softDelete(groupTripId, client);
       await client.query('COMMIT');
       return {
-        group_trip_id: archived.group_trip_id,
-        status: archived.status,
-        canceled_invites_count: canceledInvites.length,
+        group_trip_id: deleted.group_trip_id,
+        deleted_at: deleted.deleted_at,
         deleted: true,
       };
     } catch (error) {
