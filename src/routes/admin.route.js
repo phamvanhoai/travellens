@@ -96,6 +96,84 @@ router.get('/statistics/locations', statisticsController.locations);
  *     security: [{ bearerAuth: [] }]
  *     responses:
  *       200: { description: Group trip detail and itinerary }
+ *   patch:
+ *     summary: Admin update any group trip
+ *     description: Updates one or more group trip settings. Omitted fields remain unchanged.
+ *     tags: [Admin Group Trips]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: Group trip ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             minProperties: 1
+ *             additionalProperties: false
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 minLength: 2
+ *                 maxLength: 150
+ *                 example: Mekong Delta Adventure
+ *               description:
+ *                 type: string
+ *                 maxLength: 5000
+ *                 nullable: true
+ *                 example: Updated itinerary for the group trip
+ *               destination_id:
+ *                 type: integer
+ *                 minimum: 1
+ *                 nullable: true
+ *                 description: Active travel destination ID; null removes the linked destination.
+ *                 example: 12
+ *               destination_name:
+ *                 type: string
+ *                 minLength: 2
+ *                 maxLength: 200
+ *                 nullable: true
+ *                 description: Custom/fallback destination name.
+ *                 example: Can Tho, Vietnam
+ *               start_date:
+ *                 type: string
+ *                 format: date
+ *                 example: 2026-08-10
+ *               end_date:
+ *                 type: string
+ *                 format: date
+ *                 description: Must be on or after start_date (including the currently stored start date).
+ *                 example: 2026-08-13
+ *               max_members:
+ *                 type: integer
+ *                 minimum: 2
+ *                 maximum: 500
+ *                 nullable: true
+ *                 description: Cannot be lower than the current active member count; null removes the limit.
+ *                 example: 20
+ *               visibility:
+ *                 type: string
+ *                 enum: [public, private]
+ *                 example: public
+ *     responses:
+ *       200: { description: Updated group trip detail and itinerary }
+ *       400: { description: Invalid payload or date range }
+ *       404: { description: Group trip or destination not found }
+ *       409: { description: max_members is lower than the active member count }
+ *   delete:
+ *     summary: Admin soft-delete any group trip
+ *     description: Marks the group trip as deleted by setting deleted_at. Related members, invitations, itinerary items, and the linked booking remain stored.
+ *     tags: [Admin Group Trips]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Group trip marked as deleted }
+ *       404: { description: Group trip not found }
  * /admin/group-trips/{id}/members:
  *   get:
  *     summary: Admin view members of any group trip
@@ -113,6 +191,16 @@ router.get(
   '/group-trips/:id',
   validate({ params: groupTrip.idParam }),
   groupTripController.getAdmin
+);
+router.patch(
+  '/group-trips/:id',
+  validate(groupTrip.updateSettings),
+  groupTripController.updateAdmin
+);
+router.delete(
+  '/group-trips/:id',
+  validate({ params: groupTrip.idParam }),
+  groupTripController.deleteAdmin
 );
 router.get(
   '/group-trips/:id/members',
