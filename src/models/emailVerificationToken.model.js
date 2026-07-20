@@ -25,7 +25,7 @@ class EmailVerificationTokenModel {
             `INSERT INTO ${this.table} (user_id, token_hash, expires_at)
        VALUES ($1, $2, CURRENT_TIMESTAMP + INTERVAL '15 minutes')
        RETURNING expires_at`,
-            [userId]
+            [userId, tokenHash]
         );
 
         return {
