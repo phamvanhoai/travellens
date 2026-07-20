@@ -93,6 +93,29 @@ class AuthService {
     return { message: 'Email verified successfully. You can now login.' };
   }
 
+  async resendVerification({ email }) {
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await userModel.findByEmail(normalizedEmail);
+
+    // Keep the response generic so this endpoint does not reveal registered emails.
+    if (!user || user.status === 'active') {
+      return { message: 'If this email needs verification, a new code has been sent.' };
+    }
+
+    await emailVerificationTokenModel.invalidateUnused(user.user_id);
+    const verification = await emailVerificationTokenModel.createToken(user.user_id);
+    await emailService.sendEmailVerification({
+      to: user.email,
+      name: user.name,
+      otp: verification.rawToken,
+    });
+
+    return {
+      message: 'A new verification code has been sent to your email.',
+      expires_at: verification.expiresAt,
+    };
+  }
+
   async login({ email, password }) {
     const user = await userModel.findByEmail(email);
     if (!user || !user.password) {

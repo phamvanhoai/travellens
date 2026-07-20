@@ -14,6 +14,11 @@ module.exports = {
     response.success(res, data, 'Email verified successfully');
   }),
 
+  resendVerification: asyncHandler(async (req, res) => {
+    const data = await authService.resendVerification(req.body);
+    response.success(res, data, 'Verification code sent');
+  }),
+
   login: asyncHandler(async (req, res) => {
     const data = await authService.login(req.body);
     response.success(res, data, 'Logged in successfully');

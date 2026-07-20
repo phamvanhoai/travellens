@@ -138,6 +138,29 @@ router.post('/verify-email', validate(auth.verifyEmail), authController.verifyEm
 
 /**
  * @swagger
+ * /auth/resend-verification:
+ *   post:
+ *     summary: Send a new email verification OTP
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Verification code sent when the account needs verification
+ */
+router.post('/resend-verification', validate(auth.resendVerification), authController.resendVerification);
+
+/**
+ * @swagger
  * /auth/login:
  *   post:
  *     summary: Login with email and password
