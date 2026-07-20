@@ -39,7 +39,15 @@ class StatisticsService extends BaseService {
       db.query('SELECT COUNT(*)::int AS total_maps FROM map'),
       db.query('SELECT COUNT(*)::int AS total_view360 FROM view360'),
       db.query('SELECT COUNT(*)::int AS total_view360_images FROM view360_image'),
-      db.query('SELECT location_id, COUNT(*)::int AS total_reviews, COALESCE(AVG(rating), 0)::numeric(3,2) AS average_rating FROM review GROUP BY location_id ORDER BY total_reviews DESC LIMIT 10'),
+      db.query(`
+        SELECT r.location_id, l.name AS location_name, COUNT(*)::int AS total_reviews, COALESCE(AVG(r.rating), 0)::numeric(3,2) AS average_rating 
+        FROM review r 
+        JOIN location l ON r.location_id = l.location_id 
+        WHERE r.location_id IS NOT NULL AND r.deleted_at IS NULL 
+        GROUP BY r.location_id, l.name 
+        ORDER BY total_reviews DESC 
+        LIMIT 10
+      `),
     ]);
 
     return {
