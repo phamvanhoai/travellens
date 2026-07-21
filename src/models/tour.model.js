@@ -55,7 +55,9 @@ class TourModel extends BaseModel {
 
     if (query.search) {
       values.push(`%${query.search}%`);
-      clauses.push(`t.name ILIKE $${values.length}`);
+      const vietnameseChars = 'áàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđ';
+      const asciiChars = 'aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyyd';
+      clauses.push(`translate(lower(t.name), '${vietnameseChars}', '${asciiChars}') LIKE translate(lower($${values.length}), '${vietnameseChars}', '${asciiChars}')`);
     }
 
     if (query.tour_category_id) {
@@ -71,6 +73,47 @@ class TourModel extends BaseModel {
         WHERE td_filter.tour_id = t.tour_id
           AND td_filter.destination_id = $${values.length}
       )`);
+    }
+
+    if (query.min_price !== undefined) {
+      values.push(query.min_price);
+      clauses.push(`t.price >= $${values.length}`);
+    }
+
+    if (query.max_price !== undefined) {
+      values.push(query.max_price);
+      clauses.push(`t.price <= $${values.length}`);
+    }
+
+    if (query.tour_type) {
+      values.push(query.tour_type);
+      clauses.push(`t.tour_type = $${values.length}`);
+    }
+
+    if (query.min_duration !== undefined) {
+      values.push(query.min_duration);
+      clauses.push(`t.duration_days >= $${values.length}`);
+    }
+
+    if (query.max_duration !== undefined) {
+      values.push(query.max_duration);
+      clauses.push(`t.duration_days <= $${values.length}`);
+    }
+
+    if (query.language) {
+      values.push(JSON.stringify(query.language));
+      clauses.push(`t.languages @> $${values.length}::jsonb`);
+    }
+
+    if (query.min_rating !== undefined) {
+      values.push(query.min_rating);
+      clauses.push(`COALESCE((
+        SELECT AVG(r_filter.rating)
+        FROM review r_filter
+        WHERE r_filter.tour_id = t.tour_id
+          AND r_filter.status = 'approved'
+          AND r_filter.deleted_at IS NULL
+      ), 0) >= $${values.length}`);
     }
 
     if (query.status) {
