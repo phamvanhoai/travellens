@@ -8,6 +8,10 @@ const { httpStatus } = require('../constants');
 const { removeUploadedFiles } = require('../utils/uploadedFile');
 
 class ReviewService extends BaseService {
+  list(query = {}) {
+    return reviewModel.findForStaff(query);
+  }
+
   async publicList(query = {}) {
     return reviewModel.findApproved(query);
   }
