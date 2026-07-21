@@ -86,6 +86,7 @@ const tourData = [
 ];
 
 async function one(client, sql, params = []) {
+  sql = sql.replace('($7+2)', '($7::int+2)');
   // Blog inserts receive the generated slug between content and thumbnail.
   if (sql.includes('INSERT INTO blog(') && params.length === 5) {
     const slug = params[1].normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()

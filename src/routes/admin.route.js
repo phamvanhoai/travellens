@@ -976,6 +976,8 @@ router
   .get(validate(view360.locationParam), view360Controller.listByLocation)
   .post(handleView360AudioUpload, validate(view360.create), view360Controller.createForLocation);
 
+router.get('/view360', validate(view360.list), view360Controller.listAdmin);
+
 router
   .route('/view360/:viewId')
   .put(handleView360AudioUpload, validate(view360.update), view360Controller.update)

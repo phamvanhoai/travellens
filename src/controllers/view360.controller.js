@@ -7,6 +7,11 @@ const { httpStatus } = require('../constants');
 module.exports = {
   ...createController(view360Service),
 
+  listAdmin: asyncHandler(async (req, res) => {
+    const result = await view360Service.listAdmin(req.query);
+    res.json({ success: true, message: 'View360 scenes retrieved successfully', data: result.items, pagination: result.pagination });
+  }),
+
   listByLocation: asyncHandler(async (req, res) => {
     const data = await view360Service.listByLocation(req.params.locationId);
     response.success(res, data);
