@@ -47,7 +47,25 @@ module.exports = {
            'amount', latest_payment.amount::float,
            'currency', latest_payment.currency,
            'expired_at', latest_payment.expired_at
-         ) END AS latest_payment
+         ) END AS latest_payment,
+         (
+           SELECT json_build_object(
+             'review_id', r.review_id,
+             'booking_id', r.booking_id,
+             'tour_id', r.tour_id,
+             'user_id', r.user_id,
+             'rating', r.rating,
+             'comment', r.comment,
+             'status', r.status,
+             'created_at', r.created_at,
+             'updated_at', r.updated_at
+           )
+           FROM review r
+           WHERE r.booking_id = b.booking_id
+             AND r.deleted_at IS NULL
+           ORDER BY r.review_id DESC
+           LIMIT 1
+         ) AS review
        FROM booking b
        INNER JOIN tour t ON t.tour_id = b.tour_id
        LEFT JOIN LATERAL (
@@ -279,7 +297,28 @@ module.exports = {
 
   async findOwnedById(id, userId, executor = db) {
     const result = await executor.query(
-      'SELECT * FROM booking WHERE booking_id = $1 AND user_id = $2',
+      `SELECT
+         b.*,
+         (
+           SELECT json_build_object(
+             'review_id', r.review_id,
+             'booking_id', r.booking_id,
+             'tour_id', r.tour_id,
+             'user_id', r.user_id,
+             'rating', r.rating,
+             'comment', r.comment,
+             'status', r.status,
+             'created_at', r.created_at,
+             'updated_at', r.updated_at
+           )
+           FROM review r
+           WHERE r.booking_id = b.booking_id
+             AND r.deleted_at IS NULL
+           ORDER BY r.review_id DESC
+           LIMIT 1
+         ) AS review
+       FROM booking b
+       WHERE b.booking_id = $1 AND b.user_id = $2`,
       [id, userId]
     );
     return result.rows[0] || null;
