@@ -16,6 +16,15 @@ const audioFile = Joi.string().trim().custom((value, helpers) => {
 }).allow(null, '');
 
 module.exports = {
+  list: {
+    query: Joi.object({
+      page: Joi.number().integer().min(1).default(1),
+      limit: Joi.number().integer().min(1).max(100).default(10),
+      location_id: id,
+      search: Joi.string().trim().max(255).allow(''),
+    }),
+  },
+
   locationParam: {
     params: Joi.object({
       locationId: id.required(),

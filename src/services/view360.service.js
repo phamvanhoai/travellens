@@ -6,6 +6,10 @@ const { httpStatus } = require('../constants');
 const { removeUploadedFile, removeUploadedFiles } = require('../utils/uploadedFile');
 
 class View360Service extends BaseService {
+  listAdmin(query = {}) {
+    return view360Model.findAdminPage(query);
+  }
+
   list(query = {}) {
     return view360Model.findAll(query);
   }
