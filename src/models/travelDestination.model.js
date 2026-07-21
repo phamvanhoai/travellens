@@ -6,7 +6,13 @@ const buildListWhere = (query = {}) => {
 
   if (query.search) {
     values.push(`%${query.search}%`);
-    clauses.push(`(td.name ILIKE $${values.length} OR td.description ILIKE $${values.length})`);
+    const vietnameseChars = 'áàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđ';
+    const asciiChars = 'aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyyd';
+    const normalizedQuery = `translate(lower($${values.length}), '${vietnameseChars}', '${asciiChars}')`;
+    clauses.push(`(
+      translate(lower(td.name), '${vietnameseChars}', '${asciiChars}') LIKE ${normalizedQuery}
+      OR translate(lower(COALESCE(td.description, '')), '${vietnameseChars}', '${asciiChars}') LIKE ${normalizedQuery}
+    )`);
   }
 
   if (query.destination_category_id) {
