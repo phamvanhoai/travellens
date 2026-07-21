@@ -2,6 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { entity } = require('../src/validators');
 const bookingService = require('../src/services/booking.service');
+const bookingModel = require('../src/models/booking.model');
+const db = require('../src/config/db');
 const couponService = require('../src/services/coupon.service');
 const couponModel = require('../src/models/coupon.model');
 
@@ -50,6 +52,24 @@ test('booking enforces per-booking minimum and maximum passenger limits', () => 
 test('customer cancellation reason is optional', () => {
   assert.equal(entity.bookingCancel.validate({}).error, undefined);
   assert.equal(entity.bookingCancel.validate({ reason: 'Changed plan' }).error, undefined);
+});
+
+test('customer booking list includes the active tour review for each booking', async () => {
+  const originalQuery = db.query;
+  const statements = [];
+  db.query = async (sql) => {
+    statements.push(sql);
+    return statements.length === 1 ? { rows: [{ total: 0 }] } : { rows: [] };
+  };
+  try {
+    await bookingModel.findAll({ user_id: 58 });
+    assert.match(statements[1], /FROM review r/);
+    assert.match(statements[1], /r\.booking_id = b\.booking_id/);
+    assert.match(statements[1], /AS review/);
+    assert.match(statements[1], /r\.deleted_at IS NULL/);
+  } finally {
+    db.query = originalQuery;
+  }
 });
 
 test('coupon booking reservation prevents concurrent over-allocation', async () => {
