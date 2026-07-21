@@ -24,6 +24,38 @@ const buildListWhere = (query = {}) => {
 };
 
 module.exports = {
+  async findAdminPage(query = {}) {
+    const page = Math.max(Number(query.page || 1), 1);
+    const limit = Math.min(Math.max(Number(query.limit || 10), 1), 100);
+    const offset = (page - 1) * limit;
+    const values = [];
+    const clauses = ['v.deleted_at IS NULL'];
+
+    if (query.location_id) {
+      values.push(Number(query.location_id));
+      clauses.push(`v.location_id = $${values.length}`);
+    }
+    if (query.search) {
+      values.push(`%${String(query.search).trim()}%`);
+      clauses.push(`(v.title ILIKE $${values.length} OR v.description ILIKE $${values.length} OR l.name ILIKE $${values.length})`);
+    }
+
+    const where = `WHERE ${clauses.join(' AND ')}`;
+    const countResult = await db.query(`SELECT COUNT(*)::int AS total FROM view360 v JOIN location l ON l.location_id=v.location_id ${where}`, values);
+    const total = countResult.rows[0].total;
+    const listValues = [...values, limit, offset];
+    const result = await db.query(
+      `SELECT v.*, l.name AS location_name,
+              COALESCE((SELECT COUNT(*)::int FROM view360_image vi WHERE vi.view_id=v.view_id AND vi.deleted_at IS NULL),0) AS image_count
+       FROM view360 v JOIN location l ON l.location_id=v.location_id
+       ${where}
+       ORDER BY v.order_index ASC NULLS LAST, v.view_id ASC
+       LIMIT $${listValues.length - 1} OFFSET $${listValues.length}`,
+      listValues
+    );
+    return { items: result.rows, pagination: { page, limit, total, totalPages: Math.max(Math.ceil(total / limit), 1) } };
+  },
+
   async findAll(query = {}) {
     const page = Math.max(Number(query.page || 1), 1);
     const limit = Math.min(Math.max(Number(query.limit || 20), 1), 100);

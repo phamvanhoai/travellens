@@ -15,6 +15,14 @@ const imageFile = Joi.string().trim().custom((value, helpers) => {
 });
 
 module.exports = {
+  list: {
+    query: Joi.object({
+      page: Joi.number().integer().min(1).default(1),
+      limit: Joi.number().integer().min(1).max(100).default(20),
+      view_id: Joi.number().integer().positive(),
+    }),
+  },
+
   viewParam: {
     params: Joi.object({
       viewId: id.required(),
