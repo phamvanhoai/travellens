@@ -8,6 +8,14 @@ const objectStorage = require('../src/services/objectStorage.service');
 const replacements = [
   { viewId: 49, fileName: 'ninh-kieu-park-360-v2.png' },
   { viewId: 50, fileName: 'ninh-kieu-footbridge-360-v2.png' },
+  { viewId: 51, fileName: 'view-51-cai-rang-floating-market-dock.png' },
+  { viewId: 52, fileName: 'view-52-cai-rang-food-boats.png' },
+  { viewId: 53, fileName: 'view-53-binh-thuy-main-house.png' },
+  { viewId: 54, fileName: 'view-54-binh-thuy-orchid-garden.png' },
+  { viewId: 55, fileName: 'view-55-truc-lam-phuong-nam-main-hall.png' },
+  { viewId: 56, fileName: 'view-56-truc-lam-phuong-nam-zen-garden.png' },
+  { viewId: 57, fileName: 'view-57-con-son-fruit-garden.png' },
+  { viewId: 58, fileName: 'view-58-con-son-folk-cake-area.png' },
 ];
 
 async function run() {
@@ -16,7 +24,13 @@ async function run() {
   const results = [];
 
   try {
-    for (const replacement of replacements) {
+    const requestedIds = new Set(process.argv.slice(2).map(Number).filter(Number.isInteger));
+    const selected = requestedIds.size
+      ? replacements.filter(({ viewId }) => requestedIds.has(viewId))
+      : replacements;
+    if (!selected.length) throw new Error('No matching View360 replacements');
+
+    for (const replacement of selected) {
       const localFile = path.resolve(__dirname, '..', '..', 'travellens-fe', 'public', 'view360-generated', replacement.fileName);
       const buffer = await fs.readFile(localFile);
       const upload = await objectStorage.uploadFile({
