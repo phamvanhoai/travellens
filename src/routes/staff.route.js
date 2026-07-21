@@ -2,11 +2,14 @@ const express = require('express');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
 const validate = require('../middlewares/validate.middleware');
 const userController = require('../controllers/user.controller');
+const statisticsController = require('../controllers/statistics.controller');
 const { user } = require('../validators');
 
 const router = express.Router();
 
 router.use(authenticate, authorize('staff', 'admin'));
+
+router.get('/dashboard', statisticsController.dashboard);
 
 /**
  * @swagger

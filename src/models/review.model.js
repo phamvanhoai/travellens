@@ -188,6 +188,46 @@ class ReviewModel extends BaseModel {
     return result.rows[0] || null;
   }
 
+  async findForStaff(query = {}) {
+    const limit = Math.min(Math.max(Number(query.limit || 100), 1), 100);
+    const page = Math.max(Number(query.page || 1), 1);
+    const offset = (page - 1) * limit;
+    const values = [];
+    const clauses = ['r.deleted_at IS NULL'];
+
+    if (query.status) {
+      values.push(query.status);
+      clauses.push(`r.status = $${values.length}`);
+    }
+    if (query.rating) {
+      values.push(Number(query.rating));
+      clauses.push(`r.rating = $${values.length}`);
+    }
+    if (query.search) {
+      values.push(`%${query.search}%`);
+      clauses.push(`(r.comment ILIKE $${values.length} OR u.name ILIKE $${values.length} OR u.email ILIKE $${values.length} OR l.name ILIKE $${values.length} OR t.name ILIKE $${values.length})`);
+    }
+
+    values.push(limit, offset);
+    const result = await db.query(
+      `SELECT r.*,
+              u.name AS user_name,
+              u.email AS user_email,
+              u.avatar_url AS user_avatar_url,
+              l.name AS location_name,
+              t.name AS tour_name
+       FROM review r
+       LEFT JOIN users u ON u.user_id = r.user_id
+       LEFT JOIN location l ON l.location_id = r.location_id
+       LEFT JOIN tour t ON t.tour_id = r.tour_id
+       WHERE ${clauses.join(' AND ')}
+       ORDER BY r.review_id DESC
+       LIMIT $${values.length - 1} OFFSET $${values.length}`,
+      values
+    );
+    return result.rows;
+  }
+
   async findActiveOwner(id) {
     const result = await db.query(
       `SELECT review_id, user_id

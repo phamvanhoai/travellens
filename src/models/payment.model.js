@@ -111,6 +111,10 @@ module.exports = {
     const where = buildListWhere(query);
     const values = [...where.values, limit, offset];
 
+    const countResult = await db.query(
+      `SELECT COUNT(*)::int AS total FROM payment p ${where.text}`,
+      where.values
+    );
     const result = await db.query(
       `SELECT ${paymentColumns}
        FROM payment p
@@ -119,7 +123,11 @@ module.exports = {
        LIMIT $${values.length - 1} OFFSET $${values.length}`,
       values
     );
-    return result.rows;
+    const total = countResult.rows[0].total;
+    return {
+      items: result.rows,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
   },
 
   async findById(id) {
