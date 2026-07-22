@@ -68,6 +68,7 @@ module.exports = {
 
   customerCancel: asyncHandler(async (req, res) => {
     const data = await bookingService.cancelForUser(req.params.id, req.user.sub, req.body);
-    response.success(res, data, 'Booking canceled');
+    const message = data.status === 'cancel_pending' ? 'Booking cancellation requested' : 'Booking canceled';
+    response.success(res, data, message);
   }),
 };

@@ -20,7 +20,8 @@
     "migrate:cancel-booking": "node scripts/run-cancel-booking-migrations.js",
     "migrate:tour-child-price": "node scripts/run-tour-child-price-migration.js",
     "migrate:manual-payment": "node scripts/run-manual-payment-migration.js",
-    "migrate:blog-publishing": "node scripts/run-blog-publishing-migration.js"
+    "migrate:blog-publishing": "node scripts/run-blog-publishing-migration.js",
+    "migrate:tour-departure": "node scripts/run-tour-departure-migration.js"
   },
   "keywords": [
     "travel",

@@ -33,6 +33,7 @@ const passengerSchema = Joi.object({
 });
 const bookingFields = {
   tour_id: id.required(),
+  tour_departure_id: id,
   contact_phone: Joi.string().trim().pattern(vietnamPhonePattern).required().messages({
     'string.base': 'contact_phone must be a string',
     'string.empty': 'contact_phone is required',
@@ -47,6 +48,8 @@ const bookingFields = {
   final_amount: Joi.forbidden().messages({ 'any.unknown': 'final_amount is calculated by server' }),
   status: Joi.forbidden().messages({ 'any.unknown': 'status is managed by server' }),
   payment_status: Joi.forbidden().messages({ 'any.unknown': 'payment_status is managed by server' }),
+  request_id: Joi.string().uuid(),
+  policy_accepted: Joi.boolean().valid(true),
   passengers: Joi.array().items(passengerSchema).min(1).required(),
 };
 
@@ -109,15 +112,22 @@ module.exports = {
   view360Image: Joi.object({ view_id: id.required(), image_file: Joi.string().required(), order_index: Joi.number().integer().min(0).allow(null) }),
   bookingCustomer: Joi.object({
     ...bookingFields,
+    request_id: Joi.string().uuid().required(),
+    policy_accepted: Joi.boolean().valid(true).required(),
     user_id: Joi.forbidden(),
     departure_at: Joi.forbidden().messages({ 'any.unknown': 'Customer must use travel_date; departure_at is calculated by server' }),
-    travel_date: Joi.date().required(),
+    travel_date: Joi.forbidden().messages({ 'any.unknown': 'Customer must choose a tour_departure_id' }),
+    tour_departure_id: id.required(),
   }),
   bookingStaff: Joi.object({
     ...bookingFields,
     user_id: id.required(),
-    departure_at: Joi.date(),
-  }).or('travel_date', 'departure_at'),
+    tour_departure_id: id.required(),
+    request_id: Joi.string().uuid().required(),
+    policy_accepted: Joi.boolean().valid(true).required(),
+    travel_date: Joi.forbidden(),
+    departure_at: Joi.forbidden(),
+  }),
   bookingCancel: Joi.object({ reason: Joi.string().trim().min(1).max(1000).allow(null, '') }).default({}),
   manualBookingConfirmation: Joi.object({
     transaction_code: Joi.string().trim().max(255),

@@ -10,8 +10,8 @@ module.exports = {
   ...baseController,
 
   publicList: asyncHandler(async (req, res) => {
-    const data = await reviewService.publicList(req.query);
-    response.success(res, data);
+    const result = await reviewService.publicList(req.query);
+    res.json({ success: true, message: 'Success', data: result.items, pagination: result.pagination });
   }),
 
   publicGet: asyncHandler(async (req, res) => {

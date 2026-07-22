@@ -389,13 +389,15 @@ module.exports = {
   async create(payload, executor = db) {
     const result = await executor.query(
       `INSERT INTO booking
-         (user_id, tour_id, coupon_id, contact_phone, currency, departure_at,
-          original_amount, discount_amount, final_amount, status, payment_status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         (user_id, tour_id, tour_departure_id, coupon_id, contact_phone, currency, departure_at,
+          original_amount, discount_amount, final_amount, status, payment_status,
+          request_id, policy_accepted_at, policy_snapshot)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
        RETURNING *`,
       [
         payload.user_id,
         payload.tour_id,
+        payload.tour_departure_id || null,
         payload.coupon_id,
         payload.contact_phone,
         payload.currency || 'VND',
@@ -405,9 +407,21 @@ module.exports = {
         payload.final_amount,
         payload.status,
         payload.payment_status,
+        payload.request_id || null,
+        payload.policy_accepted_at || null,
+        payload.policy_snapshot || null,
       ]
     );
     return result.rows[0];
+  },
+
+  async findByRequestId(userId, requestId, executor = db) {
+    if (!requestId) return null;
+    const result = await executor.query(
+      `SELECT * FROM booking WHERE user_id = $1 AND request_id = $2 LIMIT 1`,
+      [userId, requestId]
+    );
+    return result.rows[0] || null;
   },
 
   async createDetails(bookingId, passengers, executor = db) {
