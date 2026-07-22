@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
+const sharp = require('sharp');
 const ApiError = require('../utils/ApiError');
 const objectStorage = require('../services/objectStorage.service');
 const { httpStatus } = require('../constants');
@@ -197,6 +198,32 @@ const processMulterError = (error) => {
   return error;
 };
 
+const convertView360ImageToWebp = async (file) => {
+  if (!file) return;
+
+  const webpBuffer = await sharp(file.buffer || file.path)
+    .rotate()
+    .webp({ quality: 85, effort: 4, smartSubsample: true })
+    .toBuffer();
+  const originalExtension = path.extname(file.originalname || '');
+  file.originalname = `${path.basename(file.originalname || 'view360-image', originalExtension)}.webp`;
+  file.mimetype = 'image/webp';
+  file.size = webpBuffer.length;
+
+  if (file.buffer) {
+    file.buffer = webpBuffer;
+    return;
+  }
+
+  const oldPath = file.path;
+  const newFilename = `${path.basename(file.filename, path.extname(file.filename))}.webp`;
+  const newPath = path.join(path.dirname(oldPath), newFilename);
+  await fs.promises.writeFile(newPath, webpBuffer);
+  if (newPath !== oldPath) await fs.promises.unlink(oldPath);
+  file.filename = newFilename;
+  file.path = newPath;
+};
+
 const setSingleFileUrl = async ({ req, file, bodyField, folder, localPrefix, fallbackName }) => {
   if (!file) return;
 
@@ -217,6 +244,7 @@ const handleSingleUpload = ({
   localPrefix,
   fallbackName,
   afterUpload,
+  transformFile,
 }) => (req, res, next) => {
   if (isVercel && !useObjectStorage) {
     next(uploadUnavailableOnVercel());
@@ -230,6 +258,8 @@ const handleSingleUpload = ({
     }
 
     try {
+      if (transformFile) await transformFile(req.file);
+
       await setSingleFileUrl({
         req,
         file: req.file,
@@ -308,6 +338,7 @@ const handleView360ImageUpload = handleSingleUpload({
   folder: 'view360-images',
   localPrefix: '/public/view360-images',
   fallbackName: 'view360-image',
+  transformFile: convertView360ImageToWebp,
 });
 
 const handleTourThumbnailUpload = handleSingleUpload({

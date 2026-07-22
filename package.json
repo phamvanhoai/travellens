@@ -13,6 +13,8 @@
     "data:repair-images": "node scripts/repair-content-images.js",
     "seed:view360-audio": "node scripts/seed-view360-narrations.js",
     "data:ensure-view360": "node scripts/ensure-destination-view360.js",
+    "data:view360-webp": "node scripts/convert-view360-images-to-webp.js",
+    "data:cloudfly-images": "node scripts/migrate-content-images-to-cloudfly.js",
     "seed:demo:rollback": "node scripts/rollback-full-demo-system.js",
     "data:normalize": "node scripts/normalize-existing-data.js",
     "migrate:cancel-booking": "node scripts/run-cancel-booking-migrations.js",
@@ -46,6 +48,7 @@
     "openai": "^6.45.0",
     "pg": "^8.13.1",
     "sanitize-html": "^2.17.5",
+    "sharp": "^0.35.3",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "winston": "^3.17.0"
