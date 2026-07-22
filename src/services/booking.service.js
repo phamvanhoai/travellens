@@ -48,6 +48,12 @@ class BookingService extends BaseService {
       }
 
       const tour = await this.ensureBookableTourExists(payload.tour_id, client, { lock: true });
+      const existingBooking = await bookingModel.findByRequestId(payload.user_id, payload.request_id, client);
+      if (existingBooking) {
+        const replay = await this.attachPassengersToBooking(existingBooking);
+        await client.query('COMMIT');
+        return { ...replay, idempotent_replay: true };
+      }
       this.ensurePassengerCountAllowed(tour, passengers.length);
       const departureAt = this.resolveDepartureAt(payload, tour);
       this.ensureDepartureAtIsValid(departureAt);
@@ -90,6 +96,12 @@ class BookingService extends BaseService {
           ? 'confirmed'
           : (requiresManualPayment ? 'waiting_manual_confirmation' : 'pending'),
         payment_status: isFreeBooking ? 'paid' : 'unpaid',
+        request_id: payload.request_id,
+        policy_accepted_at: payload.policy_accepted ? new Date() : null,
+        policy_snapshot: payload.policy_accepted ? {
+          booking_policy: tour.booking_policy || null,
+          cancellation_policy: tour.cancellation_policy || null,
+        } : null,
       }, client);
       const details = await bookingModel.createDetails(
         booking.booking_id,
@@ -188,7 +200,7 @@ class BookingService extends BaseService {
   resolvePassengerPrice(tour, ageCategory) {
     const prices = {
       adult: tour.price,
-      child: tour.child_price,
+      child: tour.child_price ?? Number(tour.price) * 0.65,
       infant: tour.infant_price ?? 0,
     };
     const price = prices[ageCategory];

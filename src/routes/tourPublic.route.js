@@ -39,6 +39,7 @@ const router = express.Router();
  *         description: Approved review list for the tour
  */
 router.get('/', validate(tour.list), controller.publicList);
+router.get('/:id/availability', validate(tour.availability), controller.publicAvailability);
 router.get(
   '/:tourId/reviews',
   validate(review.tourReviews),

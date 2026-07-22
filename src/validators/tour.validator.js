@@ -123,6 +123,10 @@ module.exports = {
       id: id.required(),
     }),
   },
+  availability: {
+    params: Joi.object({ id: id.required() }),
+    query: Joi.object({ travel_date: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).isoDate().required() }),
+  },
   create: {
     body: Joi.object({
       ...tourBody,

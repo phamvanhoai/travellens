@@ -62,5 +62,9 @@ module.exports = {
       data,
     });
   }),
+  publicAvailability: asyncHandler(async (req, res) => {
+    const data = await tourService.publicAvailability(req.params.id, req.query.travel_date);
+    res.status(httpStatus.OK).json({ success: true, data });
+  }),
 };
 

@@ -47,6 +47,8 @@ const bookingFields = {
   final_amount: Joi.forbidden().messages({ 'any.unknown': 'final_amount is calculated by server' }),
   status: Joi.forbidden().messages({ 'any.unknown': 'status is managed by server' }),
   payment_status: Joi.forbidden().messages({ 'any.unknown': 'payment_status is managed by server' }),
+  request_id: Joi.string().uuid(),
+  policy_accepted: Joi.boolean().valid(true),
   passengers: Joi.array().items(passengerSchema).min(1).required(),
 };
 
@@ -109,6 +111,8 @@ module.exports = {
   view360Image: Joi.object({ view_id: id.required(), image_file: Joi.string().required(), order_index: Joi.number().integer().min(0).allow(null) }),
   bookingCustomer: Joi.object({
     ...bookingFields,
+    request_id: Joi.string().uuid().required(),
+    policy_accepted: Joi.boolean().valid(true).required(),
     user_id: Joi.forbidden(),
     departure_at: Joi.forbidden().messages({ 'any.unknown': 'Customer must use travel_date; departure_at is calculated by server' }),
     travel_date: Joi.date().required(),

@@ -11,6 +11,8 @@ const customerBooking = {
   tour_id: 1,
   contact_phone: '0901234567',
   travel_date: '2030-07-15',
+  request_id: '2b37f4b6-20a8-4cc7-8e6f-c26fdd4bb301',
+  policy_accepted: true,
   passengers: [{ passenger_name: 'Nguyen Van A', age_category: 'adult' }],
 };
 
@@ -33,6 +35,17 @@ test('staff booking may override departure but must provide customer user_id', (
     departure_at: '2030-07-15T08:00:00+07:00',
   });
   assert.equal(result.error, undefined);
+});
+
+test('customer booking requires an idempotency key and policy acceptance', () => {
+  assert.ok(entity.bookingCustomer.validate({ ...customerBooking, request_id: undefined }).error);
+  assert.ok(entity.bookingCustomer.validate({ ...customerBooking, policy_accepted: false }).error);
+  assert.ok(entity.bookingCustomer.validate({ ...customerBooking, policy_accepted: undefined }).error);
+});
+
+test('legacy tours without child price use the same 65 percent fallback as checkout', () => {
+  assert.equal(bookingService.resolvePassengerPrice({ price: 1000000, child_price: null }, 'child'), 650000);
+  assert.equal(bookingService.resolvePassengerPrice({ price: 1000000, child_price: 400000 }, 'child'), 400000);
 });
 
 test('booking enforces per-booking minimum and maximum passenger limits', () => {
