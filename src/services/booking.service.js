@@ -15,6 +15,7 @@ const { httpStatus } = require('../constants');
 const CUSTOMER_CANCEL_DEADLINE_HOURS = 24;
 const CUSTOMER_BOOKING_DEADLINE_HOURS = Math.max(0, Number(process.env.CUSTOMER_BOOKING_DEADLINE_HOURS || 4));
 const BANK_TRANSFER_MIN_AMOUNT = Number(process.env.BANK_TRANSFER_MIN_AMOUNT || 2000);
+const CANCELABLE_BOOKING_STATUSES = new Set(['pending', 'waiting_manual_confirmation', 'confirmed', 'paid']);
 
 class BookingService extends BaseService {
   list(query = {}) {
@@ -402,9 +403,7 @@ class BookingService extends BaseService {
       const booking = await bookingModel.findForUpdate(id, options.userId, client);
 
       if (!booking) throw new ApiError(httpStatus.NOT_FOUND, 'Booking not found');
-      if (['canceled', 'expired'].includes(booking.status)) {
-        throw new ApiError(httpStatus.BAD_REQUEST, `Booking is already ${booking.status}`);
-      }
+      this.ensureCancelableStatus(booking.status);
 
       if (options.enforceCancelDeadline) {
         this.ensureCancelableBeforeDeparture(booking.departure_at);
@@ -530,14 +529,27 @@ class BookingService extends BaseService {
     });
   }
 
-  ensureCancelableBeforeDeparture(departureAt) {
+  ensureCancelableStatus(status) {
+    const normalized = String(status || '').toLowerCase();
+    if (normalized === 'cancel_pending') {
+      throw new ApiError(httpStatus.CONFLICT, 'Booking cancellation is already pending');
+    }
+    if (!CANCELABLE_BOOKING_STATUSES.has(normalized)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, `Booking cannot be canceled while status is ${normalized || 'unknown'}`);
+    }
+  }
+
+  ensureCancelableBeforeDeparture(departureAt, now = Date.now()) {
     if (!departureAt) {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Booking departure time is not configured');
     }
 
     const departureTime = new Date(departureAt).getTime();
+    if (!Number.isFinite(departureTime)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Booking departure time is invalid');
+    }
     const deadlineAt = departureTime - CUSTOMER_CANCEL_DEADLINE_HOURS * 60 * 60 * 1000;
-    if (Date.now() > deadlineAt) {
+    if (now > deadlineAt) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
         `Booking can only be canceled at least ${CUSTOMER_CANCEL_DEADLINE_HOURS} hours before departure time`

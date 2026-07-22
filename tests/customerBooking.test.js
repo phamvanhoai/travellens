@@ -72,6 +72,27 @@ test('customer cancellation reason is optional', () => {
   assert.equal(entity.bookingCancel.validate({ reason: 'Changed plan' }).error, undefined);
 });
 
+test('booking cancellation only accepts active cancelable statuses', () => {
+  for (const status of ['pending', 'waiting_manual_confirmation', 'confirmed', 'paid']) {
+    assert.doesNotThrow(() => bookingService.ensureCancelableStatus(status));
+  }
+  for (const status of ['canceled', 'cancelled', 'expired', 'completed', 'refunded']) {
+    assert.throws(() => bookingService.ensureCancelableStatus(status), /cannot be canceled/);
+  }
+  assert.throws(() => bookingService.ensureCancelableStatus('cancel_pending'), /already pending/);
+});
+
+test('customer cancellation allows exactly 24 hours but rejects a later request', () => {
+  const departureAt = '2030-07-16T08:00:00+07:00';
+  const deadline = new Date(departureAt).getTime() - 24 * 60 * 60 * 1000;
+  assert.doesNotThrow(() => bookingService.ensureCancelableBeforeDeparture(departureAt, deadline));
+  assert.throws(
+    () => bookingService.ensureCancelableBeforeDeparture(departureAt, deadline + 1),
+    /at least 24 hours/
+  );
+  assert.throws(() => bookingService.ensureCancelableBeforeDeparture('invalid', deadline), /invalid/);
+});
+
 test('customer booking list includes the active tour review for each booking', async () => {
   const originalQuery = db.query;
   const statements = [];
