@@ -3,6 +3,7 @@ const bookingModel = require('../models/booking.model');
 const bookingStatusHistoryModel = require('../models/bookingStatusHistory.model');
 const paymentModel = require('../models/payment.model');
 const refundRequestModel = require('../models/refundRequest.model');
+const tourDepartureModel = require('../models/tourDeparture.model');
 const tourModel = require('../models/tour.model');
 const userModel = require('../models/user.model');
 const couponService = require('./coupon.service');
@@ -54,13 +55,22 @@ class BookingService extends BaseService {
         await client.query('COMMIT');
         return { ...replay, idempotent_replay: true };
       }
+      const departure = payload.tour_departure_id
+        ? await this.ensureBookableDeparture(payload.tour_departure_id, payload.tour_id, client)
+        : null;
       this.ensurePassengerCountAllowed(tour, passengers.length);
-      const departureAt = this.resolveDepartureAt(payload, tour);
-      this.ensureDepartureAtIsValid(departureAt);
+      const departureAt = departure?.departure_at ?? this.resolveDepartureAt(payload, tour);
+      if (!departure?.booking_close_at) this.ensureDepartureAtIsValid(departureAt);
       await this.ensureCustomerExists(payload.user_id, client);
-      await this.ensureTourHasCapacity(tour, passengers.length, client, departureAt);
+      if (departure) await this.ensureDepartureHasCapacity(departure, passengers.length, client);
+      else await this.ensureTourHasCapacity(tour, passengers.length, client, departureAt);
 
-      const pricedPassengers = this.applyPassengerPrices(passengers, tour);
+      const pricedPassengers = this.applyPassengerPrices(passengers, departure ? {
+        ...tour,
+        price: departure.price,
+        child_price: departure.child_price,
+        infant_price: departure.infant_price,
+      } : tour);
       const originalAmount = this.calculateOriginalAmount(pricedPassengers);
       let couponSnapshot = {
         coupon_id: null,
@@ -85,6 +95,7 @@ class BookingService extends BaseService {
       const booking = await bookingModel.create({
         user_id: payload.user_id,
         tour_id: payload.tour_id,
+        tour_departure_id: departure?.tour_departure_id,
         coupon_id: couponSnapshot.coupon_id,
         contact_phone: payload.contact_phone,
         currency: tour.currency || 'VND',
@@ -240,6 +251,38 @@ class BookingService extends BaseService {
     const customer = await userModel.findActiveCustomerById(userId, client);
     if (!customer) {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Customer does not exist or is not active');
+    }
+  }
+
+  async ensureBookableDeparture(departureId, tourId, client) {
+    const departure = await tourDepartureModel.findForUpdate(departureId, client);
+    if (!departure || Number(departure.tour_id) !== Number(tourId)) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Tour departure not found');
+    }
+    if (departure.status !== 'open') throw new ApiError(httpStatus.CONFLICT, 'Tour departure is not open for booking');
+    const now = Date.now();
+    if (departure.booking_open_at && now < new Date(departure.booking_open_at).getTime()) {
+      throw new ApiError(httpStatus.CONFLICT, 'Booking has not opened for this departure');
+    }
+    if (departure.booking_close_at && now >= new Date(departure.booking_close_at).getTime()) {
+      throw new ApiError(httpStatus.CONFLICT, 'Booking is closed for this departure');
+    }
+    if (now >= new Date(departure.departure_at).getTime()) {
+      throw new ApiError(httpStatus.CONFLICT, 'This departure has already started');
+    }
+    return departure;
+  }
+
+  async ensureDepartureHasCapacity(departure, requestedSlots, client) {
+    const bookedSlots = await tourDepartureModel.countBookedSlots(departure.tour_departure_id, client);
+    const availableSlots = Number(departure.capacity) - bookedSlots;
+    if (requestedSlots > availableSlots) {
+      throw new ApiError(httpStatus.CONFLICT, 'Not enough available slots for this departure', {
+        capacity: Number(departure.capacity),
+        booked_slots: bookedSlots,
+        available_slots: Math.max(0, availableSlots),
+        requested_slots: requestedSlots,
+      });
     }
   }
 

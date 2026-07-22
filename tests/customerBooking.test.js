@@ -10,17 +10,18 @@ const tourValidator = require('../src/validators/tour.validator');
 
 const customerBooking = {
   tour_id: 1,
+  tour_departure_id: 10,
   contact_phone: '0901234567',
-  travel_date: '2030-07-15',
   request_id: '2b37f4b6-20a8-4cc7-8e6f-c26fdd4bb301',
   policy_accepted: true,
   passengers: [{ passenger_name: 'Nguyen Van A', age_category: 'adult' }],
 };
 
-test('customer booking requires travel_date and forbids departure/status ownership fields', () => {
+test('customer booking requires a departure and forbids custom departure/status ownership fields', () => {
   assert.equal(entity.bookingCustomer.validate(customerBooking).error, undefined);
   for (const forbidden of [
     { departure_at: '2030-07-15T01:00:00Z' },
+    { travel_date: '2030-07-15' },
     { user_id: 99 },
     { status: 'confirmed' },
     { payment_status: 'paid' },
@@ -29,11 +30,10 @@ test('customer booking requires travel_date and forbids departure/status ownersh
   }
 });
 
-test('staff booking may override departure but must provide customer user_id', () => {
+test('staff booking must choose a configured departure and provide customer user_id', () => {
   const result = entity.bookingStaff.validate({
     ...customerBooking,
     user_id: 2,
-    departure_at: '2030-07-15T08:00:00+07:00',
   });
   assert.equal(result.error, undefined);
 });
