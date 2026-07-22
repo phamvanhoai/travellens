@@ -87,7 +87,13 @@ const keyFromUrl = (url) => {
   }
 };
 
-const uploadFile = async ({ file, folder, fallbackName, acl = 'public-read' }) => {
+const uploadFile = async ({
+  file,
+  folder,
+  fallbackName,
+  acl = 'public-read',
+  cacheControl = 'public, max-age=31536000, immutable',
+}) => {
   if (!isEnabled || !s3) {
     throw new Error('Object storage is not configured');
   }
@@ -100,6 +106,7 @@ const uploadFile = async ({ file, folder, fallbackName, acl = 'public-read' }) =
     Key: key,
     Body: file.buffer,
     ContentType: file.mimetype,
+    CacheControl: cacheControl,
     ACL: acl,
   }).promise();
 
