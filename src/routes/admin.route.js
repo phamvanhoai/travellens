@@ -998,6 +998,12 @@ router
   .get(validate(view360Hotspot.viewParam), view360HotspotController.listByView)
   .post(validate(view360Hotspot.create), view360HotspotController.createForView);
 
+router.get(
+  '/view360/:view360Id/navigation-targets',
+  validate(view360Hotspot.viewParam),
+  view360HotspotController.listNavigationTargets
+);
+
 router
   .route('/view360-hotspots/:hotspotId')
   .put(validate(view360Hotspot.update), view360HotspotController.update)

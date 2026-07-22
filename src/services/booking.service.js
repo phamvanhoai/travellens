@@ -13,6 +13,7 @@ const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 
 const CUSTOMER_CANCEL_DEADLINE_HOURS = 24;
+const CUSTOMER_BOOKING_DEADLINE_HOURS = Math.max(0, Number(process.env.CUSTOMER_BOOKING_DEADLINE_HOURS || 4));
 const BANK_TRANSFER_MIN_AMOUNT = Number(process.env.BANK_TRANSFER_MIN_AMOUNT || 2000);
 
 class BookingService extends BaseService {
@@ -289,7 +290,7 @@ class BookingService extends BaseService {
     return String(value).slice(0, 10);
   }
 
-  ensureDepartureAtIsValid(departureAt) {
+  ensureDepartureAtIsValid(departureAt, now = Date.now()) {
     if (!departureAt) {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Departure time is required');
     }
@@ -298,8 +299,15 @@ class BookingService extends BaseService {
     if (Number.isNaN(departureTime)) {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Departure time is invalid');
     }
-    if (departureTime <= Date.now()) {
+    if (departureTime <= now) {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Departure time must be in the future');
+    }
+    const bookingDeadline = departureTime - CUSTOMER_BOOKING_DEADLINE_HOURS * 60 * 60 * 1000;
+    if (now > bookingDeadline) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        `Booking must be created at least ${CUSTOMER_BOOKING_DEADLINE_HOURS} hours before the tour starts`
+      );
     }
   }
 
