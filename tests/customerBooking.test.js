@@ -49,6 +49,24 @@ test('booking enforces per-booking minimum and maximum passenger limits', () => 
   );
 });
 
+test('booking closes 4 hours before the configured tour start time', () => {
+  const now = new Date('2030-07-15T08:00:00+07:00').getTime();
+  assert.throws(
+    () => bookingService.ensureDepartureAtIsValid('2030-07-15T11:59:00+07:00', now),
+    /at least 4 hours before/
+  );
+  assert.throws(
+    () => bookingService.ensureDepartureAtIsValid('2030-07-15T07:00:00+07:00', now),
+    /must be in the future/
+  );
+  assert.doesNotThrow(
+    () => bookingService.ensureDepartureAtIsValid('2030-07-15T12:00:00+07:00', now)
+  );
+  assert.doesNotThrow(
+    () => bookingService.ensureDepartureAtIsValid('2030-07-15T12:01:00+07:00', now)
+  );
+});
+
 test('customer cancellation reason is optional', () => {
   assert.equal(entity.bookingCancel.validate({}).error, undefined);
   assert.equal(entity.bookingCancel.validate({ reason: 'Changed plan' }).error, undefined);

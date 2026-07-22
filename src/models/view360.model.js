@@ -98,6 +98,49 @@ module.exports = {
     return result.rows;
   },
 
+  async findNavigationTargets(viewId, executor = db) {
+    const result = await executor.query(
+      `SELECT target.*, target_location.name AS location_name
+       FROM view360 source
+       JOIN location source_location ON source_location.location_id = source.location_id
+       JOIN location target_location
+         ON target_location.destination_id = source_location.destination_id
+        AND target_location.deleted_at IS NULL
+        AND COALESCE(target_location.is_deleted, false) = false
+       JOIN view360 target
+         ON target.location_id = target_location.location_id
+        AND target.deleted_at IS NULL
+       WHERE source.view_id = $1
+         AND source.deleted_at IS NULL
+         AND target.view_id <> source.view_id
+       ORDER BY target.order_index ASC NULLS LAST, target.view_id ASC`,
+      [viewId]
+    );
+    return result.rows;
+  },
+
+  async isNavigationTargetInSameDestination(viewId, targetViewId, executor = db) {
+    const result = await executor.query(
+      `SELECT EXISTS (
+         SELECT 1
+         FROM view360 source
+         JOIN location source_location ON source_location.location_id = source.location_id
+         JOIN view360 target ON target.view_id = $2 AND target.deleted_at IS NULL
+         JOIN location target_location ON target_location.location_id = target.location_id
+         WHERE source.view_id = $1
+           AND source.deleted_at IS NULL
+           AND source.view_id <> target.view_id
+           AND source_location.deleted_at IS NULL
+           AND COALESCE(source_location.is_deleted, false) = false
+           AND target_location.deleted_at IS NULL
+           AND COALESCE(target_location.is_deleted, false) = false
+           AND source_location.destination_id = target_location.destination_id
+       ) AS allowed`,
+      [viewId, targetViewId]
+    );
+    return Boolean(result.rows[0]?.allowed);
+  },
+
   async createForLocation(locationId, payload, executor = db) {
     const result = await executor.query(
       `INSERT INTO view360
