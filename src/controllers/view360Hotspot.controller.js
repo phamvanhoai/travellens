@@ -14,6 +14,11 @@ module.exports = {
     response.success(res, data);
   }),
 
+  listNavigationTargets: asyncHandler(async (req, res) => {
+    const data = await view360HotspotService.listNavigationTargets(req.params.view360Id);
+    response.success(res, data);
+  }),
+
   createForView: asyncHandler(async (req, res) => {
     const data = await view360HotspotService.createForView(req.params.view360Id, req.body);
     response.success(res, data, 'View360 hotspot created successfully', httpStatus.CREATED);

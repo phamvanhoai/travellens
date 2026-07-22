@@ -14,19 +14,25 @@ class View360HotspotService {
     return view360HotspotModel.findByView(view360Id);
   }
 
+  async listNavigationTargets(view360Id) {
+    await this.ensureViewExists(view360Id);
+    return view360Model.findNavigationTargets(view360Id);
+  }
+
   async createForView(view360Id, payload) {
     await this.ensureViewExists(view360Id);
-    await this.ensureTargetViewExists(payload.target_view360_id);
+    await this.ensureNavigationTargetAllowed(view360Id, payload);
     return view360HotspotModel.createForView(view360Id, this.normalizePayload(payload));
   }
 
   async update(hotspotId, payload) {
     const current = await this.get(hotspotId);
-    await this.ensureTargetViewExists(payload.target_view360_id);
+    const effectivePayload = { ...current, ...payload };
+    await this.ensureNavigationTargetAllowed(current.view360_id, effectivePayload);
 
     const hotspot = await view360HotspotModel.updateActive(
       hotspotId,
-      this.normalizePayload(payload)
+      this.normalizePayload(payload, effectivePayload.type)
     );
 
     if (!hotspot) {
@@ -55,8 +61,10 @@ class View360HotspotService {
     return hotspot;
   }
 
-  normalizePayload(payload = {}) {
+  normalizePayload(payload = {}, effectiveType = payload.type) {
     const nextPayload = { ...payload };
+    if (effectiveType !== 'navigation') nextPayload.target_view360_id = null;
+    if (effectiveType !== 'link') nextPayload.target_url = null;
     if (nextPayload.title !== undefined && nextPayload.title !== null) {
       nextPayload.title = nextPayload.title.trim();
     }
@@ -77,12 +85,16 @@ class View360HotspotService {
     return view;
   }
 
-  async ensureTargetViewExists(targetView360Id) {
-    if (targetView360Id === undefined || targetView360Id === null) {
-      return null;
+  async ensureNavigationTargetAllowed(view360Id, payload) {
+    if (payload.type !== 'navigation') return null;
+    if (!payload.target_view360_id) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Target scene is required for a navigation hotspot');
     }
-
-    return this.ensureViewExists(targetView360Id);
+    const allowed = await view360Model.isNavigationTargetInSameDestination(view360Id, payload.target_view360_id);
+    if (!allowed) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Navigation target must belong to the same destination');
+    }
+    return true;
   }
 }
 
