@@ -5,6 +5,7 @@ const tourCategoryModel = require('../models/tourCategory.model');
 const travelDestinationModel = require('../models/travelDestination.model');
 const tourContentItemModel = require('../models/tourContentItem.model');
 const tourContentItemLinkModel = require('../models/tourContentItemLink.model');
+const bookingModel = require('../models/booking.model');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 const { removeUploadedFile } = require('../utils/uploadedFile');
@@ -189,6 +190,35 @@ class TourService extends BaseService {
     if (!exists) {
       throw new ApiError(httpStatus.NOT_FOUND, 'TourCategory Not Found');
     }
+  }
+
+  async publicAvailability(id, travelDate) {
+    const tour = await this.model.findRawById(id);
+    if (!tour || tour.status !== 'active') {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Tour Not Found');
+    }
+    const startTime = this.normalizeAvailabilityStartTime(tour.start_time, tour.schedule);
+    if (!startTime) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Tour start time is not configured');
+    }
+    const departureAt = `${travelDate}T${startTime}:00+07:00`;
+    const bookedSlots = await bookingModel.countBookedSlots(Number(id), departureAt);
+    const capacity = Number(tour.capacity || 0);
+    return {
+      tour_id: Number(id),
+      travel_date: travelDate,
+      departure_at: departureAt,
+      capacity,
+      booked_slots: bookedSlots,
+      available_slots: Math.max(0, capacity - bookedSlots),
+    };
+  }
+
+  normalizeAvailabilityStartTime(value, schedule) {
+    const direct = String(value || '').match(/^([01]?\d|2[0-3]):([0-5]\d)/);
+    const fallback = String(schedule || '').match(/(?:^|\D)([01]?\d|2[0-3]):([0-5]\d)/);
+    const match = direct || fallback;
+    return match ? `${match[1].padStart(2, '0')}:${match[2]}` : null;
   }
 
   async ensureDestinationsExist(destinations, client) {

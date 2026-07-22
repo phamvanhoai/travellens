@@ -153,24 +153,43 @@ class ReviewModel extends BaseModel {
       clauses.push(`r.rating = $${values.length}`);
     }
     if (query.search) {
-      values.push(`%${query.search}%`);
-      clauses.push(`r.comment ILIKE $${values.length}`);
+      values.push(`%${String(query.search).trim()}%`);
+      clauses.push(`(
+        r.comment ILIKE $${values.length}
+        OR CAST(r.review_id AS TEXT) ILIKE $${values.length}
+        OR COALESCE(l.name, '') ILIKE $${values.length}
+        OR CAST(r.status AS TEXT) ILIKE $${values.length}
+      )`);
     }
+
+    const countResult = await db.query(
+      `SELECT COUNT(*)::int AS total
+       FROM review r
+       LEFT JOIN location l ON l.location_id = r.location_id
+       WHERE ${clauses.join(' AND ')}`,
+      values
+    );
+    const total = Number(countResult.rows[0]?.total ?? 0);
 
     values.push(limit, offset);
     const result = await db.query(
       `SELECT
           r.*,
           u.name AS user_name,
-          u.avatar_url AS user_avatar_url
+          u.avatar_url AS user_avatar_url,
+          l.name AS location_name
        FROM review r
        LEFT JOIN users u ON u.user_id = r.user_id
+       LEFT JOIN location l ON l.location_id = r.location_id
        WHERE ${clauses.join(' AND ')}
        ORDER BY r.review_id DESC
        LIMIT $${values.length - 1} OFFSET $${values.length}`,
       values
     );
-    return result.rows;
+    return {
+      items: result.rows,
+      pagination: { page, limit, total, totalPages: Math.max(Math.ceil(total / limit), 1) },
+    };
   }
 
   async findApprovedById(id) {

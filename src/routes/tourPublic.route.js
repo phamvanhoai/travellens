@@ -3,6 +3,8 @@ const controller = require('../controllers/tour.controller');
 const reviewController = require('../controllers/review.controller');
 const validate = require('../middlewares/validate.middleware');
 const { review, tour } = require('../validators');
+const tourDepartureController = require('../controllers/tourDeparture.controller');
+const tourDepartureValidator = require('../validators/tourDeparture.validator');
 
 const router = express.Router();
 
@@ -39,6 +41,8 @@ const router = express.Router();
  *         description: Approved review list for the tour
  */
 router.get('/', validate(tour.list), controller.publicList);
+router.get('/:id/availability', validate(tour.availability), controller.publicAvailability);
+router.get('/:id/departures', validate(tourDepartureValidator.publicList), tourDepartureController.publicList);
 router.get(
   '/:tourId/reviews',
   validate(review.tourReviews),

@@ -6,18 +6,22 @@ const bookingModel = require('../src/models/booking.model');
 const db = require('../src/config/db');
 const couponService = require('../src/services/coupon.service');
 const couponModel = require('../src/models/coupon.model');
+const tourValidator = require('../src/validators/tour.validator');
 
 const customerBooking = {
   tour_id: 1,
+  tour_departure_id: 10,
   contact_phone: '0901234567',
-  travel_date: '2030-07-15',
+  request_id: '2b37f4b6-20a8-4cc7-8e6f-c26fdd4bb301',
+  policy_accepted: true,
   passengers: [{ passenger_name: 'Nguyen Van A', age_category: 'adult' }],
 };
 
-test('customer booking requires travel_date and forbids departure/status ownership fields', () => {
+test('customer booking requires a departure and forbids custom departure/status ownership fields', () => {
   assert.equal(entity.bookingCustomer.validate(customerBooking).error, undefined);
   for (const forbidden of [
     { departure_at: '2030-07-15T01:00:00Z' },
+    { travel_date: '2030-07-15' },
     { user_id: 99 },
     { status: 'confirmed' },
     { payment_status: 'paid' },
@@ -26,13 +30,31 @@ test('customer booking requires travel_date and forbids departure/status ownersh
   }
 });
 
-test('staff booking may override departure but must provide customer user_id', () => {
+test('staff booking must choose a configured departure and provide customer user_id', () => {
   const result = entity.bookingStaff.validate({
     ...customerBooking,
     user_id: 2,
-    departure_at: '2030-07-15T08:00:00+07:00',
   });
   assert.equal(result.error, undefined);
+});
+
+test('customer booking requires an idempotency key and policy acceptance', () => {
+  assert.ok(entity.bookingCustomer.validate({ ...customerBooking, request_id: undefined }).error);
+  assert.ok(entity.bookingCustomer.validate({ ...customerBooking, policy_accepted: false }).error);
+  assert.ok(entity.bookingCustomer.validate({ ...customerBooking, policy_accepted: undefined }).error);
+});
+
+test('legacy tours without child price use the same 65 percent fallback as checkout', () => {
+  assert.equal(bookingService.resolvePassengerPrice({ price: 1000000, child_price: null }, 'child'), 650000);
+  assert.equal(bookingService.resolvePassengerPrice({ price: 1000000, child_price: 400000 }, 'child'), 400000);
+});
+
+test('tour availability keeps a valid YYYY-MM-DD travel date unchanged', () => {
+  const valid = tourValidator.availability.query.validate({ travel_date: '2026-07-24' });
+  assert.equal(valid.error, undefined);
+  assert.equal(valid.value.travel_date, '2026-07-24');
+  assert.ok(tourValidator.availability.query.validate({ travel_date: '2026-02-30' }).error);
+  assert.ok(tourValidator.availability.query.validate({ travel_date: '2026-07-24T00:00:00.000Z' }).error);
 });
 
 test('booking enforces per-booking minimum and maximum passenger limits', () => {
@@ -70,6 +92,27 @@ test('booking closes 4 hours before the configured tour start time', () => {
 test('customer cancellation reason is optional', () => {
   assert.equal(entity.bookingCancel.validate({}).error, undefined);
   assert.equal(entity.bookingCancel.validate({ reason: 'Changed plan' }).error, undefined);
+});
+
+test('booking cancellation only accepts active cancelable statuses', () => {
+  for (const status of ['pending', 'waiting_manual_confirmation', 'confirmed', 'paid']) {
+    assert.doesNotThrow(() => bookingService.ensureCancelableStatus(status));
+  }
+  for (const status of ['canceled', 'cancelled', 'expired', 'completed', 'refunded']) {
+    assert.throws(() => bookingService.ensureCancelableStatus(status), /cannot be canceled/);
+  }
+  assert.throws(() => bookingService.ensureCancelableStatus('cancel_pending'), /already pending/);
+});
+
+test('customer cancellation allows exactly 24 hours but rejects a later request', () => {
+  const departureAt = '2030-07-16T08:00:00+07:00';
+  const deadline = new Date(departureAt).getTime() - 24 * 60 * 60 * 1000;
+  assert.doesNotThrow(() => bookingService.ensureCancelableBeforeDeparture(departureAt, deadline));
+  assert.throws(
+    () => bookingService.ensureCancelableBeforeDeparture(departureAt, deadline + 1),
+    /at least 24 hours/
+  );
+  assert.throws(() => bookingService.ensureCancelableBeforeDeparture('invalid', deadline), /invalid/);
 });
 
 test('customer booking list includes the active tour review for each booking', async () => {
