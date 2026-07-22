@@ -4,6 +4,14 @@ const id = Joi.number().integer().positive();
 const optionalText = Joi.string().allow(null, '');
 const stringList = Joi.array().items(Joi.string().trim().min(1).max(500));
 const time = Joi.string().pattern(/^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/).allow(null, '');
+const dateOnly = Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).custom((value, helpers) => {
+  const [year, month, day] = value.split('-').map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day) {
+    return helpers.message({ custom: 'travel_date must be a valid date in YYYY-MM-DD format' });
+  }
+  return value;
+});
 const faqList = Joi.array().items(Joi.object({
   faq_id: id,
   question: Joi.string().trim().max(500).required(),
@@ -125,7 +133,7 @@ module.exports = {
   },
   availability: {
     params: Joi.object({ id: id.required() }),
-    query: Joi.object({ travel_date: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).isoDate().required() }),
+    query: Joi.object({ travel_date: dateOnly.required() }),
   },
   create: {
     body: Joi.object({

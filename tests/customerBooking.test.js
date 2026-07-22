@@ -6,6 +6,7 @@ const bookingModel = require('../src/models/booking.model');
 const db = require('../src/config/db');
 const couponService = require('../src/services/coupon.service');
 const couponModel = require('../src/models/coupon.model');
+const tourValidator = require('../src/validators/tour.validator');
 
 const customerBooking = {
   tour_id: 1,
@@ -46,6 +47,14 @@ test('customer booking requires an idempotency key and policy acceptance', () =>
 test('legacy tours without child price use the same 65 percent fallback as checkout', () => {
   assert.equal(bookingService.resolvePassengerPrice({ price: 1000000, child_price: null }, 'child'), 650000);
   assert.equal(bookingService.resolvePassengerPrice({ price: 1000000, child_price: 400000 }, 'child'), 400000);
+});
+
+test('tour availability keeps a valid YYYY-MM-DD travel date unchanged', () => {
+  const valid = tourValidator.availability.query.validate({ travel_date: '2026-07-24' });
+  assert.equal(valid.error, undefined);
+  assert.equal(valid.value.travel_date, '2026-07-24');
+  assert.ok(tourValidator.availability.query.validate({ travel_date: '2026-02-30' }).error);
+  assert.ok(tourValidator.availability.query.validate({ travel_date: '2026-07-24T00:00:00.000Z' }).error);
 });
 
 test('booking enforces per-booking minimum and maximum passenger limits', () => {
