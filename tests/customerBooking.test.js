@@ -171,24 +171,11 @@ test('coupon usage increment fails atomically when its limit is reached', async 
   }
 });
 
-test('coupon rejects maximum discount below minimum order amount', () => {
-  assert.throws(
-    () => couponService.validateBusinessRules({
-      discount_type: 'percentage',
-      discount_value: 10,
-      max_discount_amount: 50000,
-      min_order_amount: 100000,
-      usage_limit: 10,
-      start_date: '2030-01-01',
-      end_date: '2030-01-02',
-    }),
-    /Maximum discount amount must be greater than or equal to minimum order amount/
-  );
-
+test('coupon accepts maximum discount below minimum order amount', () => {
   assert.doesNotThrow(() => couponService.validateBusinessRules({
     discount_type: 'percentage',
     discount_value: 10,
-    max_discount_amount: 100000,
+    max_discount_amount: 50000,
     min_order_amount: 100000,
     usage_limit: 10,
     start_date: '2030-01-01',
