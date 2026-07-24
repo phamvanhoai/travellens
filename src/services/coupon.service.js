@@ -212,17 +212,6 @@ class CouponService {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Maximum discount amount must be greater than 0 or null');
     }
 
-    if (
-      payload.max_discount_amount !== null
-      && payload.max_discount_amount !== undefined
-      && Number(payload.max_discount_amount) < Number(payload.min_order_amount || 0)
-    ) {
-      throw new ApiError(
-        httpStatus.BAD_REQUEST,
-        'Maximum discount amount must be greater than or equal to minimum order amount'
-      );
-    }
-
     if (payload.usage_limit !== undefined && payload.usage_limit !== null && Number(payload.usage_limit) <= 0) {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Usage limit must be greater than 0');
     }
