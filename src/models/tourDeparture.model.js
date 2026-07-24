@@ -6,7 +6,12 @@ module.exports = {
   async listByTour(tourId, { publicOnly = false, page, limit, search, status, dateFrom, dateTo } = {}, executor = db) {
     const conditions = ['td.tour_id = $1', 'td.deleted_at IS NULL'];
     const params = [tourId, ACTIVE_BOOKING_STATUSES];
-    if (publicOnly) conditions.push("td.status = 'open'", 'td.departure_at > CURRENT_TIMESTAMP', '(td.booking_open_at IS NULL OR td.booking_open_at <= CURRENT_TIMESTAMP)', '(td.booking_close_at IS NULL OR td.booking_close_at > CURRENT_TIMESTAMP)');
+    if (publicOnly) conditions.push(
+      "td.status = 'open'",
+      'td.departure_at > CURRENT_TIMESTAMP',
+      '(td.booking_open_at IS NULL OR td.booking_open_at <= CURRENT_TIMESTAMP)',
+      "COALESCE(td.booking_close_at, td.departure_at - INTERVAL '4 hours') > CURRENT_TIMESTAMP"
+    );
     if (!publicOnly && status) { params.push(status); conditions.push(`td.status = $${params.length}`); }
     if (!publicOnly && dateFrom) { params.push(dateFrom); conditions.push(`td.departure_at >= $${params.length}::date`); }
     if (!publicOnly && dateTo) { params.push(dateTo); conditions.push(`td.departure_at < ($${params.length}::date + INTERVAL '1 day')`); }
