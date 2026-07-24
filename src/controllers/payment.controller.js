@@ -45,12 +45,12 @@ module.exports = {
   }),
 
   refund: asyncHandler(async (req, res) => {
-    const data = await paymentService.refund(req.params.id, req.body);
+    const data = await paymentService.refund(req.params.id, req.body, req.user?.sub);
     response.success(res, data, 'Payment refunded');
   }),
 
   updateStatus: asyncHandler(async (req, res) => {
-    const data = await paymentService.updateStatus(req.params.id, req.body.status);
+    const data = await paymentService.updateStatus(req.params.id, req.body.status, req.user?.sub);
     response.success(res, data, 'Payment status updated');
   }),
 };

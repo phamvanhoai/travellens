@@ -558,7 +558,7 @@ module.exports = {
   },
 
   async update(id, payload, executor = db) {
-    const fields = ['status', 'payment_status']
+    const fields = ['status', 'payment_status', 'contact_phone']
       .filter((field) => payload[field] !== undefined);
     if (!fields.length) return this.findById(id, executor);
 

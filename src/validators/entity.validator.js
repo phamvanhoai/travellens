@@ -135,6 +135,12 @@ module.exports = {
     travel_date: Joi.forbidden(),
     departure_at: Joi.forbidden(),
   }),
+  bookingStaffUpdate: Joi.object({
+    contact_phone: Joi.string().trim().pattern(vietnamPhonePattern).required().messages({
+      'string.empty': 'contact_phone is required',
+      'string.pattern.base': 'contact_phone must be a valid Vietnamese mobile number with 10 digits, for example: 0901234567',
+    }),
+  }),
   bookingCancel: Joi.object({ reason: Joi.string().trim().min(1).max(1000).allow(null, '') }).default({}),
   manualBookingConfirmation: Joi.object({
     transaction_code: Joi.string().trim().max(255),
