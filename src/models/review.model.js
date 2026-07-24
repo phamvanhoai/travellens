@@ -167,7 +167,7 @@ class ReviewModel extends BaseModel {
        FROM review r
        LEFT JOIN location l ON l.location_id = r.location_id
        WHERE ${clauses.join(' AND ')}`,
-      values
+      [...values]
     );
     const total = Number(countResult.rows[0]?.total ?? 0);
 
@@ -207,7 +207,7 @@ class ReviewModel extends BaseModel {
     return result.rows[0] || null;
   }
 
-  async findForStaff(query = {}) {
+  async findForStaff(query = {}, executor = db) {
     const limit = Math.min(Math.max(Number(query.limit || 100), 1), 100);
     const page = Math.max(Number(query.page || 1), 1);
     const offset = (page - 1) * limit;
@@ -227,8 +227,19 @@ class ReviewModel extends BaseModel {
       clauses.push(`(r.comment ILIKE $${values.length} OR u.name ILIKE $${values.length} OR u.email ILIKE $${values.length} OR l.name ILIKE $${values.length} OR t.name ILIKE $${values.length})`);
     }
 
+    const countResult = await executor.query(
+      `SELECT COUNT(*)::int AS total
+       FROM review r
+       LEFT JOIN users u ON u.user_id = r.user_id
+       LEFT JOIN location l ON l.location_id = r.location_id
+       LEFT JOIN tour t ON t.tour_id = r.tour_id
+       WHERE ${clauses.join(' AND ')}`,
+      [...values]
+    );
+    const total = Number(countResult.rows[0]?.total || 0);
+
     values.push(limit, offset);
-    const result = await db.query(
+    const result = await executor.query(
       `SELECT r.*,
               u.name AS user_name,
               u.email AS user_email,
@@ -244,7 +255,15 @@ class ReviewModel extends BaseModel {
        LIMIT $${values.length - 1} OFFSET $${values.length}`,
       values
     );
-    return result.rows;
+    return {
+      items: result.rows,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    };
   }
 
   async findActiveOwner(id) {

@@ -633,10 +633,8 @@ router.post(
  * /travel-feed/{postId}/comments:
  *   get:
  *     summary: List Post Comments
- *     description: Customer lists published comments and replies for a published public travel post.
+ *     description: Public users can read published comments and replies for a published public travel post. Authentication is optional and applies the viewer's block filters when present.
  *     tags: [Travel Feed]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: postId
@@ -659,17 +657,12 @@ router.post(
  *     responses:
  *       200:
  *         description: Travel post comments retrieved successfully
- *       401:
- *         description: Authentication required
- *       403:
- *         description: Customer role required
  *       404:
  *         description: Travel post not found
  */
 router.get(
   '/:postId/comments',
-  authenticate,
-  authorize('customer'),
+  optionalAuthenticate,
   validate(travelFeed.listComments),
   controller.listComments
 );

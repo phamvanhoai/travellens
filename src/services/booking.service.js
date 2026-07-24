@@ -51,7 +51,7 @@ class BookingService extends BaseService {
       const tour = await this.ensureBookableTourExists(payload.tour_id, client, { lock: true });
       const existingBooking = await bookingModel.findByRequestId(payload.user_id, payload.request_id, client);
       if (existingBooking) {
-        const replay = await this.attachPassengersToBooking(existingBooking);
+        const replay = await this.attachPassengersToBooking(existingBooking, client);
         await client.query('COMMIT');
         return { ...replay, idempotent_replay: true };
       }
@@ -404,6 +404,7 @@ class BookingService extends BaseService {
       ...booking,
       payment_required: created.payment_required,
       payment_method: created.payment_method,
+      idempotent_replay: Boolean(created.idempotent_replay),
       details: booking.passengers,
     };
   }
@@ -412,9 +413,10 @@ class BookingService extends BaseService {
     return this.create({ ...payload, user_id: userId });
   }
 
-  async attachPassengers(bookings = []) {
+  async attachPassengers(bookings = [], executor) {
     const details = await bookingModel.findDetailsByBookingIds(
-      bookings.map((booking) => booking.booking_id)
+      bookings.map((booking) => booking.booking_id),
+      executor
     );
     const detailsByBookingId = new Map();
 
@@ -430,9 +432,44 @@ class BookingService extends BaseService {
     }));
   }
 
-  async attachPassengersToBooking(booking) {
-    const [bookingWithPassengers] = await this.attachPassengers([booking]);
+  async attachPassengersToBooking(booking, executor) {
+    const [bookingWithPassengers] = await this.attachPassengers([booking], executor);
     return bookingWithPassengers;
+  }
+
+  async updateForStaff(id, payload, staffId) {
+    const client = await bookingModel.getClient();
+    try {
+      await client.query('BEGIN');
+      const booking = await bookingModel.findForUpdate(id, undefined, client);
+      if (!booking) throw new ApiError(httpStatus.NOT_FOUND, 'Booking not found');
+      if (['canceled', 'completed', 'expired'].includes(booking.status)) {
+        throw new ApiError(httpStatus.CONFLICT, 'Completed, canceled, or expired bookings cannot be edited');
+      }
+
+      const updated = await bookingModel.update(id, {
+        contact_phone: payload.contact_phone,
+      }, client);
+      await this.logHistory({
+        booking,
+        action: 'booking_contact_updated',
+        toStatus: updated.status,
+        toPaymentStatus: updated.payment_status,
+        changedBy: staffId || null,
+        metadata: {
+          previous_contact_phone: booking.contact_phone || null,
+          contact_phone: updated.contact_phone,
+        },
+      }, client);
+      const result = await this.attachPassengersToBooking(updated, client);
+      await client.query('COMMIT');
+      return result;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async updateForUser(id, userId, payload) {

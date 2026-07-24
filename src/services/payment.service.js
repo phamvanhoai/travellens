@@ -213,7 +213,7 @@ class PaymentService {
     }
   }
 
-  async refund(id, payload = {}) {
+  async refund(id, payload = {}, staffId) {
     const client = await bookingModel.getClient();
     try {
       await client.query('BEGIN');
@@ -226,11 +226,16 @@ class PaymentService {
       }
 
       const payment = await paymentModel.updateStatus(id, 'refunded', payload, client);
-      await bookingModel.updatePaymentState(payment.booking_id, 'refunded', undefined, client);
+      await bookingModel.markCanceled(payment.booking_id, 'refunded', {
+        canceledBy: staffId,
+        reason: 'Payment refunded directly by staff',
+      }, client);
       await this.logBookingHistory(currentPayment, {
         action: 'payment_refunded',
+        toStatus: 'canceled',
         toPaymentStatus: 'refunded',
         reason: payload.reason,
+        changedBy: staffId,
         metadata: {
           payment_id: payment.payment_id,
           transaction_code: payload.transaction_code || null,
@@ -246,7 +251,7 @@ class PaymentService {
     }
   }
 
-  async updateStatus(id, status) {
+  async updateStatus(id, status, staffId) {
     const client = await bookingModel.getClient();
     let clientReleased = false;
     let transactionCommitted = false;
@@ -290,10 +295,15 @@ class PaymentService {
       }
       if (status === 'refunded') {
         payment = await paymentModel.updateStatus(id, status, {}, client);
-        await bookingModel.updatePaymentState(payment.booking_id, 'refunded', undefined, client);
+        await bookingModel.markCanceled(payment.booking_id, 'refunded', {
+          canceledBy: staffId,
+          reason: 'Payment refunded directly by staff',
+        }, client);
         await this.logBookingHistory(currentPayment, {
           action: 'payment_refunded',
+          toStatus: 'canceled',
           toPaymentStatus: 'refunded',
+          changedBy: staffId,
           metadata: {
             payment_id: payment.payment_id,
             source: 'staff',

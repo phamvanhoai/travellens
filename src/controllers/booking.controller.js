@@ -71,4 +71,9 @@ module.exports = {
     const message = data.status === 'cancel_pending' ? 'Booking cancellation requested' : 'Booking canceled';
     response.success(res, data, message);
   }),
+
+  staffUpdate: asyncHandler(async (req, res) => {
+    const data = await bookingService.updateForStaff(req.params.id, req.body, req.user?.sub);
+    response.success(res, data, 'Booking updated');
+  }),
 };

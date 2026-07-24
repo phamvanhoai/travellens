@@ -83,7 +83,7 @@ const updateReport = asyncHandler(async (req, res) => {
 });
 
 const listComments = asyncHandler(async (req, res) => {
-  const result = await travelFeedService.listComments(req.user.sub, req.params.postId, req.query);
+  const result = await travelFeedService.listComments(req.user?.sub, req.params.postId, req.query);
   response.success(res, result, 'Travel post comments retrieved successfully');
 });
 
