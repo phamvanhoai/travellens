@@ -9,6 +9,14 @@ const emailService = require('./email.service');
 const ApiError = require('../utils/ApiError');
 const { httpStatus } = require('../constants');
 
+const parseVietnamTransactionDate = (value) => {
+  if (!value) return new Date();
+  const text = String(value).trim();
+  const hasTimeZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(text);
+  const normalized = text.replace(' ', 'T');
+  return new Date(hasTimeZone ? normalized : `${normalized}+07:00`);
+};
+
 class SepayWebhookService {
   async process(payload, headers = {}) {
     if (!sepayService.verifyApiKey(headers)) {
@@ -102,7 +110,7 @@ class SepayWebhookService {
         return { failed: true, message: 'Transfer amount does not match payment amount' };
       }
 
-      const paidAt = payload.transactionDate ? new Date(payload.transactionDate) : new Date();
+      const paidAt = parseVietnamTransactionDate(payload.transactionDate);
       const paidPayment = await paymentModel.markPaid(payment.payment_id, {
         transaction_code: payload.referenceCode || null,
         sepay_transaction_id: sepayTransactionId,
