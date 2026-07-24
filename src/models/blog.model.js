@@ -189,12 +189,23 @@ class BlogModel extends BaseModel {
   }
 
   async createBlog(payload, executor = db) {
+    const publishedAtValue = payload.publish_now ? 'CURRENT_TIMESTAMP' : '$7';
+    const values = [
+      payload.user_id,
+      payload.title,
+      payload.slug,
+      payload.thumbnail,
+      payload.content,
+      payload.status,
+    ];
+    if (!payload.publish_now) {
+      values.push(payload.published_at);
+    }
     const result = await executor.query(
       `INSERT INTO blog (user_id, title, slug, thumbnail, content, status, published_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       VALUES ($1, $2, $3, $4, $5, $6, ${publishedAtValue})
        RETURNING *`,
-      [payload.user_id, payload.title, payload.slug, payload.thumbnail, payload.content,
-        payload.status, payload.published_at]
+      values
     );
     return result.rows[0];
   }
@@ -202,9 +213,18 @@ class BlogModel extends BaseModel {
   async updateBlog(id, payload, executor = db) {
     const fields = ['title', 'slug', 'thumbnail', 'content', 'status', 'published_at']
       .filter((field) => payload[field] !== undefined);
+    if (payload.publish_now && !fields.includes('published_at')) {
+      fields.push('published_at');
+    }
     if (!fields.length) return this.findForUpdate(id, executor);
-    const values = fields.map((field) => payload[field]);
-    const assignments = fields.map((field, index) => `${field} = $${index + 1}`);
+    const values = [];
+    const assignments = fields.map((field) => {
+      if (field === 'published_at' && payload.publish_now) {
+        return 'published_at = CURRENT_TIMESTAMP';
+      }
+      values.push(payload[field]);
+      return `${field} = $${values.length}`;
+    });
     values.push(id);
     const result = await executor.query(
       `UPDATE blog
