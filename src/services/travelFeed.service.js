@@ -679,7 +679,9 @@ class TravelFeedService {
       throw new ApiError(httpStatus.NOT_FOUND, 'Travel post not found');
     }
 
-    await assertCanInteractWithUser(userId, post.user_id);
+    if (userId) {
+      await assertCanInteractWithUser(userId, post.user_id);
+    }
 
     const result = await travelPostModel.listComments(postId, query, userId);
 

@@ -13,7 +13,15 @@ router
 
 router
   .route('/:id')
-  .get(validate({ params: common.idParam }), controller.staffGet);
+  .get(validate({ params: common.idParam }), controller.staffGet)
+  .put(
+    validate({
+      params: common.idParam,
+      body: entity.bookingStaffUpdate,
+      options: { stripUnknown: false },
+    }),
+    controller.staffUpdate
+  );
 
 router.get('/:id/history', validate({ params: common.idParam }), controller.history);
 

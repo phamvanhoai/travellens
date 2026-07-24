@@ -50,7 +50,8 @@ class BlogService extends BaseService {
         thumbnail: payload.thumbnail || null,
         content,
         status,
-        published_at: status === 'published' ? (payload.published_at || new Date()) : null,
+        published_at: status === 'published' ? (payload.published_at || null) : null,
+        publish_now: status === 'published' && !payload.published_at,
       }, client);
 
       await blogLocationModel.replaceForBlog(blog.blog_id, locationIds, client);
@@ -107,7 +108,7 @@ class BlogService extends BaseService {
         updatePayload.slug = await this.resolveSlug(payload.slug, payload.title || blog.title, id, client);
       }
       if (payload.status === 'published' && payload.published_at === undefined && !blog.published_at) {
-        updatePayload.published_at = new Date();
+        updatePayload.publish_now = true;
       }
       if (Object.keys(updatePayload).length) {
         updatedBlog = await blogModel.updateBlog(id, updatePayload, client);

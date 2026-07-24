@@ -15,6 +15,20 @@ const thumbnail = Joi.string().trim().custom((value, helpers) => {
   return value;
 }).allow(null, '');
 
+const coordinates = {
+  latitude: Joi.number().min(-90).max(90).allow(null),
+  longitude: Joi.number().min(-180).max(180).allow(null),
+};
+
+const validateCoordinatePair = (value, helpers) => {
+  const hasLatitude = value.latitude !== undefined && value.latitude !== null;
+  const hasLongitude = value.longitude !== undefined && value.longitude !== null;
+  if (hasLatitude !== hasLongitude) {
+    return helpers.message({ custom: 'Latitude and longitude must be provided together or both left empty' });
+  }
+  return value;
+};
+
 module.exports = {
   list: {
     query: Joi.object({
@@ -32,10 +46,9 @@ module.exports = {
       travel_destination_id: id.required(),
       name: Joi.string().trim().max(255).required(),
       description: optionalText,
-      latitude: Joi.number().allow(null),
-      longitude: Joi.number().allow(null),
+      ...coordinates,
       thumbnail,
-    }),
+    }).custom(validateCoordinatePair),
   },
 
   update: {
@@ -46,9 +59,8 @@ module.exports = {
       travel_destination_id: id,
       name: Joi.string().trim().max(255),
       description: optionalText,
-      latitude: Joi.number().allow(null),
-      longitude: Joi.number().allow(null),
+      ...coordinates,
       thumbnail,
-    }).min(1),
+    }).min(1).custom(validateCoordinatePair),
   },
 };
