@@ -9,7 +9,7 @@ const ACTIVE_BOOKING_STATUSES = [
 ];
 
 module.exports = {
-  async findAll(query = {}) {
+  async findAll(query = {}, executor = db) {
     const page = Math.max(Number(query.page || 1), 1);
     const limit = Math.min(Math.max(Number(query.limit || 10), 1), 100);
     const offset = (page - 1) * limit;
@@ -23,12 +23,33 @@ module.exports = {
       }
     }
 
+    if (query.search) {
+      values.push(`%${String(query.search).trim()}%`);
+      clauses.push(`(
+        CAST(b.booking_id AS TEXT) ILIKE $${values.length}
+        OR COALESCE(b.contact_phone, '') ILIKE $${values.length}
+        OR t.name ILIKE $${values.length}
+        OR EXISTS (
+          SELECT 1
+          FROM booking_detail search_detail
+          WHERE search_detail.booking_id = b.booking_id
+            AND search_detail.passenger_name ILIKE $${values.length}
+        )
+      )`);
+    }
+
     const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
     const sortOrder = query.sort === 'oldest' ? 'ASC' : 'DESC';
-    const countResult = await db.query(`SELECT COUNT(*)::int AS total FROM booking b ${where}`, values);
+    const countResult = await executor.query(
+      `SELECT COUNT(*)::int AS total
+       FROM booking b
+       INNER JOIN tour t ON t.tour_id = b.tour_id
+       ${where}`,
+      [...values]
+    );
     values.push(limit, offset);
 
-    const result = await db.query(
+    const result = await executor.query(
       `SELECT
          b.*,
          b.original_amount::float AS original_amount,

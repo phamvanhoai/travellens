@@ -133,6 +133,32 @@ test('customer booking list includes the active tour review for each booking', a
   }
 });
 
+test('customer booking search is database-backed and remains scoped by user id', async () => {
+  const calls = [];
+  const executor = {
+    async query(sql, values) {
+      calls.push({ sql, values });
+      return calls.length === 1
+        ? { rows: [{ total: 1 }] }
+        : { rows: [{ booking_id: 12 }] };
+    },
+  };
+
+  const result = await bookingModel.findAll({
+    user_id: 77,
+    search: 'Ha Long',
+    page: 1,
+    limit: 5,
+  }, executor);
+
+  assert.match(calls[0].sql, /b\.user_id = \$1/);
+  assert.match(calls[0].sql, /t\.name ILIKE \$2/);
+  assert.match(calls[0].sql, /passenger_name ILIKE \$2/);
+  assert.deepEqual(calls[0].values, [77, '%Ha Long%']);
+  assert.deepEqual(calls[1].values, [77, '%Ha Long%', 5, 0]);
+  assert.equal(result.pagination.total, 1);
+});
+
 test('coupon booking reservation prevents concurrent over-allocation', async () => {
   const originalFind = couponModel.findByCodeForUpdate;
   const originalCount = couponModel.countActiveBookingReservations;
