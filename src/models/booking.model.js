@@ -50,9 +50,13 @@ module.exports = {
     values.push(limit, offset);
 
     const result = await executor.query(
-      `SELECT
-         b.*,
-         b.original_amount::float AS original_amount,
+       `SELECT
+          b.*,
+          COALESCE(
+            td.departure_at,
+            b.departure_at AT TIME ZONE 'Asia/Ho_Chi_Minh'
+          ) AS departure_at,
+          b.original_amount::float AS original_amount,
          b.discount_amount::float AS discount_amount,
          b.final_amount::float AS final_amount,
          json_build_object(
@@ -89,6 +93,7 @@ module.exports = {
          ) AS review
        FROM booking b
        INNER JOIN tour t ON t.tour_id = b.tour_id
+       LEFT JOIN tour_departure td ON td.tour_departure_id = b.tour_departure_id
        LEFT JOIN LATERAL (
          SELECT * FROM payment p
          WHERE p.booking_id = b.booking_id AND p.deleted_at IS NULL
@@ -217,6 +222,7 @@ module.exports = {
        FROM booking b
        INNER JOIN users u ON u.user_id = b.user_id
        INNER JOIN tour t ON t.tour_id = b.tour_id
+       LEFT JOIN tour_departure td ON td.tour_departure_id = b.tour_departure_id
        LEFT JOIN booking_detail bd ON bd.booking_id = b.booking_id
        LEFT JOIN LATERAL (
           SELECT *
@@ -227,7 +233,7 @@ module.exports = {
           LIMIT 1
        ) latest_payment ON TRUE
        ${where}
-       GROUP BY b.booking_id, u.user_id, t.tour_id, latest_payment.payment_id,
+       GROUP BY b.booking_id, u.user_id, t.tour_id, td.departure_at, latest_payment.payment_id,
          latest_payment.payment_code, latest_payment.amount, latest_payment.payment_method,
          latest_payment.payment_provider, latest_payment.status, latest_payment.transaction_code,
          latest_payment.paid_at, latest_payment.expired_at, latest_payment.currency
@@ -252,6 +258,10 @@ module.exports = {
     const result = await executor.query(
       `SELECT
           b.*,
+          COALESCE(
+            td.departure_at,
+            b.departure_at AT TIME ZONE 'Asia/Ho_Chi_Minh'
+          ) AS departure_at,
           b.original_amount::float AS original_amount,
           b.discount_amount::float AS discount_amount,
           b.final_amount::float AS final_amount,
@@ -294,6 +304,7 @@ module.exports = {
        FROM booking b
        INNER JOIN users u ON u.user_id = b.user_id
        INNER JOIN tour t ON t.tour_id = b.tour_id
+       LEFT JOIN tour_departure td ON td.tour_departure_id = b.tour_departure_id
        LEFT JOIN LATERAL (
           SELECT *
           FROM payment p
@@ -320,6 +331,10 @@ module.exports = {
     const result = await executor.query(
       `SELECT
          b.*,
+         COALESCE(
+           td.departure_at,
+           b.departure_at AT TIME ZONE 'Asia/Ho_Chi_Minh'
+         ) AS departure_at,
          (
            SELECT json_build_object(
              'review_id', r.review_id,
@@ -339,6 +354,7 @@ module.exports = {
            LIMIT 1
          ) AS review
        FROM booking b
+       LEFT JOIN tour_departure td ON td.tour_departure_id = b.tour_departure_id
        WHERE b.booking_id = $1 AND b.user_id = $2`,
       [id, userId]
     );
@@ -413,7 +429,11 @@ module.exports = {
          (user_id, tour_id, tour_departure_id, coupon_id, contact_phone, currency, departure_at,
           original_amount, discount_amount, final_amount, status, payment_status,
           request_id, policy_accepted_at, policy_snapshot)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+       VALUES (
+         $1, $2, $3, $4, $5, $6,
+         ($7::timestamptz AT TIME ZONE 'Asia/Ho_Chi_Minh'),
+         $8, $9, $10, $11, $12, $13, $14, $15
+       )
        RETURNING *`,
       [
         payload.user_id,
