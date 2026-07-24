@@ -4,6 +4,23 @@ const service = require('../src/services/tourDeparture.service');
 const model = require('../src/models/tourDeparture.model');
 const tourModel = require('../src/models/tour.model');
 
+test('public departures use the four-hour fallback when booking_close_at is empty', async () => {
+  let queryText = '';
+  const executor = {
+    query: async (text) => {
+      queryText = text;
+      return { rows: [] };
+    },
+  };
+
+  await model.listByTour(2, { publicOnly: true }, executor);
+
+  assert.match(
+    queryText,
+    /COALESCE\(td\.booking_close_at,\s*td\.departure_at - INTERVAL '4 hours'\) > CURRENT_TIMESTAMP/
+  );
+});
+
 test('departure capacity cannot be reduced below booked slots', async () => {
   const originalFind = model.findById;
   const originalCount = model.countBookedSlots;
