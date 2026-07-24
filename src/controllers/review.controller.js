@@ -9,6 +9,16 @@ const baseController = createController(reviewService);
 module.exports = {
   ...baseController,
 
+  list: asyncHandler(async (req, res) => {
+    const result = await reviewService.list(req.query);
+    res.json({
+      success: true,
+      message: 'Success',
+      data: result.items,
+      pagination: result.pagination,
+    });
+  }),
+
   publicList: asyncHandler(async (req, res) => {
     const result = await reviewService.publicList(req.query);
     res.json({ success: true, message: 'Success', data: result.items, pagination: result.pagination });
