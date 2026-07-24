@@ -117,18 +117,30 @@ class AuthService {
   }
 
   async login({ email, password }) {
-    const user = await userModel.findByEmail(email);
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await userModel.findByEmail(normalizedEmail);
     if (!user || !user.password) {
       throw new ApiError(httpStatus.UNAUTHORIZED, 'Invalid credentials');
-    }
-
-    if (user.status && user.status !== 'active') {
-      throw new ApiError(httpStatus.FORBIDDEN, 'Account is not active');
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       throw new ApiError(httpStatus.UNAUTHORIZED, 'Invalid credentials');
+    }
+
+    if (user.status === 'pending') {
+      throw new ApiError(
+        httpStatus.FORBIDDEN,
+        'Please verify your email before logging in',
+        {
+          code: 'EMAIL_NOT_VERIFIED',
+          email: normalizedEmail,
+        }
+      );
+    }
+
+    if (user.status && user.status !== 'active') {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Account is not active');
     }
 
     return {

@@ -83,6 +83,13 @@ module.exports = {
     latitude: Joi.number().min(-90).max(90).allow(null),
     longitude: Joi.number().min(-180).max(180).allow(null),
     destination_category_id: id.allow(null),
+  }).custom((value, helpers) => {
+    const hasLatitude = value.latitude !== undefined && value.latitude !== null;
+    const hasLongitude = value.longitude !== undefined && value.longitude !== null;
+    if (hasLatitude !== hasLongitude) {
+      return helpers.message({ custom: 'Latitude and longitude must be provided together or both left empty' });
+    }
+    return value;
   }),
   tour: require('./tour.validator').create.body,
   location: Joi.object({
