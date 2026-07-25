@@ -30,6 +30,7 @@ module.exports = {
     return res.status(200).json({
       success: true,
       model_version: data.model_version || "unknown",
+      notice_message: data.notice_message || null,
       recommendations: data.recommendations
     });
   }),
@@ -88,6 +89,7 @@ module.exports = {
     return res.status(200).json({
       success: true,
       model_version: data.model_version || "unknown",
+      notice_message: data.notice_message || null,
       parsed_data: parsed.data,
       recommendations: data.recommendations
     });

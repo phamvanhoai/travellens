@@ -12,7 +12,12 @@ const SEGMENT_KEYWORDS = {
   'lop': 'Student',
   'student': 'Student',
 
+  'nhom ban': 'Young Professional',
   'ban be': 'Young Professional',
+  'hoi ban': 'Young Professional',
+  'cung ban': 'Young Professional',
+  'tui ban': 'Young Professional',
+  'dam ban': 'Young Professional',
   'nguoi yeu': 'Young Professional',
   'nguoi tre': 'Young Professional',
   'cap doi': 'Young Professional',
@@ -20,6 +25,7 @@ const SEGMENT_KEYWORDS = {
   'solo': 'Young Professional',
   'mot minh': 'Young Professional',
   'young professional': 'Young Professional',
+  'ban': 'Young Professional',
 
   'gia dinh': 'Family',
   'vo chong': 'Family',
@@ -147,21 +153,34 @@ function parseTravelRequest(text) {
   }
 
   // 5. Extract Budget
-  // Matches: 5 trieu, 5tr, 2.5 trieu, 2,5 trieu, 5000000 vnd, 5.000.000 dong, 800 nghin
+  // Matches: 5 trieu, 5tr, 2.5 trieu, 2,5 trieu, 5000000 vnd, 5.000.000 dong, 800 nghin, 200 ngan, 2 tram ngan
   const millionMatch = normalizedText.match(/(\d+[\.,]?\d*)\s*(trieu|tr\b)/);
   if (millionMatch) {
     const val = parseFloat(millionMatch[1].replace(',', '.'));
     data.budget_per_person_vnd = Math.round(val * 1000000);
   } else {
-    const thousandMatch = normalizedText.match(/(\d+)\s*(nghin|k\b)/);
-    if (thousandMatch) {
-      data.budget_per_person_vnd = parseInt(thousandMatch[1], 10) * 1000;
+    // Check hundred thousand: e.g. "2 tram ngan", "5 tram nghin"
+    const hundredThousandMatch = normalizedText.match(/(\d+)\s*tram\s*(ngan|nghin)/);
+    if (hundredThousandMatch) {
+      const val = parseInt(hundredThousandMatch[1], 10);
+      data.budget_per_person_vnd = val * 100000;
     } else {
-      const vndMatch = normalizedText.match(/(\d+[\.\d]*)\s*(vnd|dong)/);
-      if (vndMatch) {
-        data.budget_per_person_vnd = parseInt(vndMatch[1].replace(/\./g, ''), 10);
+      // Check thousand: e.g. "200 ngan", "800 nghin", "500k"
+      const thousandMatch = normalizedText.match(/(\d+)\s*(ngan|nghin|k\b)/);
+      if (thousandMatch) {
+        data.budget_per_person_vnd = parseInt(thousandMatch[1], 10) * 1000;
+      } else {
+        const vndMatch = normalizedText.match(/(\d+[\.\d]*)\s*(vnd|dong)/);
+        if (vndMatch) {
+          data.budget_per_person_vnd = parseInt(vndMatch[1].replace(/\./g, ''), 10);
+        }
       }
     }
+  }
+
+  // Smart Fallback for cust_segment if not explicitly matched by keyword
+  if (data.cust_segment === null && data.pax !== null) {
+    data.cust_segment = 'Young Professional';
   }
 
   // Check missing fields
